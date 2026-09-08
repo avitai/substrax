@@ -42,8 +42,8 @@ README_PATH = REPO_ROOT / "README.md"
 # label -> regex with ONE capture group pulling the asserted value out of the
 # README. Drop entries you do not assert; the derived value is still printed.
 ASSERTIONS: dict[str, str] = {
-    # "tests":   r"(\d+)\+?\s+tests",
-    # "version": r"v?(\d+\.\d+\.\d+)",
+    # The README's subpackage table: one `substrax.<name>` row per subpackage.
+    "subpackages": r"^\| `substrax\.(\w+)` \|",
 }
 # ===========================================================================
 
@@ -99,6 +99,17 @@ def measure_modules(root: Path, package: str) -> str:
     return str(_count(root / "src" / package, "*.py"))
 
 
+def measure_subpackages(root: Path, package: str) -> str:
+    """List the importable subpackages under ``src/<package>/``, comma-joined and sorted."""
+    source = root / "src" / package
+    if not source.exists():
+        return ""
+    names = sorted(
+        path.name for path in source.iterdir() if path.is_dir() and (path / "__init__.py").is_file()
+    )
+    return ",".join(names)
+
+
 def measure_todos(root: Path, package: str) -> str:
     """Count TODO / FIXME / XXX / HACK markers under ``src/<package>/``."""
     marker = re.compile(r"TODO|FIXME|XXX|HACK")
@@ -118,6 +129,7 @@ MEASUREMENTS: dict[str, Callable[[Path, str], str]] = {
     "version": measure_version,
     "tests": measure_tests,
     "modules": measure_modules,
+    "subpackages": measure_subpackages,
     "todos": measure_todos,
 }
 
@@ -127,13 +139,13 @@ def _asserted_value(label: str, readme_text: str) -> str | None:
     pattern = ASSERTIONS.get(label)
     if pattern is None:
         return None
-    match = re.search(pattern, readme_text)
-    return match.group(1) if match else None
+    matches = re.findall(pattern, readme_text, flags=re.MULTILINE)
+    return ",".join(sorted(matches)) if matches else None
 
 
-def collect_metrics(root: Path, package: str) -> list[Metric]:
+def collect_metrics(root: Path, package: str, readme: Path = README_PATH) -> list[Metric]:
     """Run every measurement and pair it with its asserted value (if any)."""
-    readme_text = README_PATH.read_text() if README_PATH.is_file() else ""
+    readme_text = readme.read_text() if readme.is_file() else ""
     return [
         Metric(
             label=label,

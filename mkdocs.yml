@@ -75,3 +75,11 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Migration: migration.md
+  - API Reference:
+      - Devices: api/devices.md
+      - Mesh: api/mesh.md
+      - SPMD: api/spmd.md
+      - Checkpoint: api/checkpoint.md
+      - Callbacks: api/callbacks.md
+      - Tracking: api/tracking.md

@@ -1,9 +1,7 @@
-"""Unified, orbax-backed checkpoint store for NNX training loops.
+"""Orbax-backed checkpoint store for NNX training loops.
 
-This module is the single source of truth for persisting and restoring
-JAX/Flax (NNX) model state during training. It replaces the two formerly
-duplicated managers (a step-int ``OrbaxCheckpointManager`` and a
-path-string ``CheckpointManager``) with one abstraction:
+One abstraction for persisting and restoring JAX/Flax (NNX) model state during
+training:
 
 * :class:`CheckpointStore` — the abstraction-layer ``Protocol`` describing
   the step-int checkpoint contract. Domain/service code depends on this

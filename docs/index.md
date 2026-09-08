@@ -13,6 +13,9 @@ and holds the code those packages used to carry separately.
 | `substrax.callbacks` | Training callbacks, `BestMetricTracker`, `EarlyStopping` |
 | `substrax.tracking` | Step-wise experiment tracking backends |
 
+Each subpackage has an [API page](api/devices.md); the [migration page](migration.md)
+maps the sibling packages' import paths to these.
+
 ## Installation
 
 ```bash

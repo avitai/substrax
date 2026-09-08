@@ -52,3 +52,6 @@ jobs:
 
       - name: Pip audit
         run: uv run pip-audit
+
+      - name: Derived status matches the README
+        run: uv run python scripts/derive_status.py --check
