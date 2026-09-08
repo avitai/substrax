@@ -38,7 +38,7 @@ jobs:
 
       - name: Check distribution
         run: |
-          uv sync --locked --extra dev
+          uv sync --locked --extra dev --extra test
           uv run twine check --strict dist/*
 
       - name: Pyright

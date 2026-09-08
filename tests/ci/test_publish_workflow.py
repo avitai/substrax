@@ -14,7 +14,9 @@ RELEASING_DOC = ROOT / "RELEASING.md"
 
 
 def _load_publish_workflow() -> dict[str, Any]:
-    return cast(dict[str, Any], yaml.safe_load(PUBLISH_WORKFLOW.read_text()))
+    # BaseLoader builds only strings, lists and dicts (no object construction), and it is
+    # the one loader that keeps the `on:` key a string instead of the YAML 1.1 boolean.
+    return cast(dict[str, Any], yaml.load(PUBLISH_WORKFLOW.read_text(), Loader=yaml.BaseLoader))  # noqa: S506
 
 
 def test_publish_workflow_does_not_create_releases_on_push() -> None:
