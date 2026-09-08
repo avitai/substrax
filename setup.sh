@@ -152,6 +152,7 @@ if [[ "$DRY_RUN" == true ]]; then
     fi
     echo "uv ${SYNC_ARGS[*]}"
     echo "python3 scripts/setup_env.py write --backend $BACKEND --output $MANAGED_ENV_FILE"
+    echo "uv run --no-sync pre-commit install"
     exit 0
 fi
 
@@ -175,6 +176,7 @@ fi
 
 uv "${SYNC_ARGS[@]}"
 python3 scripts/setup_env.py write --backend "$BACKEND" --output "$MANAGED_ENV_FILE"
+uv run --no-sync pre-commit install
 
 if [[ -f ".env" ]]; then
     cat <<EOF

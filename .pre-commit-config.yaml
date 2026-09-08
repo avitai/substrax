@@ -135,6 +135,13 @@ repos:
         pass_filenames: false
         files: ^src/substrax/.*\.py$
 
+      - id: pytest
+        name: pytest (the suite, with the coverage floor)
+        entry: uv run --no-sync pytest -q --no-header
+        language: system
+        pass_filenames: false
+        files: ^(src/|tests/|conftest\.py$|pyproject\.toml$)
+
   # Markdown
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.45.0
