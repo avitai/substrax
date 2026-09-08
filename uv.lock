@@ -2605,6 +2605,7 @@ dependencies = [
     { name = "jax" },
     { name = "jaxlib" },
     { name = "numpy" },
+    { name = "orbax-checkpoint" },
 ]
 
 [package.optional-dependencies]
@@ -2862,6 +2863,7 @@ requires-dist = [
     { name = "optax", marker = "extra == 'all-cpu'", specifier = ">=0.2.8" },
     { name = "optax", marker = "extra == 'all-macos'", specifier = ">=0.2.8" },
     { name = "optax", marker = "extra == 'test'", specifier = ">=0.2.8" },
+    { name = "orbax-checkpoint", specifier = ">=0.11.33" },
     { name = "pip-audit", marker = "extra == 'all'", specifier = ">=2.7" },
     { name = "pip-audit", marker = "extra == 'all-cpu'", specifier = ">=2.7" },
     { name = "pip-audit", marker = "extra == 'all-macos'", specifier = ">=2.7" },
