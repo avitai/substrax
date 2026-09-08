@@ -22,10 +22,12 @@ from substrax.spmd import (
 )
 
 
+# XLA's CPU backend flushes subnormal float32 values to zero, so a reduction cannot
+# return them; the property holds on the normal range, which is what training produces.
 _VECTORS = hnp.arrays(
     np.float32,
     hnp.array_shapes(min_dims=1, max_dims=3, max_side=5),
-    elements=st.floats(-1e3, 1e3, width=32),
+    elements=st.floats(-1e3, 1e3, width=32, allow_subnormal=False),
 )
 
 

@@ -76,10 +76,11 @@ class TestPlaceNnxStateOnShards:
 
 class TestReduceGradientTree:
     @given(
+        # XLA flushes subnormals on CPU; see test_collectives.py.
         hnp.arrays(
             np.float32,
             hnp.array_shapes(min_dims=1, max_dims=2, max_side=6),
-            elements=st.floats(-100, 100, width=32),
+            elements=st.floats(-100, 100, width=32, allow_subnormal=False),
         )
     )
     @settings(deadline=None)
