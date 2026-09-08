@@ -2371,6 +2371,7 @@ source = { editable = "." }
 dependencies = [
     { name = "jax" },
     { name = "jaxlib" },
+    { name = "numpy" },
 ]
 
 [package.optional-dependencies]
@@ -2618,6 +2619,7 @@ requires-dist = [
     { name = "mkdocstrings-python", marker = "extra == 'all-cpu'", specifier = ">=1.1.2" },
     { name = "mkdocstrings-python", marker = "extra == 'all-macos'", specifier = ">=1.1.2" },
     { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = ">=1.1.2" },
+    { name = "numpy", specifier = ">=1.24,<2.5.0" },
     { name = "pip-audit", marker = "extra == 'all'", specifier = ">=2.7" },
     { name = "pip-audit", marker = "extra == 'all-cpu'", specifier = ">=2.7" },
     { name = "pip-audit", marker = "extra == 'all-macos'", specifier = ">=2.7" },

@@ -73,10 +73,8 @@ def detect_devices() -> DeviceInfo:
     Returns:
         The device snapshot.
     """
-    # jaxlib ships no stubs for Device, so the list jax returns is partially unknown to
-    # pyright; _DeviceLike names the one attribute this module reads.
-    reported = jax.devices()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-    devices = cast(Sequence[_DeviceLike], reported)
+    # jaxlib ships no stubs for Device; _DeviceLike names the one attribute this module reads.
+    devices = cast(Sequence[_DeviceLike], jax.devices())
     platform: str = jax.default_backend()
     return DeviceInfo(
         platform=platform,

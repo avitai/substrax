@@ -25,7 +25,8 @@ classifiers = [
 ]
 dependencies = [
   "jax>=0.11.1",
-  "jaxlib>=0.11.1"
+  "jaxlib>=0.11.1",
+  "numpy>=1.24,<2.5.0"
 ]
 description = "Substrax: shared training and hardware infrastructure for the Avitai JAX stack"
 dynamic = ["version"]
@@ -211,6 +212,14 @@ include = [
   "tests"
 ]
 pythonVersion = "3.12"
+# jaxlib ships no stubs and jax's own annotations are partial, so every jax.devices(),
+# jax.device_put and jnp.* call is "partially unknown" to pyright. The four
+# unknown-propagation diagnostics are off; everything else in strict stays on, including
+# unknown and missing annotations on this package's own parameters.
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
