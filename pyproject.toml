@@ -24,6 +24,7 @@ classifiers = [
   "Topic :: Scientific/Engineering"
 ]
 dependencies = [
+  "flax>=0.12.9",
   "jax>=0.11.1",
   "jaxlib>=0.11.1",
   "numpy>=1.24,<2.5.0"
@@ -98,6 +99,7 @@ metal = [
 test = [
   "coverage>=7",
   "hypothesis>=6.100",
+  "optax>=0.2.8",
   "pytest-cov>=6.1.1",
   "pytest-env>=1.0.1",
   "pytest-json-report>=1.5.0",
@@ -216,6 +218,8 @@ pythonVersion = "3.12"
 # jax.device_put and jnp.* call is "partially unknown" to pyright. The four
 # unknown-propagation diagnostics are off; everything else in strict stays on, including
 # unknown and missing annotations on this package's own parameters.
+# optax ships no stubs; the tests drive nnx.Optimizer with it.
+reportMissingTypeStubs = false
 reportUnknownArgumentType = false
 reportUnknownLambdaType = false
 reportUnknownMemberType = false
