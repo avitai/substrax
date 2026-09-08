@@ -1,13 +1,12 @@
-"""Tests for mesh rules and partition-spec helpers."""
+"""Tests for NNX SPMD sharding utilities.
 
-from __future__ import annotations
-
-import dataclasses
+Tests MeshRules, factory functions, and sharding helpers that follow
+upstream Flax NNX FSDP patterns.
+"""
 
 import jax
 import numpy as np
 import pytest
-from hypothesis import given, strategies as st
 from jax.sharding import Mesh, NamedSharding, PartitionSpec
 
 from substrax.mesh import (
@@ -19,67 +18,129 @@ from substrax.mesh import (
 )
 
 
-_LOGICAL_NAMES = st.sampled_from(["data", "embed", "mlp", "heads"])
-
-
-def _single_device_mesh(*axis_names: str) -> Mesh:
-    devices = np.array(jax.devices()[:1]).reshape((1,) * len(axis_names))
-    return Mesh(devices, axis_names=axis_names)
-
-
 class TestMeshRules:
-    def test_defaults_map_nothing(self) -> None:
+    """Tests for the MeshRules dataclass."""
+
+    def test_creation_with_defaults(self) -> None:
+        """Test default MeshRules has all None axes."""
         rules = MeshRules()
-        assert rules("data", "embed", "mlp", "heads") == (None, None, None, None)
+        assert rules.data is None
+        assert rules.embed is None
+        assert rules.mlp is None
+        assert rules.heads is None
 
-    def test_call_returns_the_axis_for_each_key(self) -> None:
+    def test_creation_with_values(self) -> None:
+        """Test MeshRules with explicit axis assignments."""
+        rules = MeshRules(data="dp", embed="mp")
+        assert rules.data == "dp"
+        assert rules.embed == "mp"
+        assert rules.mlp is None
+
+    def test_call_returns_axis_tuple(self) -> None:
+        """Test that calling MeshRules returns axis mappings for given keys."""
         rules = MeshRules(data="dp", embed="mp", mlp="mp")
-        assert rules("data", "embed", "mlp") == ("dp", "mp", "mp")
+        result = rules("data", "embed", "mlp")
+        assert result == ("dp", "mp", "mp")
 
-    def test_unmapped_keys_return_none(self) -> None:
+    def test_call_with_unmapped_keys(self) -> None:
+        """Test that unmapped keys return None."""
         rules = MeshRules(data="dp")
-        assert rules("data", "heads") == ("dp", None)
+        result = rules("data", "heads")
+        assert result == ("dp", None)
 
-    def test_rules_are_frozen(self) -> None:
+    def test_call_single_key(self) -> None:
+        """Test calling with a single key."""
         rules = MeshRules(data="dp")
-        with pytest.raises(dataclasses.FrozenInstanceError):
+        result = rules("data")
+        assert result == ("dp",)
+
+    def test_immutability(self) -> None:
+        """Test that MeshRules is frozen."""
+        rules = MeshRules(data="dp")
+        with pytest.raises(AttributeError):
             rules.data = "mp"  # type: ignore[misc]
 
 
-class TestFactories:
-    def test_data_parallel_rules_map_only_the_data_axis(self) -> None:
-        rules = data_parallel_rules(data_axis="batch")
-        assert rules == MeshRules(data="batch")
+class TestFactoryFunctions:
+    """Tests for MeshRules factory functions."""
 
-    def test_fsdp_rules_map_model_dimensions_to_the_model_axis(self) -> None:
+    def test_data_parallel_rules(self) -> None:
+        """Test data_parallel_rules maps data axis only."""
+        rules = data_parallel_rules(data_axis="data")
+        assert rules.data == "data"
+        assert rules.embed is None
+        assert rules.mlp is None
+        assert rules.heads is None
+
+    def test_data_parallel_rules_custom_axis(self) -> None:
+        """Test data_parallel_rules with custom axis name."""
+        rules = data_parallel_rules(data_axis="batch")
+        assert rules.data == "batch"
+
+    def test_fsdp_rules(self) -> None:
+        """Test fsdp_rules maps data and model axes."""
+        rules = fsdp_rules(data_axis="data", model_axis="model")
+        assert rules.data == "data"
+        assert rules.embed == "model"
+        assert rules.mlp == "model"
+        assert rules.heads == "model"
+
+    def test_fsdp_rules_custom_axes(self) -> None:
+        """Test fsdp_rules with custom axis names."""
         rules = fsdp_rules(data_axis="dp", model_axis="mp")
-        assert rules == MeshRules(data="dp", embed="mp", mlp="mp", heads="mp")
+        assert rules.data == "dp"
+        assert rules.embed == "mp"
 
 
 class TestCreateNamedSharding:
+    """Tests for create_named_sharding function."""
+
     def test_single_axis(self) -> None:
-        sharding = create_named_sharding(_single_device_mesh("data"), "data")
+        """Test creating NamedSharding with a single axis."""
+        mesh = Mesh(np.array(jax.devices()[:1]), axis_names=("data",))
+        sharding = create_named_sharding(mesh, "data")
         assert isinstance(sharding, NamedSharding)
         assert sharding.spec == PartitionSpec("data")
 
-    def test_no_axes_is_fully_replicated(self) -> None:
-        assert create_named_sharding(_single_device_mesh("data")).spec == PartitionSpec()
+    def test_no_axes_replicated(self) -> None:
+        """Test that no axis names produces a replicated sharding."""
+        mesh = Mesh(np.array(jax.devices()[:1]), axis_names=("data",))
+        sharding = create_named_sharding(mesh)
+        assert sharding.spec == PartitionSpec()
 
-    def test_none_marks_a_replicated_dimension(self) -> None:
-        sharding = create_named_sharding(_single_device_mesh("data", "model"), "data", None)
+    def test_multiple_axes(self) -> None:
+        """Test creating NamedSharding with multiple axes."""
+        mesh = Mesh(
+            np.array(jax.devices()[:1]).reshape(1, 1),
+            axis_names=("data", "model"),
+        )
+        sharding = create_named_sharding(mesh, "data", "model")
+        assert sharding.spec == PartitionSpec("data", "model")
+
+    def test_none_axes_mixed(self) -> None:
+        """Test creating NamedSharding with None for replicated dimensions."""
+        mesh = Mesh(np.array(jax.devices()[:1]), axis_names=("data",))
+        sharding = create_named_sharding(mesh, "data", None)
         assert sharding.spec == PartitionSpec("data", None)
 
 
-class TestPartitionSpecForNames:
-    def test_maps_logical_names_through_the_rules(self) -> None:
+class TestApplyShardingRules:
+    """Tests for partition_spec_for_names function."""
+
+    def test_basic_application(self) -> None:
+        """Test applying MeshRules to create a PartitionSpec."""
         rules = MeshRules(data="dp", embed="mp")
-        assert partition_spec_for_names(rules, "data", "embed") == PartitionSpec("dp", "mp")
+        spec = partition_spec_for_names(rules, "data", "embed")
+        assert spec == PartitionSpec("dp", "mp")
 
-    def test_empty_rules_replicate_everything(self) -> None:
-        assert partition_spec_for_names(MeshRules(), "data", "embed") == PartitionSpec(None, None)
+    def test_unmapped_dimensions(self) -> None:
+        """Test that unmapped dimensions produce None in PartitionSpec."""
+        rules = MeshRules(data="dp")
+        spec = partition_spec_for_names(rules, "data", "heads")
+        assert spec == PartitionSpec("dp", None)
 
-    @given(st.lists(_LOGICAL_NAMES, min_size=1, max_size=6))
-    def test_spec_has_one_entry_per_logical_name(self, names: list[str]) -> None:
-        spec = partition_spec_for_names(fsdp_rules(), *names)
-        assert len(spec) == len(names)
-        assert all(axis in {"data", "model"} for axis in spec)
+    def test_empty_rules(self) -> None:
+        """Test applying empty rules produces all-None PartitionSpec."""
+        rules = MeshRules()
+        spec = partition_spec_for_names(rules, "data", "embed")
+        assert spec == PartitionSpec(None, None)

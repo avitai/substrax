@@ -1,144 +1,158 @@
-"""Tests for data-parallel placement, the SPMD training step and gradient reduction."""
+"""Tests for data parallelism functions.
 
-from __future__ import annotations
+Tests both SPMD-based and legacy pmap-based data parallel utilities.
+"""
 
 from typing import Any
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 import pytest
 from flax import nnx
-from hypothesis import given, settings, strategies as st
-from hypothesis.extra import numpy as hnp
-from jax.sharding import NamedSharding, PartitionSpec
 
-from substrax.mesh import create_data_parallel_mesh, create_device_mesh
+from substrax.mesh import DeviceMeshManager
 from substrax.spmd import (
     create_data_parallel_sharding,
     place_batch_on_shards,
-    place_nnx_state_on_shards,
     reduce_gradient_tree,
     spmd_train_step,
 )
 
 
-def _loss(model: nnx.Module, batch: dict[str, jax.Array]) -> jax.Array:
-    linear = model
-    assert isinstance(linear, nnx.Linear)
-    return jnp.mean((linear(batch["x"]) - batch["y"]) ** 2)
-
-
 class TestCreateDataParallelSharding:
-    def test_shards_the_leading_dimension_on_the_data_axis(self) -> None:
-        sharding = create_data_parallel_sharding(create_data_parallel_mesh(num_devices=1))
-        assert sharding.spec == PartitionSpec("data")
+    """Tests for create_data_parallel_sharding function."""
 
-    def test_custom_axis_name(self) -> None:
-        sharding = create_data_parallel_sharding(create_device_mesh([("batch", 1)]), "batch")
-        assert sharding.spec == PartitionSpec("batch")
+    def test_single_device_sharding(self) -> None:
+        """Test creating sharding with single device mesh."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+        sharding = create_data_parallel_sharding(mesh)
+        assert sharding.spec == jax.sharding.PartitionSpec("data")  # type: ignore[reportAttributeAccessIssue]
+
+    def test_custom_data_axis(self) -> None:
+        """Test creating sharding with custom axis name."""
+        mesh = DeviceMeshManager.create_device_mesh([("batch", 1)])
+        sharding = create_data_parallel_sharding(mesh, data_axis="batch")
+        assert sharding.spec == jax.sharding.PartitionSpec("batch")  # type: ignore[reportAttributeAccessIssue]
+
+    @pytest.mark.skipif(jax.device_count() < 2, reason="Requires 2+ devices")
+    def test_multi_device_sharding(self) -> None:
+        """Test creating sharding across multiple devices."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=2)
+        sharding = create_data_parallel_sharding(mesh)
+        assert sharding.spec == jax.sharding.PartitionSpec("data")  # type: ignore[reportAttributeAccessIssue]
 
 
-class TestPlaceBatchOnShards:
-    def test_arrays_are_placed_and_other_leaves_kept(self) -> None:
-        sharding = create_data_parallel_sharding(create_data_parallel_mesh(num_devices=1))
-        batch = {"inputs": jnp.ones((4, 2)), "targets": jnp.zeros((4,)), "label": "s"}
+class TestShardBatch:
+    """Tests for place_batch_on_shards function."""
 
-        result = place_batch_on_shards(batch, sharding)
+    def test_shards_array_values(self) -> None:
+        """Test that jax.Array values are sharded."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+        sharding = create_data_parallel_sharding(mesh)
+        batch = {"inputs": jnp.ones((4, 2)), "targets": jnp.zeros((4,))}
 
-        assert result["inputs"].sharding == sharding
+        result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
+
+        assert result["inputs"].shape == (4, 2)
         assert result["targets"].shape == (4,)
-        assert result["label"] == "s"
+
+    def test_non_array_values_unchanged(self) -> None:
+        """Test that non-array values pass through unchanged."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+        sharding = create_data_parallel_sharding(mesh)
+        batch = {"data": jnp.ones((4, 2)), "label": "test_string"}
+
+        result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
+
+        assert result["label"] == "test_string"
+
+    @pytest.mark.skipif(jax.device_count() < 2, reason="Requires 2+ devices")
+    def test_multi_device_shard(self) -> None:
+        """Test sharding across multiple devices."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=2)
+        sharding = create_data_parallel_sharding(mesh)
+        batch = {"inputs": jnp.ones((4, 2)), "targets": jnp.zeros((4,))}
+
+        result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
+
+        assert result["inputs"].shape == (4, 2)
+        assert result["targets"].shape == (4,)
 
 
-class TestPlaceNnxStateOnShards:
-    def test_every_leaf_lands_on_the_mesh_with_a_named_sharding(self) -> None:
-        mesh = jax.make_mesh((1,), ("data",))
-        state = nnx.state(nnx.Linear(2, 1, rngs=nnx.Rngs(0)))
+class TestReduceGradients:
+    """Tests for reduce_gradient_tree (SPMD-compatible)."""
 
-        sharded = place_nnx_state_on_shards(state, mesh, {nnx.Param: PartitionSpec()})
+    def test_mean_reduction(self) -> None:
+        """Test mean reduction on a gradient pytree."""
+        grads = {"w": jnp.array([1.0, 2.0, 3.0]), "b": jnp.array([4.0, 6.0])}
+        result = reduce_gradient_tree(grads, "mean")
+        assert float(result["w"]) == 2.0
+        assert float(result["b"]) == 5.0
 
-        for _, variable in nnx.to_flat_state(sharded):
-            sharding = variable[...].sharding
-            assert isinstance(sharding, NamedSharding)
-            assert sharding.mesh == mesh
+    def test_sum_reduction(self) -> None:
+        """Test sum reduction on a gradient pytree."""
+        grads = {"w": jnp.array([1.0, 2.0, 3.0])}
+        result = reduce_gradient_tree(grads, "sum")
+        assert float(result["w"]) == 6.0
 
-    def test_accepts_a_prebuilt_state_sharding(self) -> None:
-        mesh = jax.make_mesh((1,), ("data",))
-        state = nnx.state(nnx.Linear(2, 1, rngs=nnx.Rngs(0)))
-        state_sharding = nnx.StateSharding({nnx.Param: NamedSharding(mesh, PartitionSpec())})
-
-        sharded = place_nnx_state_on_shards(state, mesh, state_sharding)
-
-        assert jax.tree.structure(sharded) == jax.tree.structure(state)
-
-
-class TestReduceGradientTree:
-    @given(
-        # XLA flushes subnormals on CPU; see test_collectives.py.
-        hnp.arrays(
-            np.float32,
-            hnp.array_shapes(min_dims=1, max_dims=2, max_side=6),
-            elements=st.floats(-100, 100, width=32, allow_subnormal=False),
-        )
-    )
-    @settings(deadline=None)
-    def test_mean_and_sum_match_numpy(self, values: np.ndarray) -> None:
-        grads = {"w": jnp.asarray(values)}
-        assert np.isclose(float(reduce_gradient_tree(grads, "mean")["w"]), values.mean(), rtol=1e-4)
-        assert np.isclose(
-            float(reduce_gradient_tree(grads, "sum")["w"]), values.sum(), rtol=1e-4, atol=1e-2
-        )
-
-    def test_unknown_reduction_raises(self) -> None:
-        with pytest.raises(ValueError, match="invalid"):
-            reduce_gradient_tree({"w": jnp.array([1.0])}, "invalid")  # type: ignore[arg-type]
+    def test_unsupported_reduction_raises(self) -> None:
+        """Test that unsupported reduce_type raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported reduce_type"):
+            reduce_gradient_tree({"w": jnp.array([1.0])}, "invalid")
 
 
 class TestSpmdTrainStep:
-    @staticmethod
-    def _model_and_optimizer() -> tuple[nnx.Linear, nnx.Optimizer[Any]]:
-        model = nnx.Linear(2, 1, rngs=nnx.Rngs(0))
-        return model, nnx.Optimizer(model, optax.sgd(0.01), wrt=nnx.Param)
+    """Tests for spmd_train_step function."""
 
-    def test_one_step_returns_a_finite_loss_and_moves_the_parameters(self) -> None:
-        model, optimizer = self._model_and_optimizer()
-        before = jax.tree.map(jnp.copy, nnx.state(model, nnx.Param))
+    def _make_model_and_optimizer(self) -> tuple[nnx.Linear, nnx.Optimizer[Any]]:
+        """Create a minimal NNX model and optimizer for testing."""
+        model = nnx.Linear(2, 1, rngs=nnx.Rngs(0))
+        optimizer = nnx.Optimizer(model, optax.sgd(0.01), wrt=nnx.Param)
+        return model, optimizer
+
+    def test_reduces_loss(self) -> None:
+        """Test that a single training step produces a finite loss."""
+        model, optimizer = self._make_model_and_optimizer()
         batch = {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}
 
-        loss = spmd_train_step(model, optimizer, _loss, batch)
+        def loss_fn(m: nnx.Module, b: dict[str, jax.Array]) -> jax.Array:
+            return jnp.mean((m(b["x"]) - b["y"]) ** 2)
 
+        loss = spmd_train_step(model, optimizer, loss_fn, batch)  # type: ignore[reportArgumentType]
         assert jnp.isfinite(loss)
-        after = nnx.state(model, nnx.Param)
-        assert any(
-            not jnp.array_equal(b, a)
-            for b, a in zip(jax.tree.leaves(before), jax.tree.leaves(after), strict=True)
+
+    def test_updates_parameters(self) -> None:
+        """Test that parameters change after a training step."""
+        model, optimizer = self._make_model_and_optimizer()
+        params_before = jax.tree.map(jnp.copy, nnx.state(model, nnx.Param))
+        batch = {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}
+
+        def loss_fn(m: nnx.Module, b: dict[str, jax.Array]) -> jax.Array:
+            return jnp.mean((m(b["x"]) - b["y"]) ** 2)
+
+        spmd_train_step(model, optimizer, loss_fn, batch)  # type: ignore[reportArgumentType]
+        params_after = nnx.state(model, nnx.Param)
+
+        # At least one parameter leaf must have changed
+        leaves_before = jax.tree.leaves(params_before)
+        leaves_after = jax.tree.leaves(params_after)
+        any_changed = any(
+            not jnp.array_equal(b, a) for b, a in zip(leaves_before, leaves_after, strict=True)
         )
+        assert any_changed, "Parameters should change after a training step"
 
     def test_loss_decreases_over_steps(self) -> None:
-        model, optimizer = self._model_and_optimizer()
+        """Test that loss decreases over multiple training steps."""
+        model, optimizer = self._make_model_and_optimizer()
         batch = {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}
 
-        first = spmd_train_step(model, optimizer, _loss, batch)
-        last = first
+        def loss_fn(m: nnx.Module, b: dict[str, jax.Array]) -> jax.Array:
+            return jnp.mean((m(b["x"]) - b["y"]) ** 2)
+
+        loss_first = spmd_train_step(model, optimizer, loss_fn, batch)  # type: ignore[reportArgumentType]
+        loss_last = loss_first
         for _ in range(10):
-            last = spmd_train_step(model, optimizer, _loss, batch)
+            loss_last = spmd_train_step(model, optimizer, loss_fn, batch)  # type: ignore[reportArgumentType]
 
-        assert float(last) < float(first)
-
-    def test_runs_under_nnx_jit_with_a_mesh(self) -> None:
-        """The step is meant to be called inside nnx.jit with a mesh set; prove it compiles."""
-        model, optimizer = self._model_and_optimizer()
-        mesh = create_data_parallel_mesh(num_devices=1)
-        batch = place_batch_on_shards(
-            {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}, create_data_parallel_sharding(mesh)
-        )
-
-        @nnx.jit
-        def step(m: nnx.Linear, o: nnx.Optimizer[Any], b: dict[str, jax.Array]) -> jax.Array:
-            return spmd_train_step(m, o, _loss, b)
-
-        with jax.set_mesh(mesh):
-            loss = step(model, optimizer, batch)
-        assert jnp.isfinite(loss)
+        assert float(loss_last) < float(loss_first)

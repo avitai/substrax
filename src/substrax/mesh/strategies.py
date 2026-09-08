@@ -1,39 +1,39 @@
-"""Sharding configuration and the strategies that turn dimension names into partition specs.
+"""Sharding strategies and mesh-aware configuration for scaling experiments.
 
-A strategy is a pure rule: given the logical names of an array's dimensions it returns a
-``PartitionSpec``, and ``shard`` places an array on a mesh accordingly. Model parameters
-declared with ``flax.nnx.with_partitioning`` carry the same logical names, so one set of
-rules covers both explicit placement and NNX state (see ``flax.nnx.get_named_sharding``).
+This module exposes the retained strategy classes and configuration dataclasses
+used by the scaling package. It does not provide a universal parameter-name to
+`PartitionSpec` inference layer; callers compose sharding through the concrete
+strategy APIs instead.
 """
 
-from __future__ import annotations
-
 import math
+from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any
 
 import jax
 from jax import Array
 from jax.sharding import Mesh, NamedSharding, PartitionSpec
 
-from substrax.mesh.mesh import create_device_mesh
+
+# Device counts the from_device_count heuristic keys on.
+_DATA_PARALLEL_ONLY_MAX_DEVICES = 4
+_EIGHT_DEVICES = 8
+_MAX_TENSOR_PARALLEL_SIZE = 8
+_WEIGHT_MATRIX_NDIM = 2
+# Strategy kinds that may share one mesh axis.
+_COMPATIBLE_ON_ONE_AXIS = frozenset({"DataParallelStrategy", "FSDPStrategy"})
+# Mesh axes that win a per-dimension conflict, highest priority first.
+_AXIS_PRIORITY = ("model", "fsdp")
 
 
-DimensionNames = tuple[str, ...]
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
+@dataclass
 class ShardingConfig:
-    """How many devices each parallelism dimension uses.
+    """Configuration for multi-dimensional parallelism setup.
 
-    Attributes:
-        data_parallel_size: Devices along the data axis.
-        tensor_parallel_size: Devices along the model (tensor-parallel) axis.
-        pipeline_parallel_size: Devices along the pipeline axis.
-        fsdp_enabled: Whether parameters are sharded across the data axis.
-        fsdp_min_weight_size: Smallest leading dimension worth sharding under FSDP.
+    Defines the parallelism dimensions and FSDP settings for a model.
     """
 
     data_parallel_size: int = 1
@@ -42,326 +42,472 @@ class ShardingConfig:
     fsdp_enabled: bool = False
     fsdp_min_weight_size: int = 1024
 
-    @property
-    def total_device_count(self) -> int:
-        """The number of devices the configuration needs."""
+    def get_total_device_count(self) -> int:
+        """Calculate total devices needed for this configuration."""
         return self.data_parallel_size * self.tensor_parallel_size * self.pipeline_parallel_size
 
     @classmethod
-    def from_device_count(cls, device_count: int) -> ShardingConfig:
-        """Pick a configuration for a device count: data parallel first, then tensor parallel.
+    def from_device_count(cls, device_count: int) -> "ShardingConfig":
+        """Create optimal sharding config for given device count.
 
-        Args:
-            device_count: The number of available devices.
-
-        Returns:
-            A configuration whose ``total_device_count`` never exceeds ``device_count``.
+        Uses heuristics to balance different parallelism dimensions.
         """
-        if device_count <= 4:  # noqa: PLR2004 - the heuristic's own threshold
+        # Simple heuristic: prioritize data parallel, then tensor parallel
+        if device_count <= _DATA_PARALLEL_ONLY_MAX_DEVICES:
             return cls(data_parallel_size=device_count)
-        if device_count == 8:  # noqa: PLR2004
+        if device_count == _EIGHT_DEVICES:
             return cls(data_parallel_size=2, tensor_parallel_size=4)
-        tensor_size = min(8, math.isqrt(device_count))
+        # For larger counts, use balanced approach
+        tensor_size = min(_MAX_TENSOR_PARALLEL_SIZE, int(math.sqrt(device_count)))
         return cls(data_parallel_size=device_count // tensor_size, tensor_parallel_size=tensor_size)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
+@dataclass
 class ParallelismConfig:
-    """A sharding configuration together with the mesh topology that realises it.
+    """Complete parallelism configuration including mesh topology.
 
-    Attributes:
-        mesh_shape: Devices per mesh axis.
-        mesh_axis_names: The axis names, one per entry of ``mesh_shape``.
-        sharding_config: The parallelism sizes the mesh must satisfy.
+    Combines sharding configuration with device mesh setup.
     """
 
     mesh_shape: tuple[int, ...]
     mesh_axis_names: tuple[str, ...]
     sharding_config: ShardingConfig
 
-    @property
     def is_valid(self) -> bool:
-        """Whether the mesh holds exactly the devices the sharding configuration needs."""
-        return self.sharding_config.total_device_count == math.prod(self.mesh_shape)
+        """Validate that mesh shape matches sharding configuration."""
+        expected_devices = self.sharding_config.get_total_device_count()
+        actual_devices = math.prod(self.mesh_shape)
+        return expected_devices == actual_devices
 
     @classmethod
-    def from_sharding_config(cls, config: ShardingConfig) -> ParallelismConfig:
-        """Name a mesh axis for every parallelism dimension larger than one.
+    def from_sharding_config(cls, config: ShardingConfig) -> "ParallelismConfig":
+        """Create parallelism config from sharding configuration."""
+        # Build mesh shape from sharding config
+        mesh_shape = []
+        axis_names = []
+
+        if config.data_parallel_size > 1:
+            mesh_shape.append(config.data_parallel_size)
+            axis_names.append("data")
+
+        if config.tensor_parallel_size > 1:
+            mesh_shape.append(config.tensor_parallel_size)
+            axis_names.append("model")
+
+        if config.pipeline_parallel_size > 1:
+            mesh_shape.append(config.pipeline_parallel_size)
+            axis_names.append("pipeline")
+
+        # Default to data parallel if no dimensions specified
+        if not mesh_shape:
+            mesh_shape = [1]
+            axis_names = ["data"]
+
+        return cls(
+            mesh_shape=tuple(mesh_shape), mesh_axis_names=tuple(axis_names), sharding_config=config
+        )
+
+
+class ShardingStrategy(ABC):
+    """Abstract base class for sharding strategies.
+
+    Defines the interface that all sharding strategies must implement
+    for consistent handling of different parallelism types.
+    """
+
+    def __init__(self, axis_name: str, mesh_axis: int) -> None:
+        """Initialize sharding strategy.
 
         Args:
-            config: The parallelism sizes.
+            axis_name: Name of the mesh axis for this strategy
+            mesh_axis: Index of the mesh axis
+        """
+        self.axis_name = axis_name
+        self.mesh_axis = mesh_axis
+
+    @abstractmethod
+    def get_partition_spec(self, tensor_shape: tuple[str, ...]) -> PartitionSpec:
+        """Get partition specification for a tensor with given shape names.
+
+        Args:
+            tensor_shape: Tuple of dimension names for the tensor
 
         Returns:
-            The configuration; a single-device config gets a one-element ``data`` axis.
+            PartitionSpec defining how to shard the tensor
         """
-        axes = [
-            ("data", config.data_parallel_size),
-            ("model", config.tensor_parallel_size),
-            ("pipeline", config.pipeline_parallel_size),
-        ]
-        used = [(name, size) for name, size in axes if size > 1] or [("data", 1)]
-        return cls(
-            mesh_shape=tuple(size for _, size in used),
-            mesh_axis_names=tuple(name for name, _ in used),
-            sharding_config=config,
-        )
 
-    def create_mesh(self) -> Mesh:
-        """Build the mesh this configuration declares over the visible devices.
+    @abstractmethod
+    def apply_sharding(self, array: Array, mesh: Mesh) -> Array:
+        """Apply sharding to an array using the given mesh.
+
+        Args:
+            array: JAX array to shard
+            mesh: Device mesh for sharding
 
         Returns:
-            The mesh.
+            Sharded array
         """
-        return create_device_mesh(list(zip(self.mesh_axis_names, self.mesh_shape, strict=True)))
+
+    def get_sharding_constraints(self) -> dict[str, Any]:
+        """Get sharding constraints for this strategy.
+
+        Returns:
+            Dictionary of sharding constraints
+        """
+        return {"axis_name": self.axis_name, "mesh_axis": self.mesh_axis}
 
 
-@runtime_checkable
-class ShardingStrategy(Protocol):
-    """A rule mapping logical dimension names onto one mesh axis."""
+class DataParallelStrategy(ShardingStrategy):
+    """Data parallel sharding strategy.
 
-    @property
-    def axis_name(self) -> str:
-        """The mesh axis this strategy shards along."""
-        ...
-
-    def partition_spec(self, dimension_names: DimensionNames) -> PartitionSpec:
-        """Return the partition spec for an array with these logical dimension names."""
-        ...
-
-    def shard(self, array: Array, mesh: Mesh) -> Array:
-        """Place an array on the mesh according to this strategy."""
-        ...
-
-
-def _leading_axis_spec(ndim: int, axis_name: str | None) -> PartitionSpec:
-    return PartitionSpec(axis_name, *([None] * (ndim - 1)))
-
-
-def _place(array: Array, mesh: Mesh, spec: PartitionSpec) -> Array:
-    return jax.device_put(array, NamedSharding(mesh, spec))
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class DataParallelStrategy:
-    """Shard the batch dimension, replicate everything else.
-
-    Attributes:
-        axis_name: The mesh axis carrying the batch.
-        batch_dimension: The logical name of the batch dimension.
+    Shards the batch dimension across devices while replicating
+    model parameters and computation.
     """
 
-    axis_name: str
-    batch_dimension: str = "batch"
+    def get_partition_spec(self, tensor_shape: tuple[str, ...]) -> PartitionSpec:
+        """Get partition spec for data parallel sharding.
 
-    def partition_spec(self, dimension_names: DimensionNames) -> PartitionSpec:
-        """Shard only the batch dimension."""
-        return PartitionSpec(
-            *(self.axis_name if name == self.batch_dimension else None for name in dimension_names)
-        )
+        Only shards the batch dimension, leaves others replicated.
+        """
+        specs: list[str | None] = []
+        for dim_name in tensor_shape:
+            if dim_name == "batch":
+                specs.append(self.axis_name)
+            else:
+                specs.append(None)
+        return PartitionSpec(*specs)
 
-    def shard(self, array: Array, mesh: Mesh) -> Array:
-        """Place the array with its leading dimension on the data axis."""
-        return _place(array, mesh, _leading_axis_spec(array.ndim, self.axis_name))
+    def apply_sharding(self, array: Array, mesh: Mesh) -> Array:
+        """Apply data parallel sharding to array."""
+        # Create named sharding for data parallel
+        none_specs = [None] * (array.ndim - 1)
+        partition_spec = PartitionSpec(self.axis_name, *none_specs)
+        sharding = NamedSharding(mesh, partition_spec)
+
+        # Apply sharding
+        return jax.device_put(array, sharding)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class FSDPStrategy:
-    """Shard parameters along their leading feature dimension when they are large enough.
+class FSDPStrategy(ShardingStrategy):
+    """Fully Sharded Data Parallel strategy.
 
-    Attributes:
-        axis_name: The mesh axis carrying the shards.
-        min_weight_size: Smallest leading dimension worth sharding.
-        sharded_dimensions: Logical names of leading dimensions this strategy shards.
+    Shards model parameters across devices to reduce memory usage
+    while maintaining training efficiency.
     """
 
-    axis_name: str
-    min_weight_size: int = 1024
-    sharded_dimensions: frozenset[str] = frozenset({"out_features", "features", "hidden"})
+    def __init__(self, axis_name: str, mesh_axis: int, min_weight_size: int = 1024) -> None:
+        """Initialize FSDP strategy.
 
-    def should_shard(self, weight: Array) -> bool:
-        """Whether a weight's leading dimension reaches the sharding threshold."""
+        Args:
+            axis_name: Name of the mesh axis
+            mesh_axis: Index of the mesh axis
+            min_weight_size: Minimum first dimension size to enable sharding
+        """
+        super().__init__(axis_name, mesh_axis)
+        self.min_weight_size = min_weight_size
+
+    def should_shard_weight(self, weight: Array) -> bool:
+        """Determine if a weight should be sharded based on its size.
+
+        Args:
+            weight: Weight array to check
+
+        Returns:
+            True if weight should be sharded, False otherwise
+        """
+        # Check the first dimension size (what FSDP actually shards)
         return weight.shape[0] >= self.min_weight_size
 
-    def partition_spec(self, dimension_names: DimensionNames) -> PartitionSpec:
-        """Shard the leading dimension when it is a feature dimension."""
-        leading = dimension_names[0] if dimension_names else None
-        axis = self.axis_name if leading in self.sharded_dimensions else None
-        return (
-            _leading_axis_spec(len(dimension_names), axis) if dimension_names else PartitionSpec()
-        )
+    def get_partition_spec(self, tensor_shape: tuple[str, ...]) -> PartitionSpec:
+        """Get partition spec for FSDP sharding.
 
-    def shard(self, array: Array, mesh: Mesh) -> Array:
-        """Place the array sharded on its leading dimension, or replicated if it is small."""
-        axis = self.axis_name if self.should_shard(array) else None
-        return _place(array, mesh, _leading_axis_spec(array.ndim, axis))
+        Shards along the first dimension of weight tensors.
+        """
+        specs: list[str | None] = []
+        for i, dim_name in enumerate(tensor_shape):
+            if i == 0 and dim_name in ["out_features", "features", "hidden"]:
+                specs.append(self.axis_name)
+            else:
+                specs.append(None)
+        return PartitionSpec(*specs)
+
+    def get_gradient_partition_spec(self, tensor_shape: tuple[str, ...]) -> PartitionSpec:
+        """Get partition spec for gradient sharding (same as weights)."""
+        return self.get_partition_spec(tensor_shape)
+
+    def apply_sharding(self, array: Array, mesh: Mesh) -> Array:
+        """Apply FSDP sharding to array."""
+        if not self.should_shard_weight(array):
+            # Replicate small weights
+            partition_spec = PartitionSpec(*([None] * array.ndim))
+        else:
+            # Shard along first dimension
+            none_specs = [None] * (array.ndim - 1)
+            partition_spec = PartitionSpec(self.axis_name, *none_specs)
+
+        sharding = NamedSharding(mesh, partition_spec)
+        return jax.device_put(array, sharding)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class TensorParallelStrategy:
-    """Shard one feature dimension of every tensor across the model axis.
+class TensorParallelStrategy(ShardingStrategy):
+    """Tensor parallel sharding strategy.
 
-    Attributes:
-        axis_name: The mesh axis carrying the model shards.
-        shard_dimension: The logical dimension to shard; ``None`` shards ``hidden`` and the
-            output features of linear weights.
+    Shards model computation across devices by splitting tensors
+    along specific dimensions (typically features).
     """
 
-    axis_name: str
-    shard_dimension: str | None = None
+    def __init__(self, axis_name: str, mesh_axis: int, shard_dimension: str | None = None) -> None:
+        """Initialize tensor parallel strategy.
 
-    def partition_spec(self, dimension_names: DimensionNames) -> PartitionSpec:
-        """Shard the configured dimension, or ``hidden`` when none is configured."""
-        target = self.shard_dimension or "hidden"
-        return PartitionSpec(
-            *(self.axis_name if name == target else None for name in dimension_names)
-        )
+        Args:
+            axis_name: Name of the mesh axis
+            mesh_axis: Index of the mesh axis
+            shard_dimension: Preferred dimension to shard
+                ('in_features' or 'out_features')
+        """
+        super().__init__(axis_name, mesh_axis)
+        self.shard_dimension = shard_dimension
 
-    @property
-    def linear_weight_spec(self) -> PartitionSpec:
-        """The spec for an ``(out_features, in_features)`` linear weight."""
+    def get_partition_spec(self, tensor_shape: tuple[str, ...]) -> PartitionSpec:
+        """Get partition spec for tensor parallel sharding."""
+        specs: list[str | None] = []
+        for dim_name in tensor_shape:
+            if (self.shard_dimension and dim_name == self.shard_dimension) or (
+                not self.shard_dimension and dim_name == "hidden"
+            ):
+                specs.append(self.axis_name)
+            else:
+                specs.append(None)
+        return PartitionSpec(*specs)
+
+    def get_linear_weight_spec(self) -> PartitionSpec:
+        """Get partition spec for linear layer weights."""
         if self.shard_dimension == "in_features":
+            # (out, in) -> shard in
             return PartitionSpec(None, self.axis_name)
+        # (out, in) -> shard out
         return PartitionSpec(self.axis_name, None)
 
-    @property
-    def attention_qkv_spec(self) -> PartitionSpec:
-        """The spec for attention query/key/value projections (output features sharded)."""
-        return PartitionSpec(None, self.axis_name)
+    def get_attention_qkv_spec(self) -> PartitionSpec:
+        """Get partition spec for attention QKV projections."""
+        return PartitionSpec(None, self.axis_name)  # Shard output features
 
-    @property
-    def attention_output_spec(self) -> PartitionSpec:
-        """The spec for the attention output projection (input features sharded)."""
-        return PartitionSpec(self.axis_name, None)
+    def get_attention_output_spec(self) -> PartitionSpec:
+        """Get partition spec for attention output projection."""
+        return PartitionSpec(self.axis_name, None)  # Shard input features
 
-    def shard(self, array: Array, mesh: Mesh) -> Array:
-        """Place a weight matrix per ``linear_weight_spec``, other arrays on their last axis."""
-        if array.ndim == 2:  # noqa: PLR2004 - a weight matrix
-            return _place(array, mesh, self.linear_weight_spec)
-        return _place(array, mesh, PartitionSpec(*([None] * (array.ndim - 1)), self.axis_name))
+    def apply_sharding(self, array: Array, mesh: Mesh) -> Array:
+        """Apply tensor parallel sharding to array."""
+        # Default to sharding the last dimension if not specified
+        if array.ndim == _WEIGHT_MATRIX_NDIM:
+            if self.shard_dimension == "in_features":
+                partition_spec = PartitionSpec(None, self.axis_name)
+            else:
+                partition_spec = PartitionSpec(self.axis_name, None)
+        else:
+            # For other tensors, shard the last dimension
+            specs: list[str | None] = [None] * array.ndim
+            specs[-1] = self.axis_name
+            partition_spec = PartitionSpec(*specs)
+
+        sharding = NamedSharding(mesh, partition_spec)
+        return jax.device_put(array, sharding)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class PipelineParallelStrategy:
-    """Assign whole layers to pipeline stages; tensors inside a stage are replicated.
+class PipelineParallelStrategy(ShardingStrategy):
+    """Pipeline parallel sharding strategy.
 
-    Attributes:
-        axis_name: The mesh axis carrying the stages.
-        num_stages: The number of pipeline stages.
+    Distributes model layers across devices to enable pipeline parallelism
+    for very large models that don't fit on single devices.
     """
 
-    axis_name: str
-    num_stages: int
-
-    def assign_layers(self, num_layers: int) -> tuple[int, ...]:
-        """Split layers across stages as evenly as possible, earlier stages taking the remainder.
+    def __init__(self, axis_name: str, mesh_axis: int, num_stages: int) -> None:
+        """Initialize pipeline parallel strategy.
 
         Args:
-            num_layers: The number of layers to place.
+            axis_name: Name of the mesh axis
+            mesh_axis: Index of the mesh axis
+            num_stages: Number of pipeline stages
+        """
+        super().__init__(axis_name, mesh_axis)
+        self.num_stages = num_stages
+
+    def assign_layers_to_stages(self, num_layers: int) -> list[int]:
+        """Assign layers to pipeline stages.
+
+        Args:
+            num_layers: Total number of layers in the model
 
         Returns:
-            The layer count of each stage.
+            list of layer counts per stage
         """
-        base, remainder = divmod(num_layers, self.num_stages)
-        return tuple(base + (1 if stage < remainder else 0) for stage in range(self.num_stages))
+        layers_per_stage = num_layers // self.num_stages
+        remainder = num_layers % self.num_stages
 
-    @property
-    def forward_communication_pattern(self) -> tuple[tuple[int, int], ...]:
-        """``(source, destination)`` stage pairs for the forward pass."""
-        return tuple((stage, stage + 1) for stage in range(self.num_stages - 1))
+        assignments = [layers_per_stage] * self.num_stages
 
-    @property
-    def backward_communication_pattern(self) -> tuple[tuple[int, int], ...]:
-        """``(source, destination)`` stage pairs for the backward pass."""
-        return tuple((stage + 1, stage) for stage in range(self.num_stages - 1))
+        # Distribute remainder layers
+        for i in range(remainder):
+            assignments[i] += 1
 
-    def partition_spec(self, dimension_names: DimensionNames) -> PartitionSpec:
-        """Replicate: pipeline parallelism places layers, not tensor dimensions."""
-        return PartitionSpec(*([None] * len(dimension_names)))
+        return assignments
 
-    def shard(self, array: Array, mesh: Mesh) -> Array:
-        """Place the array replicated within its stage."""
-        return _place(array, mesh, PartitionSpec(*([None] * array.ndim)))
+    def get_partition_spec(self, tensor_shape: tuple[str, ...]) -> PartitionSpec:
+        """Get partition spec for pipeline parallel sharding.
+
+        Pipeline parallelism doesn't shard individual tensors,
+        but rather assigns entire layers to different devices.
+        """
+        # No sharding of individual tensors in pipeline parallelism
+        return PartitionSpec(*([None] * len(tensor_shape)))
+
+    def get_forward_communication_pattern(self) -> list[tuple[int, int]]:
+        """Get communication pattern for forward pass.
+
+        Returns:
+            list of (source_stage, dest_stage) pairs
+        """
+        return [(i, i + 1) for i in range(self.num_stages - 1)]
+
+    def get_backward_communication_pattern(self) -> list[tuple[int, int]]:
+        """Get communication pattern for backward pass.
+
+        Returns:
+            list of (source_stage, dest_stage) pairs
+        """
+        return [(i + 1, i) for i in range(self.num_stages - 1)]
+
+    def apply_sharding(self, array: Array, mesh: Mesh) -> Array:
+        """Apply pipeline parallel sharding to array.
+
+        Pipeline parallelism handles layer assignment rather than
+        tensor sharding.
+        """
+        # Replicate tensors within each pipeline stage
+        partition_spec = PartitionSpec(*([None] * array.ndim))
+        sharding = NamedSharding(mesh, partition_spec)
+        return jax.device_put(array, sharding)
 
 
-_COMPATIBLE_ON_ONE_AXIS = frozenset({DataParallelStrategy, FSDPStrategy})
-_AXIS_PRIORITY = ("model", "fsdp")
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class MultiDimensionalStrategy:
-    """Combine strategies on distinct mesh axes into one partition spec per tensor.
+    """Multi-dimensional parallelism strategy combining multiple approaches.
 
-    Attributes:
-        strategies: Named strategies to combine.
-        config: The parallelism configuration they realise.
+    Combines different sharding strategies (data, tensor, FSDP, pipeline)
+    to achieve optimal performance for large-scale training.
     """
 
-    strategies: Mapping[str, ShardingStrategy]
-    config: ParallelismConfig
+    def __init__(
+        self, strategies: Mapping[str, ShardingStrategy], config: ParallelismConfig
+    ) -> None:
+        """Initialize multi-dimensional strategy.
 
-    def __post_init__(self) -> None:
-        """Reject strategies that compete for one mesh axis.
-
-        Raises:
-            ValueError: If two strategies of one kind share an axis, or two kinds share an axis
-                that are not the compatible data-parallel and FSDP pair.
+        Args:
+            strategies: Dictionary mapping strategy names to strategy instances
+            config: Sharding configuration for the multi-dimensional strategy
         """
-        by_axis: dict[str, list[type[object]]] = {}
+        self.strategies = strategies
+        self.config = config
+        self._validate_strategies()
+
+    def _validate_strategies(self) -> None:
+        """Validate that strategies sharing a mesh axis are compatible."""
+        by_axis: dict[str, list[str]] = {}
         for strategy in self.strategies.values():
-            by_axis.setdefault(strategy.axis_name, []).append(type(strategy))
-        for axis, kinds in by_axis.items():
-            duplicated = [kind.__name__ for kind, count in Counter(kinds).items() if count > 1]
-            if duplicated:
-                raise ValueError(
-                    f"Conflicting strategies: several {duplicated[0]} on axis {axis!r}"
-                )
-            if len(kinds) > 1 and not set(kinds) <= _COMPATIBLE_ON_ONE_AXIS:
-                names = [kind.__name__ for kind in kinds]
-                raise ValueError(f"Conflicting strategies for axis {axis!r}: {names}")
+            by_axis.setdefault(strategy.axis_name, []).append(type(strategy).__name__)
+        for axis_name, strategy_types in by_axis.items():
+            if len(strategy_types) > 1:
+                _check_axis_compatibility(axis_name, strategy_types)
 
-    def partition_spec(self, dimension_names: DimensionNames) -> PartitionSpec:
-        """Merge every strategy's spec, resolving conflicts by axis priority.
-
-        Args:
-            dimension_names: The logical names of the tensor's dimensions.
-
-        Returns:
-            The combined spec.
-        """
-        proposed = {
-            name: strategy.partition_spec(dimension_names)
-            for name, strategy in self.strategies.items()
-        }
-        return self.resolve_sharding_conflicts(proposed, ndim=len(dimension_names))
-
-    @staticmethod
-    def resolve_sharding_conflicts(
-        proposed_specs: Mapping[str, PartitionSpec], *, ndim: int
+    def get_combined_partition_spec(
+        self, tensor_name: str, tensor_shape: tuple[str, ...]
     ) -> PartitionSpec:
-        """Merge proposed specs dimension by dimension.
-
-        Where two strategies claim one dimension, the ``model`` axis wins, then ``fsdp``,
-        otherwise the first claim stands.
+        """Get combined partition spec from all strategies.
 
         Args:
-            proposed_specs: Specs keyed by strategy name.
-            ndim: The number of tensor dimensions.
+            tensor_name: Name/type of the tensor
+            tensor_shape: Shape dimension names of the tensor
 
         Returns:
-            The merged spec.
+            Combined PartitionSpec
         """
-        merged: list[str | None] = [None] * ndim
+        # Start with all None specs
+        combined_specs: list[str | None] = [None] * len(tensor_shape)
+
+        # Apply each strategy, merging non-None specs and resolving conflicts
+        for strategy in self.strategies.values():
+            strategy_spec = strategy.get_partition_spec(tensor_shape)
+            for i, spec in enumerate(strategy_spec):
+                if spec is not None:
+                    combined_specs[i] = _resolve_spec_conflict(combined_specs[i], spec)
+
+        del tensor_name  # The merge is shape-driven; the name is kept for call-site clarity.
+        return PartitionSpec(*combined_specs)
+
+    def resolve_sharding_conflicts(
+        self, tensor_name: str, proposed_specs: dict[str, PartitionSpec]
+    ) -> PartitionSpec:
+        """Resolve conflicts between multiple proposed partition specs.
+
+        Args:
+            tensor_name: Name of the tensor
+            proposed_specs: Dictionary of strategy names to proposed specs
+
+        Returns:
+            Resolved PartitionSpec
+        """
+        if not proposed_specs:
+            return PartitionSpec()
+
+        # Start with first spec
+        first_spec = next(iter(proposed_specs.values()))
+        result_specs = list(first_spec)
+
+        # Merge other specs with conflict resolution
         for spec in proposed_specs.values():
-            for index, axis in enumerate(tuple(spec)):
-                if axis is None:
-                    continue
-                current = merged[index]
-                merged[index] = axis if current is None else _prefer(current, str(axis))
-        return PartitionSpec(*merged)
+            for i, spec_value in enumerate(spec):
+                if spec_value is not None and result_specs[i] != spec_value:
+                    result_specs[i] = _resolve_spec_conflict(result_specs[i], spec_value)
+
+        del tensor_name  # The merge is shape-driven; the name is kept for call-site clarity.
+        return PartitionSpec(*result_specs)
 
 
-def _prefer(existing: str, new: str) -> str:
+def _check_axis_compatibility(axis_name: str, strategy_types: list[str]) -> None:
+    """Reject strategies that cannot share ``axis_name``.
+
+    Args:
+        axis_name: The mesh axis the strategies share.
+        strategy_types: The class names of the strategies on that axis.
+
+    Raises:
+        ValueError: If the kinds are not the compatible data-parallel/FSDP pair, or if one
+            kind appears more than once.
+    """
+    if not set(strategy_types) <= _COMPATIBLE_ON_ONE_AXIS:
+        raise ValueError(f"Conflicting strategies for axis {axis_name}: {strategy_types}")
+    for strategy_type, type_count in Counter(strategy_types).items():
+        if type_count > 1:
+            raise ValueError(
+                f"Conflicting strategies: multiple {strategy_type} instances using axis {axis_name}"
+            )
+
+
+def _resolve_spec_conflict(existing_spec: str | None, new_spec: str) -> str:
+    """Pick the axis for one dimension two strategies both claim.
+
+    Tensor parallelism (``model``) wins, then FSDP (``fsdp``); otherwise the existing claim
+    stands.
+
+    Args:
+        existing_spec: The axis already assigned, or ``None``.
+        new_spec: The competing axis.
+
+    Returns:
+        The axis to use.
+    """
+    if existing_spec is None:
+        return new_spec
     for winner in _AXIS_PRIORITY:
-        if winner in (existing, new):
+        if winner in (existing_spec, new_spec):
             return winner
-    return existing
+    return existing_spec

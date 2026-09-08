@@ -1,233 +1,68 @@
-"""Best-metric tracking and early stopping.
+"""Early stopping callback driven by epoch logs.
 
-``BestMetricTracker`` is the bookkeeping every plateau-driven control shares (best value
-so far, consecutive epochs without a ``min_delta`` improvement). ``EarlyStopping`` composes
-it with a patience and optional thresholds and is driven by ``update(value)``;
-``EarlyStoppingCallback`` composes ``EarlyStopping`` with the callback protocol and reads
-the monitored metric out of the epoch logs. Learning-rate plateau decay is
-``optax.contrib.reduce_on_plateau``, not part of this package.
+Monitors a metric in the epoch logs and stops training when it stops improving, reaches a
+goal, diverges, or becomes non-finite. The best-so-far and stagnation bookkeeping is
+``BestMetricTracker``; this class adds the log lookup, the thresholds and the epoch record.
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from substrax.callbacks.base import BaseCallback, TrainerLike
-
-
-class PlateauMode(StrEnum):
-    """Whether a monitored metric improves by decreasing or increasing."""
-
-    MIN = "min"
-    MAX = "max"
-
-
-class BestMetricTracker:
-    """Best-so-far and stagnation bookkeeping for a monitored metric."""
-
-    __slots__ = ("_best", "_min_delta", "_mode", "_num_bad_epochs")
-
-    def __init__(self, *, mode: PlateauMode | str, min_delta: float) -> None:
-        """Set up the tracker.
-
-        Args:
-            mode: ``"min"`` (lower is better) or ``"max"`` (higher is better).
-            min_delta: The smallest absolute change that counts as an improvement.
-
-        Raises:
-            ValueError: If ``min_delta`` is negative.
-        """
-        if min_delta < 0.0:
-            raise ValueError(f"min_delta must be non-negative, got {min_delta}.")
-        self._mode = PlateauMode(mode)
-        self._min_delta = float(min_delta)
-        self._best = math.inf if self._mode is PlateauMode.MIN else -math.inf
-        self._num_bad_epochs = 0
-
-    @property
-    def mode(self) -> PlateauMode:
-        """The improvement direction."""
-        return self._mode
-
-    @property
-    def best(self) -> float:
-        """The best value registered so far (``inf`` or ``-inf`` before the first)."""
-        return self._best
-
-    @property
-    def num_bad_epochs(self) -> int:
-        """Consecutive registrations without a ``min_delta`` improvement."""
-        return self._num_bad_epochs
-
-    def is_improvement(self, value: float) -> bool:
-        """Whether ``value`` beats the best so far by at least ``min_delta``."""
-        if self._mode is PlateauMode.MIN:
-            return value < self._best - self._min_delta
-        return value > self._best + self._min_delta
-
-    def register(self, value: float) -> bool:
-        """Record a value; return whether it improved on the best so far.
-
-        Args:
-            value: The latest metric value.
-
-        Returns:
-            ``True`` on an improvement (which also resets the stagnation count).
-        """
-        if self.is_improvement(value):
-            self._best = float(value)
-            self._num_bad_epochs = 0
-            return True
-        self._num_bad_epochs += 1
-        return False
-
-    def reset_stagnation(self) -> None:
-        """Clear the stagnation count without touching the best value."""
-        self._num_bad_epochs = 0
-
-
-class EarlyStopping:
-    """Signal to stop once a monitored metric stagnates, diverges, or reaches a goal."""
-
-    __slots__ = (
-        "_check_finite",
-        "_divergence_threshold",
-        "_patience",
-        "_stopped",
-        "_stopping_threshold",
-        "_tracker",
-    )
-
-    def __init__(
-        self,
-        *,
-        patience: int,
-        min_delta: float = 0.0,
-        mode: PlateauMode | str = PlateauMode.MIN,
-        check_finite: bool = True,
-        stopping_threshold: float | None = None,
-        divergence_threshold: float | None = None,
-    ) -> None:
-        """Set up the stopper.
-
-        Args:
-            patience: Epochs without a ``min_delta`` improvement before stopping.
-            min_delta: The smallest absolute change that counts as an improvement.
-            mode: ``"min"`` (lower is better) or ``"max"`` (higher is better).
-            check_finite: Whether a NaN or infinite value stops immediately.
-            stopping_threshold: Stop once the metric reaches this value (the goal).
-            divergence_threshold: In ``"min"`` mode, stop once the metric exceeds this value.
-
-        Raises:
-            ValueError: If ``patience`` is not positive.
-        """
-        if patience < 1:
-            raise ValueError(f"patience must be >= 1, got {patience}.")
-        self._tracker = BestMetricTracker(mode=mode, min_delta=min_delta)
-        self._patience = patience
-        self._check_finite = check_finite
-        self._stopping_threshold = stopping_threshold
-        self._divergence_threshold = divergence_threshold
-        self._stopped = False
-
-    @property
-    def best(self) -> float:
-        """The best value registered so far."""
-        return self._tracker.best
-
-    @property
-    def num_bad_epochs(self) -> int:
-        """Consecutive updates without a ``min_delta`` improvement."""
-        return self._tracker.num_bad_epochs
-
-    @property
-    def should_stop(self) -> bool:
-        """Whether training should stop."""
-        return self._stopped or self._tracker.num_bad_epochs >= self._patience
-
-    def update(self, value: float) -> bool:
-        """Record the latest metric value.
-
-        Args:
-            value: The metric value for this epoch.
-
-        Returns:
-            Whether it improved on the best so far.
-        """
-        if self._check_finite and not math.isfinite(value):
-            self._stopped = True
-            return False
-        if self._reached_goal(value) or self._diverged(value):
-            self._stopped = True
-        return self._tracker.register(value)
-
-    def _reached_goal(self, value: float) -> bool:
-        if self._stopping_threshold is None:
-            return False
-        if self._tracker.mode is PlateauMode.MIN:
-            return value <= self._stopping_threshold
-        return value >= self._stopping_threshold
-
-    def _diverged(self, value: float) -> bool:
-        return (
-            self._divergence_threshold is not None
-            and self._tracker.mode is PlateauMode.MIN
-            and value > self._divergence_threshold
-        )
+from substrax.callbacks.plateau import BestMetricTracker, PlateauMode
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EarlyStoppingConfig:
-    """How ``EarlyStoppingCallback`` reads and judges the epoch logs.
+    """Configuration for early stopping.
 
     Attributes:
-        monitor: The metric name to read from the epoch logs.
-        min_delta: The smallest absolute change that counts as an improvement.
-        patience: Epochs without an improvement before stopping.
-        mode: ``"min"`` (lower is better) or ``"max"`` (higher is better).
-        check_finite: Whether a NaN or infinite value stops immediately.
-        stopping_threshold: Stop once the metric reaches this value.
-        divergence_threshold: In ``"min"`` mode, stop once the metric exceeds this value.
+        monitor: Metric name to monitor (e.g., "val_loss", "accuracy").
+        min_delta: Minimum change to qualify as an improvement.
+        patience: Number of epochs with no improvement before stopping.
+        mode: "min" if lower is better, "max" if higher is better.
+        check_finite: If True, stop when metric becomes NaN or Inf.
+        stopping_threshold: Stop immediately when metric reaches this value.
+        divergence_threshold: Stop if metric exceeds this value (min mode only).
     """
 
     monitor: str = "val_loss"
     min_delta: float = 0.0
     patience: int = 10
-    mode: PlateauMode = PlateauMode.MIN
+    mode: Literal["min", "max"] = "min"
     check_finite: bool = True
     stopping_threshold: float | None = None
     divergence_threshold: float | None = None
 
 
 class EarlyStoppingCallback(BaseCallback):
-    """Drive an ``EarlyStopping`` from the epoch logs a training loop emits."""
+    """Stop training when a monitored metric stops improving."""
 
-    __slots__ = ("_config", "_stopped_epoch", "_stopper")
+    __slots__ = ("_stopped_epoch", "_tracker", "config")
 
     def __init__(self, config: EarlyStoppingConfig) -> None:
-        """Set up the callback.
+        """Initialize early stopping callback.
 
         Args:
-            config: What to monitor and when to stop.
+            config: Early stopping configuration.
         """
-        self._config = config
-        self._stopper = EarlyStopping(
-            patience=config.patience,
-            min_delta=config.min_delta,
-            mode=config.mode,
-            check_finite=config.check_finite,
-            stopping_threshold=config.stopping_threshold,
-            divergence_threshold=config.divergence_threshold,
-        )
+        self.config = config
+        self._tracker = BestMetricTracker(mode=config.mode, min_delta=config.min_delta)
         self._stopped_epoch: int | None = None
 
     @property
-    def should_stop(self) -> bool:
-        """Whether training should stop."""
-        return self._stopper.should_stop
+    def wait_count(self) -> int:
+        """Epochs since the last improvement."""
+        return self._tracker.num_bad_epochs
+
+    @property
+    def best_score(self) -> float | None:
+        """The best monitored value so far, or ``None`` before the metric first appears."""
+        best = self._tracker.best
+        return None if math.isinf(best) else best
 
     @property
     def stopped_epoch(self) -> int | None:
@@ -235,16 +70,47 @@ class EarlyStoppingCallback(BaseCallback):
         return self._stopped_epoch
 
     @property
-    def best(self) -> float | None:
-        """The best monitored value so far, or ``None`` before the metric first appears."""
-        best = self._stopper.best
-        return None if math.isinf(best) else best
+    def should_stop(self) -> bool:
+        """Whether training should stop."""
+        return self._stopped_epoch is not None
 
     def on_epoch_end(self, _trainer: TrainerLike, epoch: int, logs: dict[str, Any]) -> None:
-        """Read the monitored metric, if present, and decide whether to stop."""
-        value = logs.get(self._config.monitor)
+        """Read the monitored metric, if present, and decide whether to stop.
+
+        Args:
+            _trainer: The trainer instance (unused).
+            epoch: Current epoch number.
+            logs: Dictionary of metrics from this epoch.
+        """
+        value = logs.get(self.config.monitor)
         if value is None:
             return
-        self._stopper.update(float(value))
-        if self._stopper.should_stop and self._stopped_epoch is None:
+        current = float(value)
+        if self._stops_immediately(current):
             self._stopped_epoch = epoch
+            return
+        self._tracker.register(current)
+        if self._tracker.num_bad_epochs >= self.config.patience:
+            self._stopped_epoch = epoch
+
+    def _stops_immediately(self, current: float) -> bool:
+        """Whether ``current`` ends training before patience is considered."""
+        if self.config.check_finite and not math.isfinite(current):
+            return True
+        return self._meets_threshold(current) or self._diverged(current)
+
+    def _meets_threshold(self, current: float) -> bool:
+        """Whether ``current`` reaches the stopping threshold (the training goal)."""
+        threshold = self.config.stopping_threshold
+        if threshold is None:
+            return False
+        if self._tracker.mode is PlateauMode.MIN:
+            return current <= threshold
+        return current >= threshold
+
+    def _diverged(self, current: float) -> bool:
+        """Whether ``current`` exceeds the divergence threshold in min mode."""
+        threshold = self.config.divergence_threshold
+        return (
+            threshold is not None and self._tracker.mode is PlateauMode.MIN and current > threshold
+        )

@@ -10,11 +10,9 @@ from substrax.spmd.collectives import (
     reduce_min,
     reduce_sum,
     reduce_sum_collective,
-    Reduction,
 )
 from substrax.spmd.data_parallel import (
     create_data_parallel_sharding,
-    GradientReduction,
     place_batch_on_shards,
     place_nnx_state_on_shards,
     reduce_gradient_tree,
@@ -23,8 +21,6 @@ from substrax.spmd.data_parallel import (
 
 
 __all__ = [
-    "GradientReduction",
-    "Reduction",
     "all_gather",
     "collect_from_devices",
     "create_data_parallel_sharding",
