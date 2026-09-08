@@ -1,0 +1,4088 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Shared training and hardware infrastructure for the Avitai JAX stack">
+      
+      
+        <meta name="author" content="Mahdi Shafiei">
+      
+      
+        <link rel="canonical" href="https://substrax.readthedocs.io/api/tracking/">
+      
+      
+        <link rel="prev" href="../callbacks/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Tracking - Substrax</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tracking" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Substrax" class="md-header__button md-logo" aria-label="Substrax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Substrax
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tracking
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/avitai/substrax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    avitai/substrax
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Substrax" class="md-nav__button md-logo" aria-label="Substrax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+
+    </a>
+    Substrax
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/avitai/substrax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    avitai/substrax
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spmd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SPMD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../callbacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Callbacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;tracking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" tracking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ConsoleLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ConsoleLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;FileLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" FileLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Logger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Logger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.debug" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;debug
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.critical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;critical
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;close
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MLFlowLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MLFlowLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_artifacts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.end_run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;end_run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;close
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WandbLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" WandbLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.finish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;finish
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;close
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.create_logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_logger
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;tracking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" tracking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ConsoleLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ConsoleLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.ConsoleLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;FileLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" FileLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.FileLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Logger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Logger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.debug" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;debug
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.critical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;critical
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.Logger.close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;close
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MLFlowLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MLFlowLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_scalar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.log_artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_artifacts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.end_run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;end_run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.MLFlowLogger.close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;close
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;WandbLogger
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" WandbLogger">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_scalars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_scalars
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_histogram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_histogram
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_hyperparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_hyperparams
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.log_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.finish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;finish
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.WandbLogger.close" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;close
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.tracking.create_logger" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_logger
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../devices/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    API Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tracking">Tracking<a class="headerlink" href="#tracking" title="Permanent link">¤</a></h1>
+<p><code>substrax.tracking</code> records scalars, images, histograms, text and hyperparameters per
+step, to the console, to files, to Weights &amp; Biases or to MLflow, behind one <code>Logger</code>
+interface.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.tracking</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileLogger</span><span class="p">,</span> <span class="n">WandbLogger</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">FileLogger</span><span class="p">(</span><span class="s2">"run-1"</span><span class="p">,</span> <span class="n">log_dir</span><span class="o">=</span><span class="s2">"logs/run-1"</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">logger</span><span class="o">.</span><span class="n">log_scalars</span><span class="p">({</span><span class="s2">"loss"</span><span class="p">:</span> <span class="mf">0.42</span><span class="p">,</span> <span class="s2">"accuracy"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">logger</span><span class="o">.</span><span class="n">log_image</span><span class="p">(</span><span class="s2">"samples"</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">logger</span><span class="o">.</span><span class="n">log_hyperparams</span><span class="p">({</span><span class="s2">"learning_rate"</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">})</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">logger</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">wandb_logger</span> <span class="o">=</span> <span class="n">WandbLogger</span><span class="p">(</span><span class="s2">"run-1"</span><span class="p">,</span> <span class="n">project</span><span class="o">=</span><span class="s2">"my-project"</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Extra</th>
+<th>Where things go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ConsoleLogger</code></td>
+<td>none</td>
+<td><code>logging</code> lines on stdout</td>
+</tr>
+<tr>
+<td><code>FileLogger</code></td>
+<td><code>plots</code> for figures</td>
+<td>Lines to a <code>.log</code> file, scalars to a long-form CSV (<code>timestamp,step,name,value</code>), images and histograms to PNGs, texts and hyperparameters to text files</td>
+</tr>
+<tr>
+<td><code>WandbLogger</code></td>
+<td><code>wandb</code></td>
+<td>A W&amp;B run; <code>log_code</code> and <code>log_model</code> upload code and model artifacts</td>
+</tr>
+<tr>
+<td><code>MLFlowLogger</code></td>
+<td><code>mlflow</code>, <code>plots</code> for figures</td>
+<td>An MLflow run; images, histograms and texts as run artifacts</td>
+</tr>
+</tbody>
+</table>
+<p>Importing <code>substrax.tracking</code> imports neither SDK. A backend loads its SDK when
+constructed and raises <code>ImportError</code> naming the extra to install:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s1">'substrax[wandb]'</span>
+</code></pre></div>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="substrax.tracking" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>substrax.tracking</code>
+
+
+<a href="#substrax.tracking" class="headerlink" title="Permanent link">¤</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Step-wise experiment tracking with console, file, Weights &amp; Biases and MLflow backends.</p>
+<p>Importing this package imports neither <code>wandb</code> nor <code>mlflow</code>; each backend loads its
+SDK when constructed and raises <code>ImportError</code> naming the extra that provides it.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.tracking.ConsoleLogger" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">ConsoleLogger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">log_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.ConsoleLogger" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              Logger(name, log_dir=None, level=logging.INFO) (substrax.tracking.logger.Logger)" href="#substrax.tracking.Logger">Logger</a></code></p>
+
+
+
+        <p>Logger that writes lines to the console only.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.ConsoleLogger.log_scalars" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalars</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.ConsoleLogger.log_scalars" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log several scalars as one line.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.ConsoleLogger.log_image" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_image</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.ConsoleLogger.log_image" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the image count or shape, not the pixels.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.ConsoleLogger.log_histogram" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_histogram</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.ConsoleLogger.log_histogram" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the summary statistics of <code>values</code>, not the histogram.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.ConsoleLogger.log_text" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_text</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.ConsoleLogger.log_text" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log <code>text</code> under <code>name</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.ConsoleLogger.log_hyperparams" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_hyperparams</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.ConsoleLogger.log_hyperparams" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log one line per hyperparameter.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.tracking.FileLogger" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">FileLogger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">log_dir</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.FileLogger" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              ConsoleLogger(name, log_dir=None, level=logging.INFO) (substrax.tracking.logger.ConsoleLogger)" href="#substrax.tracking.ConsoleLogger">ConsoleLogger</a></code></p>
+
+
+
+        <p>Logger that writes the console lines to a file as well.</p>
+<p>Scalars also go to <code>&lt;name&gt;_&lt;timestamp&gt;_metrics.csv</code> (one <code>timestamp, step, name,
+value</code> row per scalar), images to <code>images/</code>, histograms to <code>histograms/</code>, texts
+to <code>texts/</code> and hyperparameters to <code>hyperparams_&lt;timestamp&gt;.txt</code>. Images and
+histograms need the <code>plots</code> extra; without it they are logged as lines only.</p>
+
+        <p>Initialise the file logger.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the logger.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory to save logs to.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>filename</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Log filename. <code>None</code> derives one from <code>name</code> and the time.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>level</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logging level.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="logging.INFO">INFO</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.FileLogger.log_scalars" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalars</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.FileLogger.log_scalars" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log several scalars as one line and append them to the metrics CSV.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.FileLogger.log_image" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_image</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.FileLogger.log_image" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the image and save it under <code>images/</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.FileLogger.log_histogram" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_histogram</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.FileLogger.log_histogram" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the summary statistics and save the histogram under <code>histograms/</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.FileLogger.log_text" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_text</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.FileLogger.log_text" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log <code>text</code> and save it under <code>texts/</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.FileLogger.log_hyperparams" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_hyperparams</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.FileLogger.log_hyperparams" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the hyperparameters and save them to <code>hyperparams_&lt;timestamp&gt;.txt</code>.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.tracking.Logger" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">Logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">log_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="abc.ABC">ABC</span></code></p>
+
+
+
+        <p>Base class for all loggers.</p>
+<p>Concrete loggers record scalars, images, histograms, text and hyperparameters
+somewhere; every logger also owns a :mod:<code>logging</code> logger named after it whose
+handlers it replaces, so lines reach stdout exactly once.</p>
+
+        <p>Initialise the logger.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the logger and of its :mod:<code>logging</code> logger.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory for files, created if missing. <code>None</code> writes no files.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>level</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logging level from the :mod:<code>logging</code> module.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="logging.INFO">INFO</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.log" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log a message at <code>level</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.debug" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">debug</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.debug" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log a debug message.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.info" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">info</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.info" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log an info message.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.warning" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">warning</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.warning" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log a warning message.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.error" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.error" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log an error message.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.critical" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">critical</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.critical" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log a critical message.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log_scalar" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalar</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.Logger.log_scalar" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log one scalar; the default records it through :meth:<code>log_scalars</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the scalar.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>value</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Scalar value to log.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Global step value to record, for example the training iteration.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log_scalars" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalars</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.tracking.Logger.log_scalars" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log several scalars.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>scalars</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Scalar names to values.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Global step value to record.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log_image" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_image</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.tracking.Logger.log_image" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log an image or a list of images.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the image.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>image</code>
+            </td>
+            <td>
+                  <code><span title="jax.typing.ArrayLike">ArrayLike</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="jax.typing.ArrayLike">ArrayLike</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One array of shape <code>(H, W)</code> or <code>(H, W, C)</code>, or a list of them.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Global step value to record.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log_histogram" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_histogram</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.tracking.Logger.log_histogram" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log a histogram of values.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the histogram.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>values</code>
+            </td>
+            <td>
+                  <code><span title="jax.typing.ArrayLike">ArrayLike</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Values to build the histogram from.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Global step value to record.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log_text" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_text</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.tracking.Logger.log_text" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log text.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the text entry.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>text</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Text to log.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Global step value to record.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.log_hyperparams" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_hyperparams</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.tracking.Logger.log_hyperparams" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log hyperparameters.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>params</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hyperparameter names to values.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.Logger.close" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">close</span><span class="p">()</span></code>
+
+<a href="#substrax.tracking.Logger.close" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Close the logger's handlers and release their resources.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.tracking.MLFlowLogger" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">MLFlowLogger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">log_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">experiment_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">run_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tracking_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">registry_uri</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              Logger(name, log_dir=None, level=logging.INFO) (substrax.tracking.logger.Logger)" href="#substrax.tracking.Logger">Logger</a></code></p>
+
+
+
+        <p>Logger that records metrics, parameters and artifacts in an MLflow run.</p>
+<p>Images, histograms and texts are written to <code>&lt;log_dir&gt;/artifacts/&lt;kind&gt;/</code> when a
+log directory is given, else to a temporary file, and logged as run artifacts under
+<code>&lt;kind&gt;</code>. Images and histograms need the <code>plots</code> extra.</p>
+
+        <p>Start or resume the MLflow run.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the logger; also the experiment name when none is given.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Local directory for artifacts, in addition to the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>experiment_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>MLflow experiment, created if missing.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>run_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name for a new run. MLflow generates one when omitted.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>run_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An existing run to continue; <code>experiment_name</code> and <code>run_name</code>
+are then ignored.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tracking_uri</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>MLflow tracking server. <code>None</code> keeps the environment's.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>registry_uri</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>MLflow model registry. <code>None</code> keeps the tracking URI.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>level</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logging level.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="logging.INFO">INFO</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Constructing the logger raises <code>ImportError</code> when the <code>mlflow</code> extra is not
+installed.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_scalar" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalar</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_scalar" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log one metric.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_scalars" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalars</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_scalars" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log several metrics.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_image" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_image</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_image" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log an image or a list of images as an artifact under <code>images</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_histogram" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_histogram</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_histogram" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the summary statistics as metrics and the histogram as an artifact.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_text" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_text</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_text" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log <code>text</code> as an artifact under <code>texts</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_hyperparams" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_hyperparams</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_hyperparams" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the hyperparameters as run parameters.</p>
+<p>MLflow accepts strings, numbers and booleans; anything else is logged as its
+<code>str</code> representation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_artifact" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_artifact</span><span class="p">(</span><span class="n">local_path</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_artifact" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log one file as a run artifact.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>local_path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>File to log.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>artifact_path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory within the run's artifacts to place it in.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.log_artifacts" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_artifacts</span><span class="p">(</span><span class="n">local_dir</span><span class="p">,</span> <span class="n">artifact_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.log_artifacts" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log every file in a directory as run artifacts.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>local_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory whose files to log.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>artifact_path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory within the run's artifacts to place them in.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.end_run" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">end_run</span><span class="p">()</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.end_run" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>End the run; a second call is a no-op.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.MLFlowLogger.close" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">close</span><span class="p">()</span></code>
+
+<a href="#substrax.tracking.MLFlowLogger.close" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>End the run and close the logger.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.tracking.WandbLogger" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">WandbLogger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">project</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">entity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">notes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              Logger(name, log_dir=None, level=logging.INFO) (substrax.tracking.logger.Logger)" href="#substrax.tracking.Logger">Logger</a></code></p>
+
+
+
+        <p>Logger that records metrics, media and artifacts in a Weights &amp; Biases run.</p>
+
+        <p>Start the W&amp;B run.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the run and of the logger.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>project</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the W&amp;B project.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>entity</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User or team that owns the project.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Local directory for W&amp;B's own files, in addition to the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Hyperparameters to record on the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tags</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tags for the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>notes</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Notes about the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>level</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logging level.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="logging.INFO">INFO</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Constructing the logger raises <code>ImportError</code> when the <code>wandb</code> extra is not
+installed.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_scalars" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_scalars</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_scalars" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log several scalars to the run.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_image" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_image</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_image" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log an image or a list of images to the run.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_histogram" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_histogram</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_histogram" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log the histogram and its summary statistics (<code>&lt;name&gt;/min</code> and so on).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_text" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_text</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_text" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Log <code>text</code> as a preformatted HTML block.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_hyperparams" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_hyperparams</span><span class="p">(</span><span class="n">params</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_hyperparams" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Record the hyperparameters on the run's config.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_code" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_code</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_code" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Save the code under <code>root</code> (default: the current directory) to the run.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.log_model" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">log_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.log_model" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Upload a model file or directory as a W&amp;B artifact of type <code>model</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>File or directory to upload.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Artifact name; defaults to <code>&lt;run name&gt;_model</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metadata</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Metadata to record on the artifact.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.finish" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">finish</span><span class="p">(</span><span class="n">exit_code</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.WandbLogger.finish" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Finish the run; a second call is a no-op.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>exit_code</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Exit code to report to W&amp;B.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.tracking.WandbLogger.close" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">close</span><span class="p">()</span></code>
+
+<a href="#substrax.tracking.WandbLogger.close" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Finish the run and close the logger.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.tracking.create_logger" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">create_logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">log_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">log_to_file</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span></code>
+
+<a href="#substrax.tracking.create_logger" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a console logger, or a file logger that also logs to the console.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the logger.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory to save logs to. <code>None</code> with <code>log_to_file</code> means
+<code>./logs/&lt;name&gt;</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_to_file</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to write files as well as console lines.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>level</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logging level.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="logging.INFO">INFO</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>A</code></td>            <td>
+                  <code><a class="autorefs autorefs-internal" title="              Logger(name, log_dir=None, level=logging.INFO) (substrax.tracking.logger.Logger)" href="#substrax.tracking.Logger">Logger</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>class:<code>FileLogger</code> when <code>log_to_file</code> is set, else a :class:<code>ConsoleLogger</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "navigation.path", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

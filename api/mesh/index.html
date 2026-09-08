@@ -1,0 +1,4649 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Shared training and hardware infrastructure for the Avitai JAX stack">
+      
+      
+        <meta name="author" content="Mahdi Shafiei">
+      
+      
+        <link rel="canonical" href="https://substrax.readthedocs.io/api/mesh/">
+      
+      
+        <link rel="prev" href="../devices/">
+      
+      
+        <link rel="next" href="../spmd/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Mesh - Substrax</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mesh" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Substrax" class="md-header__button md-logo" aria-label="Substrax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Substrax
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Mesh
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/avitai/substrax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    avitai/substrax
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Substrax" class="md-nav__button md-logo" aria-label="Substrax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+
+    </a>
+    Substrax
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/avitai/substrax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    avitai/substrax
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;mesh
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" mesh">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;DeviceMeshManager
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" DeviceMeshManager">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_device_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_device_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_data_parallel_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_data_parallel_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_model_parallel_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_model_parallel_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_hybrid_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_hybrid_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.get_mesh_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_mesh_info
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MeshRules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MeshRules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MeshRules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MeshRules.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DataParallelStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;DataParallelStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" DataParallelStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DataParallelStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DataParallelStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;FSDPStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" FSDPStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.should_shard_weight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;should_shard_weight
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.get_gradient_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_gradient_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MultiDimensionalStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MultiDimensionalStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MultiDimensionalStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MultiDimensionalStrategy.get_combined_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_combined_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MultiDimensionalStrategy.resolve_sharding_conflicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;resolve_sharding_conflicts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ParallelismConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ParallelismConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ParallelismConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ParallelismConfig.is_valid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;is_valid
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ParallelismConfig.from_sharding_config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;from_sharding_config
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PipelineParallelStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" PipelineParallelStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.assign_layers_to_stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;assign_layers_to_stages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.get_forward_communication_pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_forward_communication_pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.get_backward_communication_pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_backward_communication_pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ShardingConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ShardingConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingConfig.get_total_device_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_total_device_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingConfig.from_device_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;from_device_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ShardingStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ShardingStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy.get_sharding_constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_sharding_constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TensorParallelStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" TensorParallelStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_linear_weight_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_linear_weight_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_attention_qkv_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_attention_qkv_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_attention_output_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_attention_output_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.create_named_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_named_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.data_parallel_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;data_parallel_rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.fsdp_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fsdp_rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.partition_spec_for_names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;partition_spec_for_names
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spmd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SPMD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../callbacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Callbacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;mesh
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" mesh">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;DeviceMeshManager
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" DeviceMeshManager">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_device_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_device_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_data_parallel_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_data_parallel_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_model_parallel_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_model_parallel_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.create_hybrid_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_hybrid_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DeviceMeshManager.get_mesh_info" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_mesh_info
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MeshRules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MeshRules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MeshRules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MeshRules.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DataParallelStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;DataParallelStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" DataParallelStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DataParallelStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.DataParallelStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;FSDPStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" FSDPStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.should_shard_weight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;should_shard_weight
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.get_gradient_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_gradient_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.FSDPStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MultiDimensionalStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MultiDimensionalStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MultiDimensionalStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MultiDimensionalStrategy.get_combined_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_combined_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.MultiDimensionalStrategy.resolve_sharding_conflicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;resolve_sharding_conflicts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ParallelismConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ParallelismConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ParallelismConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ParallelismConfig.is_valid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;is_valid
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ParallelismConfig.from_sharding_config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;from_sharding_config
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PipelineParallelStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" PipelineParallelStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.assign_layers_to_stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;assign_layers_to_stages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.get_forward_communication_pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_forward_communication_pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.get_backward_communication_pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_backward_communication_pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.PipelineParallelStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ShardingConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ShardingConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingConfig.get_total_device_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_total_device_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingConfig.from_device_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;from_device_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ShardingStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ShardingStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.ShardingStrategy.get_sharding_constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_sharding_constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TensorParallelStrategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" TensorParallelStrategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_partition_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_partition_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_linear_weight_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_linear_weight_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_attention_qkv_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_attention_qkv_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.get_attention_output_spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_attention_output_spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.TensorParallelStrategy.apply_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.create_named_sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_named_sharding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.data_parallel_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;data_parallel_rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.fsdp_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fsdp_rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.mesh.partition_spec_for_names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;partition_spec_for_names
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../devices/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    API Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="mesh">Mesh<a class="headerlink" href="#mesh" title="Permanent link">¤</a></h1>
+<p><code>substrax.mesh</code> builds device meshes and describes how arrays are laid out on them.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceMeshManager</span><span class="p">,</span> <span class="n">FSDPStrategy</span><span class="p">,</span> <span class="n">ShardingConfig</span><span class="p">,</span> <span class="n">fsdp_rules</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">mesh</span> <span class="o">=</span> <span class="n">DeviceMeshManager</span><span class="o">.</span><span class="n">create_device_mesh</span><span class="p">({</span><span class="s2">"data"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"model"</span><span class="p">:</span> <span class="mi">4</span><span class="p">})</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">rules</span> <span class="o">=</span> <span class="n">fsdp_rules</span><span class="p">(</span><span class="n">data_axis</span><span class="o">=</span><span class="s2">"data"</span><span class="p">,</span> <span class="n">model_axis</span><span class="o">=</span><span class="s2">"model"</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ShardingConfig</span><span class="p">(</span><span class="n">data_parallel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">tensor_parallel_size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">fsdp_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">strategy</span> <span class="o">=</span> <span class="n">FSDPStrategy</span><span class="p">(</span><span class="s2">"model"</span><span class="p">,</span> <span class="n">mesh_axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">min_weight_size</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">fsdp_min_weight_size</span><span class="p">)</span>
+</code></pre></div>
+<p>Three layers, from low to high:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Names</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Meshes</td>
+<td><code>DeviceMeshManager</code></td>
+<td><code>jax.make_mesh</code> over the visible devices, plus mesh introspection</td>
+</tr>
+<tr>
+<td>Rules</td>
+<td><code>MeshRules</code>, <code>data_parallel_rules</code>, <code>fsdp_rules</code>, <code>create_named_sharding</code>, <code>partition_spec_for_names</code></td>
+<td>Map logical axis names to mesh axes and build <code>NamedSharding</code>s</td>
+</tr>
+<tr>
+<td>Strategies</td>
+<td><code>ShardingConfig</code>, <code>ParallelismConfig</code>, <code>ShardingStrategy</code> and its data-parallel, FSDP, tensor-parallel, pipeline-parallel and multi-dimensional implementations</td>
+<td>Decide the partition spec of every parameter in a model</td>
+</tr>
+</tbody>
+</table>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="substrax.mesh" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>substrax.mesh</code>
+
+
+<a href="#substrax.mesh" class="headerlink" title="Permanent link">¤</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Device meshes, mesh rules, partition-spec helpers and sharding strategies.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.DeviceMeshManager" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>DeviceMeshManager</code>
+
+
+<a href="#substrax.mesh.DeviceMeshManager" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Manager for creating and configuring JAX device meshes.</p>
+<p>This class provides utilities for creating device meshes for different
+distributed training configurations, including data-parallel, model-parallel,
+and hybrid approaches.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DeviceMeshManager.create_device_mesh" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">create_device_mesh</span><span class="p">(</span><span class="n">mesh_shape</span><span class="p">,</span> <span class="n">devices</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.DeviceMeshManager.create_device_mesh" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a JAX device mesh with the specified shape.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh_shape</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="int">int</span>] | <span title="list">list</span>[<span title="tuple">tuple</span>[<span title="str">str</span>, <span title="int">int</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The shape of the mesh, specified either as a dictionary
+mapping axis names to sizes, or as a list of (name, size) tuples.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>devices</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional list of devices to use. If None, uses all available
+devices.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JAX device mesh.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the mesh shape is incompatible with the number of devices.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DeviceMeshManager.create_data_parallel_mesh" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">create_data_parallel_mesh</span><span class="p">(</span><span class="n">num_devices</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.DeviceMeshManager.create_data_parallel_mesh" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a data-parallel device mesh.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_devices</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional number of devices to use. If None, uses all
+available devices.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JAX device mesh configured for data-parallel training.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DeviceMeshManager.create_model_parallel_mesh" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">create_model_parallel_mesh</span><span class="p">(</span><span class="n">num_devices</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.DeviceMeshManager.create_model_parallel_mesh" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a model-parallel device mesh.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_devices</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of devices to use for model parallelism.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JAX device mesh configured for model-parallel training.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If there aren't enough devices available.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DeviceMeshManager.create_hybrid_mesh" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">create_hybrid_mesh</span><span class="p">(</span><span class="n">data_parallel_size</span><span class="p">,</span> <span class="n">model_parallel_size</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.DeviceMeshManager.create_hybrid_mesh" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a hybrid data-parallel and model-parallel device mesh.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>data_parallel_size</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of devices to use for data parallelism.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_parallel_size</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of devices to use for model parallelism.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JAX device mesh configured for hybrid parallel training.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If there aren't enough devices available.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DeviceMeshManager.get_mesh_info" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_mesh_info</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.DeviceMeshManager.get_mesh_info" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get information about a device mesh.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh</code>
+            </td>
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The device mesh to inspect.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="int">int</span> | <span title="dict">dict</span>[<span title="str">str</span>, <span title="int">int</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A dictionary containing information about the mesh, including the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="int">int</span> | <span title="dict">dict</span>[<span title="str">str</span>, <span title="int">int</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>number of devices and the size of each axis.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.MeshRules" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">MeshRules</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">embed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mlp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">heads</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#substrax.mesh.MeshRules" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Logical-to-physical mesh axis mapping for SPMD sharding.</p>
+<p>Maps logical dimension names to physical mesh axis names.
+Following the pattern from Flax NNX FSDP examples.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.mesh.MeshRules.data">data</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mesh axis for the batch/data dimension.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.mesh.MeshRules.embed">embed</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mesh axis for embedding dimensions.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.mesh.MeshRules.mlp">mlp</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mesh axis for MLP hidden dimensions.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.mesh.MeshRules.heads">heads</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mesh axis for attention head dimensions.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.MeshRules.__call__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__call__</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.MeshRules.__call__" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Look up mesh axes for the given logical dimension names.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>*keys</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logical dimension names (must be attributes of MeshRules).</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="str">str</span> | None, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tuple of mesh axis names (or None for unmapped dimensions).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.DataParallelStrategy" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">DataParallelStrategy</span><span class="p">(</span><span class="n">axis_name</span><span class="p">,</span> <span class="n">mesh_axis</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.DataParallelStrategy" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              ShardingStrategy(axis_name, mesh_axis) (substrax.mesh.strategies.ShardingStrategy)" href="#substrax.mesh.ShardingStrategy">ShardingStrategy</a></code></p>
+
+
+
+        <p>Data parallel sharding strategy.</p>
+<p>Shards the batch dimension across devices while replicating
+model parameters and computation.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DataParallelStrategy.get_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_partition_spec</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.DataParallelStrategy.get_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for data parallel sharding.</p>
+<p>Only shards the batch dimension, leaves others replicated.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.DataParallelStrategy.apply_sharding" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_sharding</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.DataParallelStrategy.apply_sharding" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply data parallel sharding to array.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.FSDPStrategy" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">FSDPStrategy</span><span class="p">(</span><span class="n">axis_name</span><span class="p">,</span> <span class="n">mesh_axis</span><span class="p">,</span> <span class="n">min_weight_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.FSDPStrategy" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              ShardingStrategy(axis_name, mesh_axis) (substrax.mesh.strategies.ShardingStrategy)" href="#substrax.mesh.ShardingStrategy">ShardingStrategy</a></code></p>
+
+
+
+        <p>Fully Sharded Data Parallel strategy.</p>
+<p>Shards model parameters across devices to reduce memory usage
+while maintaining training efficiency.</p>
+
+        <p>Initialize FSDP strategy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh_axis</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>min_weight_size</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minimum first dimension size to enable sharding</p>
+              </div>
+            </td>
+            <td>
+                  <code>1024</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.FSDPStrategy.should_shard_weight" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">should_shard_weight</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.FSDPStrategy.should_shard_weight" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Determine if a weight should be sharded based on its size.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>weight</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Weight array to check</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>True if weight should be sharded, False otherwise</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.FSDPStrategy.get_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_partition_spec</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.FSDPStrategy.get_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for FSDP sharding.</p>
+<p>Shards along the first dimension of weight tensors.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.FSDPStrategy.get_gradient_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_gradient_partition_spec</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.FSDPStrategy.get_gradient_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for gradient sharding (same as weights).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.FSDPStrategy.apply_sharding" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_sharding</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.FSDPStrategy.apply_sharding" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply FSDP sharding to array.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.MultiDimensionalStrategy" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">MultiDimensionalStrategy</span><span class="p">(</span><span class="n">strategies</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.MultiDimensionalStrategy" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Multi-dimensional parallelism strategy combining multiple approaches.</p>
+<p>Combines different sharding strategies (data, tensor, FSDP, pipeline)
+to achieve optimal performance for large-scale training.</p>
+
+        <p>Initialize multi-dimensional strategy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>strategies</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="              ShardingStrategy(axis_name, mesh_axis) (substrax.mesh.strategies.ShardingStrategy)" href="#substrax.mesh.ShardingStrategy">ShardingStrategy</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary mapping strategy names to strategy instances</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              ParallelismConfig(mesh_shape, mesh_axis_names, sharding_config)
+
+  
+      dataclass
+   (substrax.mesh.strategies.ParallelismConfig)" href="#substrax.mesh.ParallelismConfig">ParallelismConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Sharding configuration for the multi-dimensional strategy</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.MultiDimensionalStrategy.get_combined_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_combined_partition_spec</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">tensor_shape</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.MultiDimensionalStrategy.get_combined_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get combined partition spec from all strategies.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tensor_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name/type of the tensor</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tensor_shape</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="str">str</span>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Shape dimension names of the tensor</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.PartitionSpec">PartitionSpec</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Combined PartitionSpec</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.MultiDimensionalStrategy.resolve_sharding_conflicts" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">resolve_sharding_conflicts</span><span class="p">(</span><span class="n">tensor_name</span><span class="p">,</span> <span class="n">proposed_specs</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.MultiDimensionalStrategy.resolve_sharding_conflicts" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Resolve conflicts between multiple proposed partition specs.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tensor_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the tensor</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>proposed_specs</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="jax.sharding.PartitionSpec">PartitionSpec</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary of strategy names to proposed specs</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.PartitionSpec">PartitionSpec</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Resolved PartitionSpec</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.ParallelismConfig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">ParallelismConfig</span><span class="p">(</span><span class="n">mesh_shape</span><span class="p">,</span> <span class="n">mesh_axis_names</span><span class="p">,</span> <span class="n">sharding_config</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#substrax.mesh.ParallelismConfig" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Complete parallelism configuration including mesh topology.</p>
+<p>Combines sharding configuration with device mesh setup.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ParallelismConfig.is_valid" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">is_valid</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.ParallelismConfig.is_valid" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Validate that mesh shape matches sharding configuration.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ParallelismConfig.from_sharding_config" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">from_sharding_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.ParallelismConfig.from_sharding_config" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create parallelism config from sharding configuration.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.PipelineParallelStrategy" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">PipelineParallelStrategy</span><span class="p">(</span><span class="n">axis_name</span><span class="p">,</span> <span class="n">mesh_axis</span><span class="p">,</span> <span class="n">num_stages</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.PipelineParallelStrategy" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              ShardingStrategy(axis_name, mesh_axis) (substrax.mesh.strategies.ShardingStrategy)" href="#substrax.mesh.ShardingStrategy">ShardingStrategy</a></code></p>
+
+
+
+        <p>Pipeline parallel sharding strategy.</p>
+<p>Distributes model layers across devices to enable pipeline parallelism
+for very large models that don't fit on single devices.</p>
+
+        <p>Initialize pipeline parallel strategy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh_axis</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_stages</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of pipeline stages</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.PipelineParallelStrategy.assign_layers_to_stages" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">assign_layers_to_stages</span><span class="p">(</span><span class="n">num_layers</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.PipelineParallelStrategy.assign_layers_to_stages" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Assign layers to pipeline stages.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>num_layers</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Total number of layers in the model</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>list of layer counts per stage</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.PipelineParallelStrategy.get_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_partition_spec</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.PipelineParallelStrategy.get_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for pipeline parallel sharding.</p>
+<p>Pipeline parallelism doesn't shard individual tensors,
+but rather assigns entire layers to different devices.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.PipelineParallelStrategy.get_forward_communication_pattern" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_forward_communication_pattern</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.PipelineParallelStrategy.get_forward_communication_pattern" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get communication pattern for forward pass.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="tuple">tuple</span>[<span title="int">int</span>, <span title="int">int</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>list of (source_stage, dest_stage) pairs</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.PipelineParallelStrategy.get_backward_communication_pattern" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_backward_communication_pattern</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.PipelineParallelStrategy.get_backward_communication_pattern" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get communication pattern for backward pass.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="tuple">tuple</span>[<span title="int">int</span>, <span title="int">int</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>list of (source_stage, dest_stage) pairs</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.PipelineParallelStrategy.apply_sharding" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_sharding</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.PipelineParallelStrategy.apply_sharding" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply pipeline parallel sharding to array.</p>
+<p>Pipeline parallelism handles layer assignment rather than
+tensor sharding.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.ShardingConfig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">ShardingConfig</span><span class="p">(</span><span class="n">data_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">tensor_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pipeline_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fsdp_enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fsdp_min_weight_size</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#substrax.mesh.ShardingConfig" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Configuration for multi-dimensional parallelism setup.</p>
+<p>Defines the parallelism dimensions and FSDP settings for a model.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ShardingConfig.get_total_device_count" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_total_device_count</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.ShardingConfig.get_total_device_count" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Calculate total devices needed for this configuration.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ShardingConfig.from_device_count" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">from_device_count</span><span class="p">(</span><span class="n">device_count</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.ShardingConfig.from_device_count" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create optimal sharding config for given device count.</p>
+<p>Uses heuristics to balance different parallelism dimensions.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.ShardingStrategy" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">ShardingStrategy</span><span class="p">(</span><span class="n">axis_name</span><span class="p">,</span> <span class="n">mesh_axis</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.ShardingStrategy" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="abc.ABC">ABC</span></code></p>
+
+
+
+        <p>Abstract base class for sharding strategies.</p>
+<p>Defines the interface that all sharding strategies must implement
+for consistent handling of different parallelism types.</p>
+
+        <p>Initialize sharding strategy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis for this strategy</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh_axis</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ShardingStrategy.get_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_partition_spec</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.ShardingStrategy.get_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition specification for a tensor with given shape names.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tensor_shape</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="str">str</span>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tuple of dimension names for the tensor</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.PartitionSpec">PartitionSpec</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>PartitionSpec defining how to shard the tensor</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ShardingStrategy.apply_sharding" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_sharding</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#substrax.mesh.ShardingStrategy.apply_sharding" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply sharding to an array using the given mesh.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>array</code>
+            </td>
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>JAX array to shard</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh</code>
+            </td>
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Device mesh for sharding</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Sharded array</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.ShardingStrategy.get_sharding_constraints" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_sharding_constraints</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.ShardingStrategy.get_sharding_constraints" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get sharding constraints for this strategy.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dictionary of sharding constraints</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.mesh.TensorParallelStrategy" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">TensorParallelStrategy</span><span class="p">(</span><span class="n">axis_name</span><span class="p">,</span> <span class="n">mesh_axis</span><span class="p">,</span> <span class="n">shard_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.TensorParallelStrategy" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="              ShardingStrategy(axis_name, mesh_axis) (substrax.mesh.strategies.ShardingStrategy)" href="#substrax.mesh.ShardingStrategy">ShardingStrategy</a></code></p>
+
+
+
+        <p>Tensor parallel sharding strategy.</p>
+<p>Shards model computation across devices by splitting tensors
+along specific dimensions (typically features).</p>
+
+        <p>Initialize tensor parallel strategy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh_axis</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index of the mesh axis</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>shard_dimension</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Preferred dimension to shard
+('in_features' or 'out_features')</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.TensorParallelStrategy.get_partition_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_partition_spec</span><span class="p">(</span><span class="n">tensor_shape</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.TensorParallelStrategy.get_partition_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for tensor parallel sharding.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.TensorParallelStrategy.get_linear_weight_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_linear_weight_spec</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.TensorParallelStrategy.get_linear_weight_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for linear layer weights.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.TensorParallelStrategy.get_attention_qkv_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_attention_qkv_spec</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.TensorParallelStrategy.get_attention_qkv_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for attention QKV projections.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.TensorParallelStrategy.get_attention_output_spec" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_attention_output_spec</span><span class="p">()</span></code>
+
+<a href="#substrax.mesh.TensorParallelStrategy.get_attention_output_spec" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Get partition spec for attention output projection.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.mesh.TensorParallelStrategy.apply_sharding" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_sharding</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.TensorParallelStrategy.apply_sharding" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply tensor parallel sharding to array.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.mesh.create_named_sharding" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">create_named_sharding</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="o">*</span><span class="n">axis_names</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.create_named_sharding" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a NamedSharding from a mesh and axis names.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh</code>
+            </td>
+            <td>
+                  <code><span title="jax.sharding.Mesh">Mesh</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The device mesh.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>*axis_names</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Axis names for each dimension. Use None for replicated
+dimensions. If no axes are provided, creates a fully replicated
+sharding.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.NamedSharding">NamedSharding</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A JAX NamedSharding object.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.mesh.data_parallel_rules" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">data_parallel_rules</span><span class="p">(</span><span class="n">data_axis</span><span class="o">=</span><span class="s1">'data'</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.data_parallel_rules" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create MeshRules for pure data-parallel training.</p>
+<p>Shards only the batch dimension across devices.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>data_axis</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis for data parallelism.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;data&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              MeshRules(*, data=None, embed=None, mlp=None, heads=None)
+
+  
+      dataclass
+   (substrax.mesh.rules.MeshRules)" href="#substrax.mesh.MeshRules">MeshRules</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>MeshRules with only the data axis mapped.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.mesh.fsdp_rules" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">fsdp_rules</span><span class="p">(</span><span class="n">data_axis</span><span class="o">=</span><span class="s1">'data'</span><span class="p">,</span> <span class="n">model_axis</span><span class="o">=</span><span class="s1">'model'</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.fsdp_rules" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create MeshRules for Fully Sharded Data Parallel (FSDP) training.</p>
+<p>Shards the batch dimension across the data axis and model weight
+dimensions across the model axis.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>data_axis</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis for data parallelism.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;data&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model_axis</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the mesh axis for model parallelism.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;model&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              MeshRules(*, data=None, embed=None, mlp=None, heads=None)
+
+  
+      dataclass
+   (substrax.mesh.rules.MeshRules)" href="#substrax.mesh.MeshRules">MeshRules</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>MeshRules with data and model axes mapped.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.mesh.partition_spec_for_names" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">partition_spec_for_names</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="o">*</span><span class="n">logical_names</span><span class="p">)</span></code>
+
+<a href="#substrax.mesh.partition_spec_for_names" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply MeshRules to create a PartitionSpec for a tensor.</p>
+<p>Maps logical dimension names through the rules to produce physical
+mesh axis assignments.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>rules</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              MeshRules(*, data=None, embed=None, mlp=None, heads=None)
+
+  
+      dataclass
+   (substrax.mesh.rules.MeshRules)" href="#substrax.mesh.MeshRules">MeshRules</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The MeshRules mapping to apply.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>*logical_names</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logical dimension names for each tensor axis.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.sharding.PartitionSpec">PartitionSpec</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A PartitionSpec with physical mesh axis assignments.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "navigation.path", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

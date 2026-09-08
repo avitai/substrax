@@ -12,25 +12,31 @@
         <meta name="author" content="Mahdi Shafiei">
       
       
+        <link rel="canonical" href="https://substrax.readthedocs.io/migration/">
       
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../api/devices/">
       
       
         
       
       
-      <link rel="icon" href="/assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Substrax</title>
+        <title>Migration - Substrax</title>
       
     
     
-      <link rel="stylesheet" href="/assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -49,9 +55,9 @@
       
     
     
-      <link rel="stylesheet" href="/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("/",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -75,6 +81,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#migrating-from-the-sibling-packages" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -87,7 +98,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/." title="Substrax" class="md-header__button md-logo" aria-label="Substrax" data-md-component="logo">
+    <a href=".." title="Substrax" class="md-header__button md-logo" aria-label="Substrax" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
@@ -107,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Migration
             
           </span>
         </div>
@@ -225,7 +236,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/." title="Substrax" class="md-nav__button md-logo" aria-label="Substrax" data-md-component="logo">
+    <a href=".." title="Substrax" class="md-nav__button md-logo" aria-label="Substrax" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
@@ -255,7 +266,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -279,10 +290,19 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/migration/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -298,6 +318,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -356,7 +377,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/api/devices/" class="md-nav__link">
+      <a href="../api/devices/" class="md-nav__link">
         
   
   
@@ -384,7 +405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/api/mesh/" class="md-nav__link">
+      <a href="../api/mesh/" class="md-nav__link">
         
   
   
@@ -412,7 +433,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/api/spmd/" class="md-nav__link">
+      <a href="../api/spmd/" class="md-nav__link">
         
   
   
@@ -440,7 +461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/api/checkpoint/" class="md-nav__link">
+      <a href="../api/checkpoint/" class="md-nav__link">
         
   
   
@@ -468,7 +489,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/api/callbacks/" class="md-nav__link">
+      <a href="../api/callbacks/" class="md-nav__link">
         
   
   
@@ -496,7 +517,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/api/tracking/" class="md-nav__link">
+      <a href="../api/tracking/" class="md-nav__link">
         
   
   
@@ -541,6 +562,8 @@
   
   
   
+    
+  
   
 </nav>
                   </div>
@@ -561,8 +584,87 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="migrating-from-the-sibling-packages">Migrating from the sibling packages<a class="headerlink" href="#migrating-from-the-sibling-packages" title="Permanent link">¤</a></h1>
+<p>Every module in Substrax was moved from calibrax, datarax, artifex or opifex. This page
+maps the old import paths to the new ones; the <a href="https://github.com/avitai/substrax/blob/main/CHANGELOG.md">changelog</a>
+lists what changed in each module and what was not carried over.</p>
+<table>
+<thead>
+<tr>
+<th>Old import</th>
+<th>New import</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>datarax.distributed.device_placement</code></td>
+<td><code>substrax.devices</code></td>
+</tr>
+<tr>
+<td><code>datarax.distributed.device_mesh.DeviceMeshManager</code></td>
+<td><code>substrax.mesh.DeviceMeshManager</code></td>
+</tr>
+<tr>
+<td><code>datarax.distributed.sharding</code></td>
+<td><code>substrax.mesh</code></td>
+</tr>
+<tr>
+<td><code>artifex.generative_models.scaling.sharding</code></td>
+<td><code>substrax.mesh</code></td>
+</tr>
+<tr>
+<td><code>datarax.distributed.data_parallel</code></td>
+<td><code>substrax.spmd</code></td>
+</tr>
+<tr>
+<td><code>datarax.distributed.metrics</code></td>
+<td><code>substrax.spmd</code></td>
+</tr>
+<tr>
+<td><code>opifex.core.training.components.checkpoint_store</code></td>
+<td><code>substrax.checkpoint</code></td>
+</tr>
+<tr>
+<td><code>artifex.generative_models.training.callbacks.base</code></td>
+<td><code>substrax.callbacks</code></td>
+</tr>
+<tr>
+<td><code>opifex.core.training.callbacks.EarlyStopping</code></td>
+<td><code>substrax.callbacks.EarlyStopping</code></td>
+</tr>
+<tr>
+<td><code>artifex.generative_models.training.callbacks.early_stopping.EarlyStopping</code></td>
+<td><code>substrax.callbacks.EarlyStoppingCallback</code></td>
+</tr>
+<tr>
+<td><code>artifex.generative_models.utils.logging</code></td>
+<td><code>substrax.tracking</code></td>
+</tr>
+</tbody>
+</table>
+<p>Two classes were named <code>EarlyStopping</code> with incompatible interfaces; the trainer-hook
+one is now <code>EarlyStoppingCallback</code>. <code>ReduceLROnPlateau</code> has no replacement here: use
+<code>optax.contrib.reduce_on_plateau</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -605,10 +707,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/", "features": ["content.code.annotate", "content.code.copy", "navigation.path", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.annotate", "content.code.copy", "navigation.path", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="/assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
