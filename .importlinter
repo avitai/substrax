@@ -1,0 +1,35 @@
+# Layering contracts, checked by `uv run lint-imports`. Kept outside pyproject.toml because
+# toml-sort reorders arrays and the order of a layers contract is its meaning.
+[importlinter]
+root_package = substrax
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = spmd builds on mesh, mesh on devices
+type = layers
+layers =
+    substrax.spmd
+    substrax.mesh
+    substrax.devices
+
+[importlinter:contract:leaves]
+name = checkpoint, callbacks and tracking do not import the sharding layers
+type = forbidden
+source_modules =
+    substrax.callbacks
+    substrax.checkpoint
+    substrax.tracking
+forbidden_modules =
+    substrax.mesh
+    substrax.spmd
+
+[importlinter:contract:siblings]
+name = substrax never imports a sibling package
+type = forbidden
+source_modules =
+    substrax
+forbidden_modules =
+    artifex
+    calibrax
+    datarax
+    opifex

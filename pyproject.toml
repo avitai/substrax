@@ -1,0 +1,320 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatchling>=1.18"
+]
+
+[project]
+authors = [
+  {email = "mahdi@avitai.bio", name = "Mahdi Shafiei"}
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering"
+]
+dependencies = [
+  "jax>=0.11.1",
+  "jaxlib>=0.11.1"
+]
+description = "Substrax: shared training and hardware infrastructure for the Avitai JAX stack"
+dynamic = ["version"]
+keywords = [
+  "checkpointing",
+  "distributed",
+  "flax",
+  "infrastructure",
+  "jax",
+  "sharding"
+]
+license = {file = "LICENSE"}
+name = "substrax"
+readme = "README.md"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+all = [
+  "substrax[cuda12,dev,docs,test]"
+]
+all-cpu = [
+  "substrax[dev,docs,test]"
+]
+all-macos = [
+  "substrax[dev,docs,metal,test]"
+]
+cuda-dev = [
+  "substrax[cuda12,dev]"
+]
+cuda12 = [
+  # Named for the CUDA major version, as JAX names its own extras. jax[cuda12] resolves
+  # jax-cuda12-plugin[with-cuda], which brings the pjrt package and the CUDA wheels in
+  # versions matched to jax.
+  "jax[cuda12]>=0.11.1"
+]
+dev = [
+  "bandit[toml]>=1.8.6",
+  "build>=1.0.3",
+  "coverage>=7",
+  "deptry>=0.23",
+  "import-linter>=2.0",
+  "interrogate>=1.5",
+  "pip-audit>=2.7",
+  "pre-commit>=4.2",
+  "pydoclint>=0.5",
+  "pylint>=3.3",
+  "pyright>=1.1.403",
+  "pyyaml>=6.0",
+  "radon>=6.0",
+  "ruff>=0.15.2",
+  "toml-sort>=0.23.1",
+  "twine>=6.1",
+  "validate-pyproject>=0.23",
+  "vulture>=2.14",
+  "xenon>=0.9"
+]
+docs = [
+  "griffe>=1.7.3",
+  "mkdocs-material>=9.7.7",
+  "mkdocs>=1.6.1,<2.0",
+  "mkdocstrings-python>=1.1.2",
+  "mkdocstrings>=0.28.3",
+  "pygments>=2.20,<3.0",
+  "pymdown-extensions>=11.0.1"
+]
+metal = [
+  "jax-metal>=0.1.0"
+]
+test = [
+  "coverage>=7",
+  "hypothesis>=6.100",
+  "pytest-cov>=6.1.1",
+  "pytest-env>=1.0.1",
+  "pytest-json-report>=1.5.0",
+  "pytest-randomly>=3.15",
+  "pytest-timeout>=2.1",
+  "pytest-xdist>=3.6",
+  "pytest>=9.0.3"
+]
+
+[project.urls]
+Changelog = "https://github.com/avitai/substrax/blob/main/CHANGELOG.md"
+Documentation = "https://substrax.readthedocs.io"
+Repository = "https://github.com/avitai/substrax"
+
+[tool.bandit]
+exclude_dirs = [
+  "scripts",
+  "tests"
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.report]
+exclude_lines = [
+  "@(abc\\.)?abstractmethod",
+  "class .*\\bProtocol\\):",
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "pragma: no cover",
+  "raise NotImplementedError"
+]
+fail_under = 80
+precision = 2
+show_missing = true
+
+[tool.coverage.run]
+branch = true
+omit = [
+  "*/__pycache__/*",
+  "*/conftest.py",
+  "*/scripts/*",
+  "*/tests/*"
+]
+parallel = true
+relative_files = true
+source = ["src"]
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.deptry]
+extend_exclude = ["conftest.py", "scripts", "tests"]
+known_first_party = ["substrax"]
+optional_dependencies_dev_groups = ["dev", "docs", "test"]
+
+[tool.deptry.package_module_name_map]
+PyYAML = ["yaml"]
+"mkdocs-material" = ["mkdocs_material"]
+"mkdocstrings-python" = ["mkdocstrings"]
+"orbax-checkpoint" = ["orbax"]
+"pymdown-extensions" = ["pymdownx"]
+
+[tool.deptry.per_rule_ignores]
+# jaxlib and the accelerator plugins are imported by jax, not by this package.
+# The aggregate extras name this package; deptry reads them as a self-dependency.
+DEP002 = [
+  "jax-metal",
+  "jaxlib",
+  "substrax"
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "LICENSE",
+  "README.md",
+  "pyproject.toml",
+  "src/substrax"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/substrax"]
+
+[tool.hatch.version]
+path = "src/substrax/__init__.py"
+
+[tool.interrogate]
+exclude = ["scripts", "tests"]
+fail-under = 80
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = true
+
+[tool.pydoclint]
+allow-init-docstring = true
+arg-type-hints-in-docstring = false
+# Annotations are the source of truth for types; docstrings carry the prose.
+check-return-types = false
+style = "google"
+
+[tool.pylint."messages_control"]
+max-args = 8
+max-attributes = 10
+max-public-methods = 20
+
+[tool.pyright]
+exclude = [
+  "scripts"
+]
+include = [
+  "src",
+  "tests"
+]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --tb=short --color=yes --durations=10 --cov=substrax --cov-branch --cov-report=term-missing --cov-fail-under=80 --timeout=300 -p no:cacheprovider"
+console_output_style = "progress"
+filterwarnings = [
+  "error",
+  "ignore::DeprecationWarning:jax.*",
+  "ignore::DeprecationWarning:pkg_resources.*",
+  "ignore::UserWarning:jax._src.xla_bridge",
+  # orbax warns when a PyTreeRestore template carries no sharding for jax.Array leaves.
+  "ignore:Sharding info not provided:UserWarning"
+]
+markers = [
+  "contract: marks tests that pin repository policy",
+  "gpu: marks tests that require an accelerator (deselect with '-m \"not gpu\"')",
+  "integration: marks tests that touch a real backend such as MLflow or W&B",
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "unit: marks tests as unit tests"
+]
+minversion = "9.0"
+testpaths = ["tests"]
+
+[tool.pytest-env]
+"D:JAX_PLATFORMS" = "cpu"
+"D:TF_CPP_MIN_LOG_LEVEL" = "1"
+"D:XLA_PYTHON_CLIENT_PREALLOCATE" = "false"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.format]
+docstring-code-format = true
+indent-style = "space"
+line-ending = "auto"
+quote-style = "double"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint]
+ignore = [
+  # Any is the honest type of a pytree leaf container.
+  "ANN401",
+  # Google-style docstrings: D203 and D213 conflict with D211 and D212.
+  "D203",
+  "D213",
+  # The formatter owns line length.
+  "E501",
+  # Exception messages are written inline; a message class per raise is noise.
+  "TRY003"
+]
+select = [
+  "ANN",
+  "ARG",
+  "B",
+  "C4",
+  "C90",
+  "D",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "RET",
+  "RUF",
+  "S",
+  "SIM",
+  "T20",
+  "TRY",
+  "UP",
+  "W"
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+known-first-party = ["substrax"]
+lines-after-imports = 2
+order-by-type = false
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["T20"]
+"tests/*" = ["ANN", "D", "PLR2004", "S101"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 8
+
+[tool.uv]
+# substrax does not import optax; flax does. Below 0.2.8 optax calls
+# jax.config.update("jax_pmap_shmap_merge"), which jax removed in 0.10, so importing flax
+# raises AttributeError. Constrained rather than declared, because it is transitive.
+constraint-dependencies = ["optax>=0.2.8"]
+python-preference = "only-managed"
+
+[tool.uv.pip]
+find-links = [
+  "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+]
