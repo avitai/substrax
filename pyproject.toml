@@ -47,13 +47,13 @@ requires-python = ">=3.12"
 
 [project.optional-dependencies]
 all = [
-  "substrax[cuda12,dev,docs,test]"
+  "substrax[cuda12,dev,docs,mlflow,plots,test,wandb]"
 ]
 all-cpu = [
-  "substrax[dev,docs,test]"
+  "substrax[dev,docs,mlflow,plots,test,wandb]"
 ]
 all-macos = [
-  "substrax[dev,docs,metal,test]"
+  "substrax[dev,docs,metal,mlflow,plots,test,wandb]"
 ]
 cuda-dev = [
   "substrax[cuda12,dev]"
@@ -97,6 +97,12 @@ docs = [
 metal = [
   "jax-metal>=0.1.0"
 ]
+mlflow = [
+  "mlflow>=2"
+]
+plots = [
+  "matplotlib>=3.8"
+]
 test = [
   "coverage>=7",
   "hypothesis>=6.100",
@@ -107,7 +113,12 @@ test = [
   "pytest-randomly>=3.15",
   "pytest-timeout>=2.1",
   "pytest-xdist>=3.6",
-  "pytest>=9.0.3"
+  "pytest>=9.0.3",
+  # The file and MLflow loggers draw figures with the plots extra; the tests exercise them.
+  "substrax[plots]"
+]
+wandb = [
+  "wandb>=0.18"
 ]
 
 [project.urls]
@@ -167,10 +178,15 @@ PyYAML = ["yaml"]
 [tool.deptry.per_rule_ignores]
 # jaxlib and the accelerator plugins are imported by jax, not by this package.
 # The aggregate extras name this package; deptry reads them as a self-dependency.
+# matplotlib, mlflow and wandb are optional backends loaded through importlib.import_module
+# when a logger is constructed (substrax.tracking._optional), which deptry cannot see.
 DEP002 = [
   "jax-metal",
   "jaxlib",
-  "substrax"
+  "matplotlib",
+  "mlflow",
+  "substrax",
+  "wandb"
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -250,6 +266,7 @@ testpaths = ["tests"]
 
 [tool.pytest-env]
 "D:JAX_PLATFORMS" = "cpu"
+"D:MPLBACKEND" = "Agg"
 "D:TF_CPP_MIN_LOG_LEVEL" = "1"
 "D:XLA_PYTHON_CLIENT_PREALLOCATE" = "false"
 
