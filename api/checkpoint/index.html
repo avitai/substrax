@@ -1209,7 +1209,8 @@ best-step selection delegated to <code>orbax.checkpoint.CheckpointManager</code>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">model</span><span class="p">,</span> <span class="n">metadata</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">restore</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>          <span class="c1"># the latest step</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">best</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">best_step</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="s2">"loss"</span><span class="p">)</span>
 </code></pre></div>
-<p>Array state is written with <code>StandardSave</code> and metadata with <code>JsonSave</code>, so restoring a
+<p>The payload is written with <code>PyTreeSave</code>, which carries arrays, typed PRNG keys and plain-Python
+leaves (ints, strings, booleans, lists) alike, and metadata with <code>JsonSave</code>, so restoring a
 checkpoint never executes code. Consumers depend on the <code>CheckpointStore</code> protocol; the
 Orbax class is the one implementation.</p>
 
@@ -1295,7 +1296,7 @@ layer.</p>
 
 
 <h4 id="substrax.checkpoint.CheckpointStore.save" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">physics_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">additional_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">physics_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">additional_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#substrax.checkpoint.CheckpointStore.save" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -1441,10 +1442,11 @@ layer.</p>
 
         <p>Orbax-backed implementation of :class:<code>CheckpointStore</code>.</p>
 <p>Wraps :class:<code>orbax.checkpoint.CheckpointManager</code> with step-int
-addressing. A single checkpoint bundles the model array state
-(<code>StandardSave</code>) and a JSON metadata sidecar (<code>JsonSave</code>) carrying
-the loss, timestamp, model type, physics metadata, and any caller
-extras. Old checkpoints are pruned by Orbax according to <code>max_to_keep</code>.</p>
+addressing. A single checkpoint bundles the payload pytree
+(<code>PyTreeSave</code>) and a JSON metadata sidecar (<code>JsonSave</code>) carrying
+the step, timestamp, model type, the loss when one is given, physics
+metadata, and any caller extras. Old checkpoints are pruned by Orbax
+according to <code>max_to_keep</code>.</p>
 <p>The store doubles as a context manager so backend resources are released
 deterministically::</p>
 <div class="highlight"><pre><span></span><code>with OrbaxCheckpointStore(path) as store:
@@ -1600,7 +1602,7 @@ deterministically::</p>
 
 
 <h4 id="substrax.checkpoint.OrbaxCheckpointStore.save" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">physics_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">additional_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">physics_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">additional_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#substrax.checkpoint.OrbaxCheckpointStore.save" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -1631,7 +1633,8 @@ deterministically::</p>
             <td>
               <div class="doc-md-description">
                 <p>Model payload — an <code>nnx.Module</code>, a Flax <code>TrainState</code>,
-or a plain state <code>dict</code>.</p>
+or a plain state <code>dict</code> (arrays, typed PRNG keys and
+plain-Python leaves alike).</p>
               </div>
             </td>
             <td>
@@ -1659,15 +1662,16 @@ or a plain state <code>dict</code>.</p>
                 <code>loss</code>
             </td>
             <td>
-                  <code><span title="float">float</span></code>
+                  <code><span title="float">float</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Current loss value, recorded in metadata.</p>
+                <p>Current loss value, recorded in metadata when given; a
+payload with no training loss, such as iterator state, omits it.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -2047,7 +2051,7 @@ result to <code>None</code>.</p>
 
 
 <h4 id="substrax.checkpoint.OrbaxCheckpointStore.save_train_state" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">save_train_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">physics_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">additional_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">save_train_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">physics_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">additional_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#substrax.checkpoint.OrbaxCheckpointStore.save_train_state" class="headerlink" title="Permanent link">¤</a></h4>
 
