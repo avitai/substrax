@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-09
+
 ### Changed
 
 - `OrbaxCheckpointStore` writes its payload with Orbax's `PyTreeSave` and reads it with
