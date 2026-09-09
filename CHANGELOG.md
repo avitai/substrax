@@ -7,6 +7,17 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- `OrbaxCheckpointStore` writes its payload with Orbax's `PyTreeSave` and reads it with
+  `PyTreeRestore` instead of `StandardSave`/`StandardRestore`. `StandardSave` rejects
+  every leaf that is not an array, so a dictionary carrying an iterator position, a
+  sampler's repr or a typed PRNG key could not be saved; `PyTreeSave` round-trips
+  arrays, typed keys and plain-Python leaves alike, still without pickle.
+- `save` takes `loss` as an optional argument. A payload with no training loss, such as
+  data-iterator state, records none, and `best_step` passes over checkpoints that do
+  not carry the requested metric.
+
 ## [0.1.0] - 2026-09-08
 
 The first release. Every module is the implementation one of the sibling packages

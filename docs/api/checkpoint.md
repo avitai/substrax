@@ -13,7 +13,8 @@ with OrbaxCheckpointStore("checkpoints", max_to_keep=5) as store:
     best = store.best_step(metric="loss")
 ```
 
-Array state is written with `StandardSave` and metadata with `JsonSave`, so restoring a
+The payload is written with `PyTreeSave`, which carries arrays, typed PRNG keys and plain-Python
+leaves (ints, strings, booleans, lists) alike, and metadata with `JsonSave`, so restoring a
 checkpoint never executes code. Consumers depend on the `CheckpointStore` protocol; the
 Orbax class is the one implementation.
 

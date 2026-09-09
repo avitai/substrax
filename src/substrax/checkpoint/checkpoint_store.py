@@ -11,10 +11,11 @@ training:
   (``orbax.checkpoint``). Orbax-native step-int addressing is the canonical
   on-disk contract; retention is delegated to Orbax's ``max_to_keep``.
 
-Serialization is pickle-free: array state is written with Orbax's
-``StandardSave``/``StandardRestore`` and plain-Python metadata with
-``JsonSave``/``JsonRestore``, so restoring a checkpoint can never execute
-arbitrary code.
+Serialization is pickle-free: the payload is written with Orbax's
+``PyTreeSave``/``PyTreeRestore``, which carries arrays, typed PRNG keys and
+plain-Python leaves (ints, floats, strings, booleans, lists) alike, and the
+metadata sidecar with ``JsonSave``/``JsonRestore``, so restoring a checkpoint
+can never execute arbitrary code.
 """
 
 from __future__ import annotations
@@ -54,7 +55,7 @@ class CheckpointStore(Protocol):
         self,
         model: ModelLike,
         step: int,
-        loss: float,
+        loss: float | None = None,
         *,
         physics_metadata: dict[str, Any] | None = None,
         additional_metadata: dict[str, Any] | None = None,
@@ -98,10 +99,11 @@ class OrbaxCheckpointStore:
     """Orbax-backed implementation of :class:`CheckpointStore`.
 
     Wraps :class:`orbax.checkpoint.CheckpointManager` with step-int
-    addressing. A single checkpoint bundles the model array state
-    (``StandardSave``) and a JSON metadata sidecar (``JsonSave``) carrying
-    the loss, timestamp, model type, physics metadata, and any caller
-    extras. Old checkpoints are pruned by Orbax according to ``max_to_keep``.
+    addressing. A single checkpoint bundles the payload pytree
+    (``PyTreeSave``) and a JSON metadata sidecar (``JsonSave``) carrying
+    the step, timestamp, model type, the loss when one is given, physics
+    metadata, and any caller extras. Old checkpoints are pruned by Orbax
+    according to ``max_to_keep``.
 
     The store doubles as a context manager so backend resources are released
     deterministically::
@@ -154,7 +156,7 @@ class OrbaxCheckpointStore:
     def _build_save_payload(
         model: ModelLike,
         step: int,
-        loss: float,
+        loss: float | None,
         physics_metadata: dict[str, Any] | None,
         additional_metadata: dict[str, Any] | None,
     ) -> tuple[Any, dict[str, Any]]:
@@ -171,12 +173,13 @@ class OrbaxCheckpointStore:
 
         metadata: dict[str, Any] = {
             "step": step,
-            "loss": float(loss),
             "timestamp": time.time(),
             "model_type": model_type,
             "model_class": type(model).__name__,
             "checkpoint_version": _CHECKPOINT_VERSION,
         }
+        if loss is not None:
+            metadata["loss"] = float(loss)
         if physics_metadata:
             metadata["physics_metadata"] = physics_metadata
         if additional_metadata:
@@ -187,7 +190,7 @@ class OrbaxCheckpointStore:
         self,
         model: ModelLike,
         step: int,
-        loss: float,
+        loss: float | None = None,
         *,
         physics_metadata: dict[str, Any] | None = None,
         additional_metadata: dict[str, Any] | None = None,
@@ -196,9 +199,11 @@ class OrbaxCheckpointStore:
 
         Args:
             model: Model payload — an ``nnx.Module``, a Flax ``TrainState``,
-                or a plain state ``dict``.
+                or a plain state ``dict`` (arrays, typed PRNG keys and
+                plain-Python leaves alike).
             step: Non-negative training step number (the checkpoint key).
-            loss: Current loss value, recorded in metadata.
+            loss: Current loss value, recorded in metadata when given; a
+                payload with no training loss, such as iterator state, omits it.
             physics_metadata: Optional physics-specific metadata.
             additional_metadata: Optional extra metadata merged into the
                 top-level metadata record.
@@ -220,7 +225,7 @@ class OrbaxCheckpointStore:
             model, step, loss, physics_metadata, additional_metadata
         )
         save_args = ocp.args.Composite(
-            model=ocp.args.StandardSave(save_target),  # type: ignore[reportCallIssue]
+            model=ocp.args.PyTreeSave(save_target),  # type: ignore[reportCallIssue]
             metadata=ocp.args.JsonSave(metadata),  # type: ignore[reportCallIssue]
         )
         self._manager.save(step, args=save_args)  # type: ignore[reportCallIssue]
@@ -234,7 +239,7 @@ class OrbaxCheckpointStore:
             return ocp.args.Composite(metadata=ocp.args.JsonRestore)  # type: ignore[call-arg, reportCallIssue]
         abstract = nnx.state(target_model) if isinstance(target_model, nnx.Module) else target_model
         return ocp.args.Composite(
-            model=ocp.args.StandardRestore(abstract),  # type: ignore[arg-type, reportCallIssue]
+            model=ocp.args.PyTreeRestore(abstract),  # type: ignore[arg-type, reportCallIssue]
             metadata=ocp.args.JsonRestore,  # type: ignore[call-arg, reportCallIssue]
         )
 
@@ -342,7 +347,7 @@ class OrbaxCheckpointStore:
         self,
         state: train_state.TrainState,
         step: int,
-        loss: float,
+        loss: float | None = None,
         *,
         physics_metadata: dict[str, Any] | None = None,
         additional_metadata: dict[str, Any] | None = None,

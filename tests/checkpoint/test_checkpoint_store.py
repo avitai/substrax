@@ -12,7 +12,7 @@ Behaviour preserved from the deleted managers:
 * ``max_to_keep`` retention handled natively by Orbax,
 * best-metric checkpoint selection (carried over from the path-string
   manager's ``get_best_checkpoint``),
-* pickle-free serialization (Orbax ``StandardSave`` + ``JsonSave``).
+* pickle-free serialization (Orbax ``PyTreeSave`` + ``JsonSave``).
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
+import jax
 import jax.numpy as jnp
 import optax
 import pytest
@@ -288,3 +289,56 @@ class TestSerializationSafety:
             if file.is_file():
                 head = file.read_bytes()[:2]
                 assert not head.startswith(b"\x80"), f"pickle stream in {file}"
+
+
+class TestPlainPayloads:
+    """Payloads that are not model arrays: iterator state, counters, identity strings."""
+
+    @staticmethod
+    def _iterator_state() -> dict[str, object]:
+        return {
+            "position": 7,
+            "rng_counts": [1, 2],
+            "sampler_repr": "SequentialSampler(seed=42)",
+            "shuffle": True,
+            "indices": jnp.arange(3),
+            "key": jax.random.key(0),
+        }
+
+    def test_roundtrip_python_string_and_key_leaves(self, tmp_path: Path) -> None:
+        """Ints, lists, strings, booleans and typed PRNG keys come back as themselves."""
+        store = OrbaxCheckpointStore(tmp_path)
+        store.save(self._iterator_state(), step=3)
+
+        restored, _ = store.restore(self._iterator_state(), step=3)
+
+        assert isinstance(restored, dict)
+        assert restored["position"] == 7
+        assert restored["rng_counts"] == [1, 2]
+        assert restored["sampler_repr"] == "SequentialSampler(seed=42)"
+        assert restored["shuffle"] is True
+        assert jnp.array_equal(restored["indices"], jnp.arange(3))
+        assert jnp.array_equal(
+            jax.random.key_data(restored["key"]), jax.random.key_data(jax.random.key(0))
+        )
+
+    def test_save_without_loss_records_none(self, tmp_path: Path) -> None:
+        """A payload with no training loss carries no loss in its metadata."""
+        store = OrbaxCheckpointStore(tmp_path)
+        store.save({"position": 1}, step=0)
+
+        _, metadata = store.restore(step=0)
+
+        assert "loss" not in metadata
+        assert metadata["step"] == 0
+        assert metadata["model_type"] == "dict"
+
+    def test_best_step_skips_checkpoints_without_the_metric(
+        self, tmp_path: Path, model: _SimpleModel
+    ) -> None:
+        store = OrbaxCheckpointStore(tmp_path)
+        store.save({"position": 1}, step=1)
+        store.save(model, step=2, loss=0.4)
+        store.save(model, step=3, loss=0.9)
+
+        assert store.best_step(metric="loss", minimize=True) == 2
