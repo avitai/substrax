@@ -1322,7 +1322,8 @@ layer.</p>
     <div class="doc doc-contents ">
 
         <p>Restore the payload + metadata saved at <code>step</code>.</p>
-<p>Without a target the payload comes back as it was stored.</p>
+<p>With a target, arrays are restored onto the target's device placement.
+Without one the payload comes back as it was stored.</p>
 
 
     </div>
@@ -1807,9 +1808,12 @@ top-level metadata record.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Model to restore arrays into. <code>None</code> returns the
+                <p>Model to restore arrays into; each array lands on
+the device placement and dtype of its target leaf, whatever
+topology the checkpoint was written on. <code>None</code> returns the
 payload as it was stored: a pytree of arrays and plain leaves, in
-which a module's Variables are <code>{"value": ...}</code> nodes.</p>
+which a module's Variables are <code>{"value": ...}</code> nodes, placed
+as they were at save time.</p>
               </div>
             </td>
             <td>
