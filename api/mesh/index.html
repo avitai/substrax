@@ -1938,7 +1938,7 @@ and hybrid approaches.</p>
 
 
 <h4 id="substrax.mesh.DeviceMeshManager.create_device_mesh" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">create_device_mesh</span><span class="p">(</span><span class="n">mesh_shape</span><span class="p">,</span> <span class="n">devices</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">create_device_mesh</span><span class="p">(</span><span class="n">mesh_shape</span><span class="p">,</span> <span class="n">devices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">axis_types</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
@@ -1950,6 +1950,12 @@ and hybrid approaches.</p>
     <div class="doc doc-contents ">
 
         <p>Create a JAX device mesh with the specified shape.</p>
+<p>Every axis is <code>AxisType.Auto</code> unless <code>axis_types</code> says otherwise: the
+data-parallel helpers in :mod:<code>substrax.spmd</code> leave sharding inference to
+XLA (the gradient all-reduce of a batch-sharded step is inferred from the
+input sharding). <code>jax.make_mesh</code> defaults to <code>Explicit</code> axes from jax
+0.11, under which a contraction over a sharded batch axis, the backward
+pass of any layer, raises unless every such op names its <code>out_sharding</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1991,6 +1997,22 @@ mapping axis names to sizes, or as a list of (name, size) tuples.</p>
               <div class="doc-md-description">
                 <p>Optional list of devices to use. If None, uses all available
 devices.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis_types</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="jax.sharding.AxisType">AxisType</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One <code>AxisType</code> per axis; <code>Auto</code> for every axis when None.</p>
               </div>
             </td>
             <td>
@@ -2039,7 +2061,8 @@ devices.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the mesh shape is incompatible with the number of devices.</p>
+                <p>If the mesh shape is incompatible with the number of devices,
+or <code>axis_types</code> does not name one type per axis.</p>
               </div>
             </td>
           </tr>
