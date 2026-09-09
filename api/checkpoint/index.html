@@ -1322,6 +1322,7 @@ layer.</p>
     <div class="doc doc-contents ">
 
         <p>Restore the payload + metadata saved at <code>step</code>.</p>
+<p>Without a target the payload comes back as it was stored.</p>
 
 
     </div>
@@ -1805,8 +1806,9 @@ top-level metadata record.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Model to restore arrays into. <code>None</code> requests a
-metadata-only restore (and returns <code>None</code> for the model).</p>
+                <p>Model to restore arrays into. <code>None</code> returns the
+payload as it was stored: a pytree of arrays and plain leaves, in
+which a module's Variables are <code>{"value": ...}</code> nodes.</p>
               </div>
             </td>
             <td>
@@ -1882,7 +1884,7 @@ result to <code>None</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tuple of <code>(model_or_none, metadata)</code>. <code>metadata</code> is empty</p>
+                <p>Tuple of <code>(model_or_none, metadata)</code>. <code>metadata</code> is empty when</p>
               </div>
             </td>
           </tr>
@@ -1892,7 +1894,30 @@ result to <code>None</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>when the checkpoint is missing or could not be read.</p>
+                <p>the checkpoint is missing.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>target_model</code>'s tree does not match the checkpoint.</p>
               </div>
             </td>
           </tr>
