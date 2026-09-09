@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-09
+
 ### Added
 
 - `WandbLogger` forwards keyword arguments it does not name to `wandb.init`, so a training
