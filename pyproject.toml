@@ -215,6 +215,8 @@ allow-init-docstring = true
 arg-type-hints-in-docstring = false
 # Annotations are the source of truth for types; docstrings carry the prose.
 check-return-types = false
+# `# noqa: DOC...` is read from the def line, where propagated exceptions are annotated.
+native-mode-noqa-location = "definition"
 style = "google"
 
 [tool.pylint."messages_control"]
@@ -282,6 +284,8 @@ quote-style = "double"
 skip-magic-trailing-comma = false
 
 [tool.ruff.lint]
+# pydoclint's DOC codes appear in `# noqa` comments on def lines.
+external = ["DOC"]
 ignore = [
   # Any is the honest type of a pytree leaf container.
   "ANN401",

@@ -7,6 +7,15 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- `OrbaxCheckpointStore.restore` without a target returns the payload as it was
+  stored, arrays and plain leaves alike, instead of only the metadata: a checkpoint
+  describes its own tree, so a consumer that validates structure itself (datarax's
+  `set_state`) restores without a template whose list lengths would have to match.
+- A checkpoint that cannot be read into the given target raises (`ValueError` for a tree
+  mismatch) instead of being reported as missing.
+
 ## [0.1.1] - 2026-09-09
 
 ### Changed

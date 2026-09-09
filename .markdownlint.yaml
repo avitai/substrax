@@ -1,0 +1,4 @@
+# Keep a Changelog repeats Added, Changed and Fixed under every release; only
+# duplicates under the same parent heading are mistakes.
+MD024:
+  siblings_only: true

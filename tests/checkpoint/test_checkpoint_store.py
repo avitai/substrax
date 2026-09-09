@@ -142,13 +142,44 @@ class TestSaveRestoreRoundTrip:
         assert restored is model
         assert metadata == {}
 
-    def test_restore_metadata_only(self, tmp_path: Path, model: _SimpleModel) -> None:
-        """Restoring with no target model yields metadata-only."""
+    def test_restore_without_target_returns_the_stored_payload(
+        self, tmp_path: Path, model: _SimpleModel
+    ) -> None:
+        """With no target the checkpoint describes itself: the State tree and metadata come back.
+
+        A module is stored as its ``nnx.State``, so each Variable is a ``{"value": ...}`` node.
+        """
         store = OrbaxCheckpointStore(tmp_path / "ckpt")
         store.save(model, step=5, loss=0.1)
-        restored, metadata = store.restore(target_model=None, step=5)
-        assert restored is None
+
+        restored, metadata = store.restore(step=5)
+
+        assert isinstance(restored, dict)
+        assert jnp.array_equal(
+            restored["dense1"]["kernel"]["value"],
+            nnx.to_pure_dict(nnx.state(model))["dense1"]["kernel"],
+        )
         assert metadata["step"] == 5
+
+    def test_restore_without_target_keeps_python_leaves_and_shapes(self, tmp_path: Path) -> None:
+        """A template-free restore keeps list lengths and plain leaves as saved."""
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save({"history": [0.5, 0.25], "epoch": 2, "w": jnp.ones(3)}, step=1)
+
+        restored, _ = store.restore(step=1)
+
+        assert isinstance(restored, dict)
+        assert restored["history"] == [0.5, 0.25]
+        assert restored["epoch"] == 2
+        assert jnp.array_equal(restored["w"], jnp.ones(3))
+
+    def test_restore_into_a_mismatched_target_raises(self, tmp_path: Path) -> None:
+        """A target whose tree differs from the checkpoint is an error, not a missing step."""
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save({"history": [0.5], "w": jnp.ones(3)}, step=1)
+
+        with pytest.raises(ValueError, match="do not match"):
+            store.restore({"history": [], "w": jnp.ones(3)}, step=1)
 
     def test_invalid_model_type_raises(self, tmp_path: Path) -> None:
         """Saving an unsupported model type raises ``TypeError``."""

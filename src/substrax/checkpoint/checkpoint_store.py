@@ -71,7 +71,10 @@ class CheckpointStore(Protocol):
         return_original_on_missing: bool = True,
         restrict_to_nnx_module: bool = False,
     ) -> tuple[ModelLike | None, dict[str, Any]]:
-        """Restore the payload + metadata saved at ``step``."""
+        """Restore the payload + metadata saved at ``step``.
+
+        Without a target the payload comes back as it was stored.
+        """
         ...
 
     def list_steps(self) -> list[int]:
@@ -234,9 +237,17 @@ class OrbaxCheckpointStore:
         return str(self.checkpoint_dir / str(step))
 
     def _restore_args(self, target_model: ModelLike | None) -> Any:
-        """Build Orbax restore args for ``target_model``."""
+        """Build Orbax restore args for ``target_model``.
+
+        Without a target the payload is restored as it was stored: the checkpoint
+        describes its own tree, so list lengths and plain leaves come back as saved.
+        With one, the target's tree is the template and must match the checkpoint.
+        """
         if target_model is None:
-            return ocp.args.Composite(metadata=ocp.args.JsonRestore)  # type: ignore[call-arg, reportCallIssue]
+            return ocp.args.Composite(
+                model=ocp.args.PyTreeRestore(),  # type: ignore[reportCallIssue]
+                metadata=ocp.args.JsonRestore,  # type: ignore[call-arg, reportCallIssue]
+            )
         abstract = nnx.state(target_model) if isinstance(target_model, nnx.Module) else target_model
         return ocp.args.Composite(
             model=ocp.args.PyTreeRestore(abstract),  # type: ignore[arg-type, reportCallIssue]
@@ -261,7 +272,7 @@ class OrbaxCheckpointStore:
         target_model.update(model_restored)
         return target_model
 
-    def restore(
+    def restore(  # noqa: DOC502
         self,
         target_model: ModelLike | None = None,
         step: int | None = None,
@@ -272,8 +283,9 @@ class OrbaxCheckpointStore:
         """Restore model state and metadata for ``step``.
 
         Args:
-            target_model: Model to restore arrays into. ``None`` requests a
-                metadata-only restore (and returns ``None`` for the model).
+            target_model: Model to restore arrays into. ``None`` returns the
+                payload as it was stored: a pytree of arrays and plain leaves, in
+                which a module's Variables are ``{"value": ...}`` nodes.
             step: Step to restore.
             return_original_on_missing: If ``True``, return ``target_model``
                 unchanged when the checkpoint is missing; otherwise ``None``.
@@ -281,8 +293,11 @@ class OrbaxCheckpointStore:
                 result to ``None``.
 
         Returns:
-            Tuple of ``(model_or_none, metadata)``. ``metadata`` is empty
-            when the checkpoint is missing or could not be read.
+            Tuple of ``(model_or_none, metadata)``. ``metadata`` is empty when
+            the checkpoint is missing.
+
+        Raises:
+            ValueError: If ``target_model``'s tree does not match the checkpoint.
         """
         restored = self._read(target_model, step)
         if restored is None:
@@ -298,18 +313,22 @@ class OrbaxCheckpointStore:
         return result_model, metadata
 
     def _read(self, target_model: ModelLike | None, step: int | None) -> dict[str, Any] | None:
-        """Read the raw Orbax composite at ``step``; ``None`` when missing or unreadable."""
+        """Read the raw Orbax composite at ``step``; ``None`` when the step is missing."""
         if step is None or step not in self._manager.all_steps():
             return None
         if target_model is not None and not isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
             target_model, nnx.Module | train_state.TrainState | dict
         ):
             return None
-        try:
-            return self._manager.restore(step, args=self._restore_args(target_model))  # type: ignore[reportCallIssue]
-        except (KeyError, ValueError, TypeError, OSError):
-            logger.exception("Error restoring checkpoint at step %s", step)
-            return None
+        return self._manager.restore(step, args=self._restore_args(target_model))  # type: ignore[reportCallIssue]
+
+    def _metadata(self, step: int) -> dict[str, Any]:
+        """Read only the JSON metadata sidecar of ``step``."""
+        restored = self._manager.restore(
+            step,
+            args=ocp.args.Composite(metadata=ocp.args.JsonRestore),  # type: ignore[call-arg, reportCallIssue]
+        )
+        return dict(restored.get("metadata", {}))
 
     def create_train_state(
         self,
@@ -408,10 +427,7 @@ class OrbaxCheckpointStore:
         default = float("inf") if minimize else float("-inf")
 
         def metric_value(step: int) -> float:
-            _, metadata = self.restore(target_model=None, step=step)
-            if metric == "loss":
-                return float(metadata.get("loss", default))
-            return float(metadata.get(metric, default))
+            return float(self._metadata(step).get(metric, default))
 
         chooser = min if minimize else max
         return chooser(steps, key=metric_value)
