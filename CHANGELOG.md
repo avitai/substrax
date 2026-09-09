@@ -12,6 +12,8 @@ and uses semantic versioning while the public API stabilizes.
 - `WandbLogger` forwards keyword arguments it does not name to `wandb.init`, so a training
   callback can pass `mode="offline"` or `resume="allow"` without reaching for the SDK
   itself.
+- `OrbaxCheckpointStore(max_to_keep=None)` keeps every checkpoint, the policy a callback
+  that saves only on improvement needs when asked to keep them all.
 
 ## [0.1.2] - 2026-09-09
 

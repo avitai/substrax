@@ -259,6 +259,14 @@ class TestListingAndRetention:
         assert len(kept) == 2
         assert kept == [3, 4]
 
+    def test_max_to_keep_none_keeps_every_step(self, tmp_path: Path, model: _SimpleModel) -> None:
+        """``max_to_keep=None`` disables pruning: a keep-every-checkpoint policy."""
+        store = OrbaxCheckpointStore(tmp_path / "ckpt", max_to_keep=None)
+        for step in range(8):
+            store.save(model, step=step, loss=1.0)
+        assert store.list_steps() == list(range(8))
+        store.close()
+
     def test_delete_step(self, tmp_path: Path, model: _SimpleModel) -> None:
         """Deleting a step removes it from the listing."""
         store = OrbaxCheckpointStore(tmp_path / "ckpt")

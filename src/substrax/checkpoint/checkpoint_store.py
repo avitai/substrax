@@ -118,14 +118,15 @@ class OrbaxCheckpointStore:
     def __init__(
         self,
         checkpoint_dir: str | Path,
-        max_to_keep: int = 5,
+        max_to_keep: int | None = 5,
         create: bool = True,
     ) -> None:
         """Initialize the store.
 
         Args:
             checkpoint_dir: Directory in which checkpoints are stored.
-            max_to_keep: Maximum number of checkpoints Orbax retains.
+            max_to_keep: Maximum number of checkpoints Orbax retains; ``None``
+                keeps every checkpoint.
             create: Whether to create ``checkpoint_dir`` if it is missing.
 
         Raises:
