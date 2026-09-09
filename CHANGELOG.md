@@ -7,6 +7,18 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `OrbaxCheckpointStore.restore(target)` restores every array onto its target leaf's device
+  placement and dtype. The template alone gave Orbax only the tree structure, so it fell back
+  to the sharding file written at save time; a checkpoint saved on the second of two CPU
+  devices then failed to restore in a process exposing one ("Device cpu:1 was not found in
+  jax.local_devices()") even though the target lived on the available device. The per-leaf
+  restore arguments are now built from the target. A target-free restore still comes back as
+  stored. The two-device save / one-device restore is pinned in a fresh interpreter, with
+  the template-free failure as its control; accelerator-to-CPU restoration has its own
+  `gpu`-marked test.
+
 ## [0.1.4] - 2026-09-09
 
 ### Fixed

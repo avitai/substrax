@@ -253,7 +253,9 @@ filterwarnings = [
   "ignore::DeprecationWarning:jax.*",
   "ignore::DeprecationWarning:pkg_resources.*",
   "ignore::UserWarning:jax._src.xla_bridge",
-  # orbax warns when a PyTreeRestore template carries no sharding for jax.Array leaves.
+  # A target-free restore returns arrays as they were stored, so orbax reads the saved
+  # sharding file and warns. A restore onto a target carries its own placement and never
+  # triggers this; tests/checkpoint pins both sides.
   "ignore:Sharding info not provided:UserWarning"
 ]
 markers = [

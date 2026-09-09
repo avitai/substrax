@@ -18,10 +18,17 @@ Behaviour preserved from the deleted managers:
 from __future__ import annotations
 
 import inspect
+import json
+import os
+import subprocess
+import sys
+import warnings
 from pathlib import Path
+from typing import Any
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 import pytest
 from flax import nnx
@@ -49,6 +56,47 @@ class _SimpleModel(nnx.Module):
 def model() -> _SimpleModel:
     """Construct a small deterministic model."""
     return _SimpleModel(features=4, rngs=nnx.Rngs(0))
+
+
+_CROSS_TOPOLOGY_PROGRAM = Path(__file__).with_name("cross_topology_program.py")
+_SHARDING_FILE_WARNING = "Sharding info not provided"
+_CPU_0 = {"platform": "cpu", "id": 0}
+
+
+def _cpu_devices(count: int) -> dict[str, str]:
+    return {"JAX_PLATFORMS": "cpu", "JAX_NUM_CPU_DEVICES": str(count)}
+
+
+def _run_interpreter(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """Run this test's own interpreter on ``argv`` in a fresh process with ``env`` overrides."""
+    child_env = {**os.environ, "XLA_PYTHON_CLIENT_PREALLOCATE": "false", **env}
+    return subprocess.run(  # noqa: S603 - fixed argv: the test's interpreter and its own files
+        [sys.executable, *argv],
+        env=child_env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+
+
+def _run_child(
+    mode: str, directory: Path, *, env: dict[str, str], extra: tuple[str, ...] = ()
+) -> subprocess.CompletedProcess[str]:
+    """Run the cross-topology program in ``mode`` against ``directory``."""
+    return _run_interpreter([str(_CROSS_TOPOLOGY_PROGRAM), mode, str(directory), *extra], env)
+
+
+def _child_result(completed: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+    """The JSON object a successful child printed on its last stdout line."""
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout.splitlines()[-1])
+
+
+def _cuda_is_visible() -> bool:
+    """Whether a fresh interpreter can initialise jax's CUDA backend."""
+    probe = _run_interpreter(["-c", "import jax; jax.devices('gpu')"], {"JAX_PLATFORMS": "cuda"})
+    return probe.returncode == 0
 
 
 class TestOrbaxCheckpointStoreInit:
@@ -192,6 +240,146 @@ class TestSaveRestoreRoundTrip:
         store = OrbaxCheckpointStore(tmp_path / "ckpt")
         with pytest.raises(ValueError, match="non-negative"):
             store.save(model, step=-1, loss=0.1)
+
+
+class TestTargetPlacement:
+    """With a target, placement and dtype come from the target's leaves, not the checkpoint."""
+
+    def test_restore_with_target_does_not_read_the_saved_sharding(
+        self, tmp_path: Path, model: _SimpleModel
+    ) -> None:
+        """The target supplies every array's sharding, so Orbax never opens the sharding file.
+
+        The sharding file names the devices the checkpoint was written on; consulting it is
+        what breaks a restore on a different topology.
+        """
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save(model, step=1, loss=0.1)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            store.restore(model, step=1)
+
+        assert not [w for w in caught if _SHARDING_FILE_WARNING in str(w.message)]
+
+    def test_restore_without_target_reads_the_saved_sharding(
+        self, tmp_path: Path, model: _SimpleModel
+    ) -> None:
+        """Control: the template-free restore keeps the saved placement, via the sharding file.
+
+        This is the warning ``filterwarnings`` in pyproject.toml ignores, and the reason it
+        must stay: the documented target-free behaviour is to come back as stored.
+        """
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save(model, step=1, loss=0.1)
+
+        with pytest.warns(UserWarning, match=_SHARDING_FILE_WARNING):
+            store.restore(step=1)
+
+    def test_restore_with_target_keeps_dtypes_kinds_and_placement(self, tmp_path: Path) -> None:
+        """Each leaf comes back with its target's dtype, array kind and device."""
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+
+        def payload() -> dict[str, Any]:
+            return {
+                "half": jnp.arange(3, dtype=jnp.float16),
+                "brain": jnp.ones(2, dtype=jnp.bfloat16),
+                "ints": jnp.arange(2, dtype=jnp.int32),
+                "host": np.array([1, 2], dtype=np.int32),
+            }
+
+        store.save(payload(), step=1)
+        restored, _ = store.restore(payload(), step=1)
+
+        assert isinstance(restored, dict)
+        for name, expected in payload().items():
+            assert restored[name].dtype == expected.dtype, name
+            assert type(restored[name]) is type(expected), name
+            np.testing.assert_array_equal(np.asarray(restored[name]), np.asarray(expected))
+        for name in ("half", "brain", "ints"):
+            assert restored[name].devices() == {jax.devices()[0]}, name
+
+
+class TestCrossTopologyRestore:
+    """A checkpoint written on one device set restores onto a target in another.
+
+    Each side runs in its own interpreter because jax fixes its device set at
+    initialisation. The save side exposes two CPU devices and places every array on
+    the second; the restore side exposes one. Restoring the module, the dictionary
+    payload and the metadata onto that one device is the contract.
+    """
+
+    def test_two_device_save_restores_onto_a_one_device_target(self, tmp_path: Path) -> None:
+        saved = _child_result(_run_child("save", tmp_path, env=_cpu_devices(2)))
+        assert saved["saved_on"] == [{"platform": "cpu", "id": 1}]
+
+        restored = _child_result(_run_child("restore", tmp_path, env=_cpu_devices(1)))
+
+        assert restored["devices"] == [_CPU_0]
+        assert restored["restored_on"] == [_CPU_0]
+        assert restored["state"] == saved["state"]
+        assert restored["metadata"]["loss"] == 0.5
+        assert restored["metadata"]["run"] == "topology"
+        assert restored["metadata"]["model_type"] == "nnx_module"
+
+        payload = restored["payload"]
+        assert payload["half"] == {
+            "kind": "ArrayImpl",
+            "dtype": "float16",
+            "values": [0.0, 1.0, 2.0],
+            "devices": [_CPU_0],
+        }
+        assert payload["counts"] == {
+            "kind": "ndarray",
+            "dtype": "int32",
+            "values": [1, 2],
+            "devices": [],
+        }
+        assert payload["key"]["dtype"] == "key<fry>"
+        assert payload["key"]["data"] == jax.random.key_data(jax.random.key(3)).tolist()
+        assert payload["key"]["devices"] == [_CPU_0]
+        assert payload["position"] == 7
+        assert payload["name"] == "sampler"
+        assert payload["shuffle"] is True
+        assert payload["history"] == [0.5, 0.25]
+
+    def test_two_device_save_without_a_target_cannot_resolve_the_saved_device(
+        self, tmp_path: Path
+    ) -> None:
+        """Control: template-free, the same checkpoint fails on the device it was saved on.
+
+        This proves the two interpreters really differ in topology, so the with-target
+        pass above measures placement rather than a shared device set. It also pins
+        the documented target-free behaviour: arrays come back as stored, or not at all.
+        """
+        _child_result(_run_child("save", tmp_path, env=_cpu_devices(2)))
+
+        completed = _run_child(
+            "restore", tmp_path, env=_cpu_devices(1), extra=("--without-target",)
+        )
+
+        assert completed.returncode != 0
+        assert "Device cpu:1 was not found in jax.local_devices()" in completed.stderr
+
+    @pytest.mark.gpu
+    def test_gpu_save_restores_onto_a_cpu_target(self, tmp_path: Path) -> None:
+        """A checkpoint written on an accelerator restores onto a CPU-only target.
+
+        The CPU-to-CPU case above does not prove this: an accelerator checkpoint
+        records a different platform, not just a different device id.
+        """
+        if not _cuda_is_visible():
+            pytest.skip("no CUDA device visible to jax")
+
+        saved = _child_result(_run_child("save", tmp_path, env={"JAX_PLATFORMS": "cuda"}))
+        assert [d["platform"] for d in saved["saved_on"]] == ["gpu"]
+
+        restored = _child_result(_run_child("restore", tmp_path, env=_cpu_devices(1)))
+
+        assert restored["restored_on"] == [_CPU_0]
+        assert restored["state"] == saved["state"]
+        assert restored["payload"]["half"]["devices"] == [_CPU_0]
+        assert restored["payload"]["key"]["devices"] == [_CPU_0]
 
 
 class TestTrainStateRoundTrip:

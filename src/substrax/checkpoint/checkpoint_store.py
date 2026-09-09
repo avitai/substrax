@@ -73,7 +73,8 @@ class CheckpointStore(Protocol):
     ) -> tuple[ModelLike | None, dict[str, Any]]:
         """Restore the payload + metadata saved at ``step``.
 
-        Without a target the payload comes back as it was stored.
+        With a target, arrays are restored onto the target's device placement.
+        Without one the payload comes back as it was stored.
         """
         ...
 
@@ -241,8 +242,16 @@ class OrbaxCheckpointStore:
         """Build Orbax restore args for ``target_model``.
 
         Without a target the payload is restored as it was stored: the checkpoint
-        describes its own tree, so list lengths and plain leaves come back as saved.
-        With one, the target's tree is the template and must match the checkpoint.
+        describes its own tree, so list lengths and plain leaves come back as saved,
+        and each array returns to the device placement recorded at save time.
+
+        With one, the target's tree is the template and must match the checkpoint,
+        and every array is restored onto its target leaf's sharding and dtype. A
+        bare ``PyTreeRestore(template)`` gives Orbax only the tree structure: the
+        per-leaf ``restore_args`` are what carry placement, and without them Orbax
+        falls back to the saved sharding file, which names devices the restoring
+        process may not have. The explicit arguments are what let a checkpoint
+        written on one device topology restore onto whatever the target occupies.
         """
         if target_model is None:
             return ocp.args.Composite(
@@ -251,7 +260,10 @@ class OrbaxCheckpointStore:
             )
         abstract = nnx.state(target_model) if isinstance(target_model, nnx.Module) else target_model
         return ocp.args.Composite(
-            model=ocp.args.PyTreeRestore(abstract),  # type: ignore[arg-type, reportCallIssue]
+            model=ocp.args.PyTreeRestore(  # type: ignore[arg-type, reportCallIssue]
+                abstract,
+                restore_args=ocp.checkpoint_utils.construct_restore_args(abstract),
+            ),
             metadata=ocp.args.JsonRestore,  # type: ignore[call-arg, reportCallIssue]
         )
 
@@ -284,9 +296,12 @@ class OrbaxCheckpointStore:
         """Restore model state and metadata for ``step``.
 
         Args:
-            target_model: Model to restore arrays into. ``None`` returns the
+            target_model: Model to restore arrays into; each array lands on
+                the device placement and dtype of its target leaf, whatever
+                topology the checkpoint was written on. ``None`` returns the
                 payload as it was stored: a pytree of arrays and plain leaves, in
-                which a module's Variables are ``{"value": ...}`` nodes.
+                which a module's Variables are ``{"value": ...}`` nodes, placed
+                as they were at save time.
             step: Step to restore.
             return_original_on_missing: If ``True``, return ``target_model``
                 unchanged when the checkpoint is missing; otherwise ``None``.
