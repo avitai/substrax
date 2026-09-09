@@ -5,11 +5,12 @@ for coordinating distributed computations across multiple devices.
 """
 
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 import jax
 import numpy as np
-from jax.sharding import Mesh
+from jax.sharding import AxisType, Mesh
 
 
 logger = logging.getLogger(__name__)
@@ -27,20 +28,31 @@ class DeviceMeshManager:
     def create_device_mesh(
         mesh_shape: dict[str, int] | list[tuple[str, int]],
         devices: list[Any] | None = None,
+        *,
+        axis_types: Sequence[AxisType] | None = None,
     ) -> Mesh:
         """Create a JAX device mesh with the specified shape.
+
+        Every axis is ``AxisType.Auto`` unless ``axis_types`` says otherwise: the
+        data-parallel helpers in :mod:`substrax.spmd` leave sharding inference to
+        XLA (the gradient all-reduce of a batch-sharded step is inferred from the
+        input sharding). ``jax.make_mesh`` defaults to ``Explicit`` axes from jax
+        0.11, under which a contraction over a sharded batch axis, the backward
+        pass of any layer, raises unless every such op names its ``out_sharding``.
 
         Args:
             mesh_shape: The shape of the mesh, specified either as a dictionary
                 mapping axis names to sizes, or as a list of (name, size) tuples.
             devices: Optional list of devices to use. If None, uses all available
                 devices.
+            axis_types: One ``AxisType`` per axis; ``Auto`` for every axis when None.
 
         Returns:
             A JAX device mesh.
 
         Raises:
-            ValueError: If the mesh shape is incompatible with the number of devices.
+            ValueError: If the mesh shape is incompatible with the number of devices,
+                or ``axis_types`` does not name one type per axis.
         """
         # Convert mesh_shape to a list of (name, size) tuples if it's a dict
         if isinstance(mesh_shape, dict):
@@ -50,10 +62,18 @@ class DeviceMeshManager:
 
         axis_names = tuple(name for name, _ in mesh_shape_list)
         mesh_dims = tuple(size for _, size in mesh_shape_list)
+        resolved_axis_types = (
+            (AxisType.Auto,) * len(axis_names) if axis_types is None else tuple(axis_types)
+        )
+        if len(resolved_axis_types) != len(axis_names):
+            raise ValueError(
+                f"axis_types must name one type per axis: {len(resolved_axis_types)} given "
+                f"for axes {axis_names}"
+            )
 
         # Use jax.make_mesh for topology-aware device ordering
         if devices is None:
-            return jax.make_mesh(mesh_dims, axis_names)
+            return jax.make_mesh(mesh_dims, axis_names, axis_types=resolved_axis_types)
 
         # Manual path for explicitly provided devices
         total_devices = 1
@@ -67,7 +87,7 @@ class DeviceMeshManager:
             )
 
         mesh_devices_array = np.array(devices[:total_devices]).reshape(mesh_dims)
-        return Mesh(mesh_devices_array, axis_names=axis_names)
+        return Mesh(mesh_devices_array, axis_names=axis_names, axis_types=resolved_axis_types)
 
     @staticmethod
     def create_data_parallel_mesh(num_devices: int | None = None) -> Mesh:

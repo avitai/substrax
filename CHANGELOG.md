@@ -7,6 +7,16 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `DeviceMeshManager.create_device_mesh` builds every axis as `AxisType.Auto` unless the new
+  `axis_types` argument says otherwise, on both the `jax.make_mesh` path and the explicit-devices
+  path. jax 0.11 made `jax.make_mesh` default to `Explicit` axes, under which the backward pass
+  of any layer over a batch sharded along `data` raised `ShardingTypeError` ("Contracting
+  dimensions are sharded"); the data-parallel helpers here leave that inference to XLA, which
+  needs `Auto`. A one-device mesh now differentiates through a batch-sharded linear layer, and
+  the explicit-axes failure is pinned as the control.
+
 ## [0.1.3] - 2026-09-09
 
 ### Added
