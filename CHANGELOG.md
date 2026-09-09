@@ -7,6 +7,12 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `WandbLogger` forwards keyword arguments it does not name to `wandb.init`, so a training
+  callback can pass `mode="offline"` or `resume="allow"` without reaching for the SDK
+  itself.
+
 ## [0.1.2] - 2026-09-09
 
 ### Changed

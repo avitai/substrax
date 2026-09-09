@@ -45,6 +45,7 @@ class WandbLogger(Logger):
         tags: Sequence[str] | None = None,
         notes: str | None = None,
         level: int = logging.INFO,
+        **init_options: Any,
     ) -> None:
         """Start the W&B run.
 
@@ -57,6 +58,8 @@ class WandbLogger(Logger):
             tags: Tags for the run.
             notes: Notes about the run.
             level: Logging level.
+            **init_options: Further keyword arguments for ``wandb.init``, such as
+                ``mode="offline"`` or ``resume="allow"``; the SDK owns their meaning.
 
         Constructing the logger raises ``ImportError`` when the ``wandb`` extra is not
         installed.
@@ -71,6 +74,7 @@ class WandbLogger(Logger):
             tags=None if tags is None else list(tags),
             notes=notes,
             dir=None if self.log_dir is None else str(self.log_dir),
+            **init_options,
         )
         self.run: Any | None = run
         self.info(f"Initialized W&B run: {run.name} (ID: {run.id})")

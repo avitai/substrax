@@ -52,6 +52,14 @@ def test_init_starts_the_run(wandb: MagicMock, tmp_path: Path) -> None:
     logger.close()
 
 
+def test_init_forwards_mode_and_resume(wandb: MagicMock) -> None:
+    """Options the logger does not name, such as mode and resume, reach wandb.init."""
+    logger = WandbLogger(name="test_wandb", project="test_project", mode="offline", resume="allow")
+    assert wandb.init.call_args.kwargs["mode"] == "offline"
+    assert wandb.init.call_args.kwargs["resume"] == "allow"
+    logger.close()
+
+
 def test_init_without_a_log_dir(wandb: MagicMock) -> None:
     logger = WandbLogger(name="test_wandb", project="test_project")
     assert wandb.init.call_args.kwargs["dir"] is None
