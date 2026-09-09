@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-09
+
 ### Fixed
 
 - `DeviceMeshManager.create_device_mesh` builds every axis as `AxisType.Auto` unless the new
