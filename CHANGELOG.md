@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-09-09
+
 ### Fixed
 
 - `OrbaxCheckpointStore.restore(target)` restores every array onto its target leaf's device
