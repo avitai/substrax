@@ -30,7 +30,7 @@ dependencies = [
   "numpy>=1.24,<2.5.0",
   "orbax-checkpoint>=0.11.33"
 ]
-description = "Substrax: shared training and hardware infrastructure for the Avitai JAX stack"
+description = "JAX/Flax NNX training infrastructure: device meshes and SPMD sharding, an Orbax checkpoint store, early stopping and callbacks, W&B and MLflow logging"
 dynamic = ["version"]
 keywords = [
   "checkpointing",
