@@ -78,6 +78,7 @@ nav:
   - Migration: migration.md
   - API Reference:
       - Runtime: api/runtime.md
+      - Artifacts: api/artifacts.md
       - Devices: api/devices.md
       - Mesh: api/mesh.md
       - SPMD: api/spmd.md

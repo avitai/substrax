@@ -30,6 +30,7 @@ home and one test suite:
 | Subpackage | What it owns |
 | --- | --- |
 | `substrax.runtime` | `JaxRuntime` process settings rendered as the environment of a process that has not imported jax, or applied to the current one; XLA flags merged by name; test-run device emulation; entry-point logging |
+| `substrax.artifacts` | Output directories resolved from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
 | `substrax.devices` | `detect_devices()` (platform, device kind, count), device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |
 | `substrax.spmd` | Data-parallel sharding and batch placement, `spmd_train_step`, gradient reduction and collectives |
@@ -128,6 +129,21 @@ XLA flags merge by name: a flag already set to a different value raises
 `XlaFlagConflictError` instead of being replaced. `resolve_test_runtime` picks a test run's
 backend and emulated CPU devices, and `configure_entry_point_logging` sets up logging from
 `main()` without `force=True`.
+
+### Artifacts
+
+`resolve_output_dir` picks where a run writes its outputs: an explicit directory, then
+`$AVITAI_OUTPUT_DIR/<name>`, then a directory created once per process under the system
+temporary directory. It never defaults into the working tree, so running an example or a
+test cannot overwrite tracked files.
+
+```python
+from substrax.artifacts import resolve_output_dir
+
+location = resolve_output_dir("fno_darcy")  # or explicit=Path("docs/assets/examples/fno_darcy")
+figure_path = location.path / "prediction.png"
+print(location.source)  # "argument", "environment" or "run_default"
+```
 
 ### Devices
 

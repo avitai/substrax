@@ -22,6 +22,8 @@ lists what changed in each module and what was not carried over.
 | `artifex.generative_models.core.jax_config.configure_jax` | `substrax.runtime.apply_runtime` with a `JaxRuntime` |
 | `datarax.performance.xla_optimization.apply_xla_flags` | `substrax.runtime.merge_xla_flags`, or `JaxRuntime(xla_flags=...)` |
 | `datarax.performance.xla_optimization.XLAOptimizer` | `substrax.runtime.apply_runtime` with a `JaxRuntime` |
+| `artifex.utils.file_utils.ensure_valid_output_path` | `substrax.artifacts.resolve_output_dir` |
+| `artifex.utils.file_utils.get_valid_output_dir` | `substrax.artifacts.resolve_output_dir` |
 
 `substrax.runtime` carries no per-backend flag presets: the fast-math CPU flags, GPU Triton
 flags and forced single-device count that `setup_jax_optimization`, `get_xla_flags` and

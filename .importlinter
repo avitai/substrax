@@ -23,10 +23,11 @@ forbidden_modules =
     substrax.mesh
     substrax.spmd
 
-[importlinter:contract:runtime]
-name = runtime configures the process first and imports no other subpackage
+[importlinter:contract:process_setup]
+name = runtime and artifacts set up a process and import no other subpackage
 type = forbidden
 source_modules =
+    substrax.artifacts
     substrax.runtime
 forbidden_modules =
     substrax.callbacks
