@@ -53,6 +53,18 @@ def test_ci_test_job_fails_below_the_coverage_floor() -> None:
     assert coverage_cap_violations(_load_workflow(WORKFLOWS / "ci.yml"), pyproject) == []
 
 
+def test_coverage_follows_child_processes() -> None:
+    """Code the tests run in child interpreters is measured, not reported as missed.
+
+    ``substrax.testing.run_python`` and ``pytester.runpytest_subprocess`` run code in child
+    processes. pytest-cov 7 dropped its own subprocess support in favour of coverage's
+    ``[run] patch = ["subprocess"]``, which hands the configuration to every child.
+    """
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+
+    assert "subprocess" in pyproject["tool"]["coverage"]["run"].get("patch", [])
+
+
 def test_ci_uploads_no_coverage_to_codecov() -> None:
     """coverage.py in the test job is the coverage gate; no workflow uploads to Codecov."""
     uses = [
