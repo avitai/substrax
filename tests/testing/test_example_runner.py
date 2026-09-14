@@ -78,6 +78,23 @@ def test_calling_main_returns_its_summary_with_array_scalars_as_python_numbers(
     assert run.summary == {"loss": 0.25, "steps": 3, "label": "fno"}
 
 
+def test_a_summary_that_is_not_a_mapping_is_decoded_too(repo: Path, outputs: Path) -> None:
+    path = _example(
+        repo,
+        "sweep.py",
+        """
+        import numpy as np
+
+        def main():
+            return [np.float32(1.5), None]
+        """,
+    )
+
+    run = run_example(path, repo_root=repo, output_dir=outputs, timeout=_BUDGET, call_main=True)
+
+    assert run.summary == [1.5, None]
+
+
 def test_running_as_a_script_executes_the_main_block_and_has_no_summary(
     repo: Path, outputs: Path
 ) -> None:
@@ -133,6 +150,18 @@ def test_an_example_past_its_budget_fails_with_the_budget_and_its_partial_stderr
 
     assert caught.value.timeout == 3.0
     assert "started the long loop" in caught.value.stderr_tail
+
+
+def test_a_silent_example_past_its_budget_fails_with_an_empty_stderr_tail(
+    repo: Path, outputs: Path
+) -> None:
+    """``subprocess`` reports no output at all, not empty bytes, for a child that wrote nothing."""
+    path = _example(repo, "stalls.py", "import time\n\ntime.sleep(60)\n")
+
+    with pytest.raises(ExampleTimeoutError, match=r"stalls\.py exceeded its 2 s budget") as caught:
+        run_example(path, repo_root=repo, output_dir=outputs, timeout=2.0, call_main=False)
+
+    assert caught.value.stderr_tail == ""
 
 
 def test_logging_configured_at_import_stays_in_the_child(repo: Path, outputs: Path) -> None:
