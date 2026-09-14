@@ -16,9 +16,12 @@ and uses semantic versioning while the public API stabilizes.
 ### Fixed
 
 - `substrax.spmd.place_batch_on_shards` returned NumPy array leaves unplaced, so a host batch
-  from a data loader stayed on the host. It now places NumPy and `jax.Array` leaves alike, and
-  hands them to `jax.device_put` in one call, which jax runs as one batched transfer instead
-  of one transfer per leaf.
+  from a data loader stayed on the host. It could not assemble a global batch across
+  processes either, because it put each leaf with `jax.device_put`. It now passes every
+  array leaf, NumPy or `jax.Array`, to one `jax.make_array_from_process_local_data` call.
+  On one process that call is a single batched `jax.device_put` instead of one transfer per
+  leaf. On several processes each process passes the slice it loaded, and jax builds the
+  global array.
 
 ### Removed
 

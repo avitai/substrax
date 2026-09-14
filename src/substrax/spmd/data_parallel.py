@@ -35,24 +35,28 @@ def create_data_parallel_sharding(mesh: Mesh, data_axis: str = "data") -> NamedS
 
 
 def place_batch_on_shards(batch: PyTree, sharding: Sharding) -> PyTree:
-    """Place a batch's arrays on ``sharding``.
+    """Turn this process's batch into global arrays on ``sharding``.
 
     Array leaves, whether ``jax.Array`` or a NumPy array as a host data loader yields them, go
-    to ``jax.device_put`` together, which runs one batched transfer for all of them. Any other
-    leaf, such as a string, is returned as it is.
+    to ``jax.make_array_from_process_local_data`` in one call. On a single process that is one
+    batched ``jax.device_put``. On several processes each process passes the slice of the
+    global batch it loaded, and jax stitches the slices into one global array. Any other leaf,
+    such as a string, is returned as it is.
 
     Args:
-        batch: The batch to shard.
-        sharding: The sharding specification to use.
+        batch: The batch this process loaded.
+        sharding: The sharding of the global batch.
 
     Returns:
-        The batch with every array leaf placed on ``sharding``.
+        The batch with every array leaf replaced by the global array on ``sharding``.
     """
     leaves, treedef = jax.tree.flatten(batch)
     positions = [
         index for index, leaf in enumerate(leaves) if isinstance(leaf, jax.Array | np.ndarray)
     ]
-    placed = jax.device_put([leaves[index] for index in positions], sharding)
+    placed = jax.make_array_from_process_local_data(
+        sharding, [leaves[index] for index in positions]
+    )
     for index, leaf in zip(positions, placed, strict=True):
         leaves[index] = leaf
     return jax.tree.unflatten(treedef, leaves)
