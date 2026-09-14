@@ -26,6 +26,15 @@ and uses semantic versioning while the public API stabilizes.
   the system temporary directory with `tempfile.mkdtemp`. It never defaults into the working
   tree, refuses a relative `AVITAI_OUTPUT_DIR` and a name that leaves the output directory, and
   creates the directory it returns.
+- `substrax.testing`, installed with the new `testing` extra, holds shared test infrastructure.
+  `run_python` runs code or a script in a fresh interpreter whose JAX settings the test
+  chooses. It drops inherited `JAX_*` and `XLA_*` variables, and defaults to the CPU backend
+  without preallocation. It returns a `ChildResult` with `check()` and `last_json()`.
+  `cuda_is_visible` probes the CUDA backend in such a child. `restored_jax_config` sets back the
+  global jax configuration a block changed. The opt-in plugin `substrax.testing.pytest_plugin`
+  adds the `x64`, `devices` and `accelerator` markers, fails a test that changes jax's global
+  configuration as jax's own `JaxTestCase` does, and fails a session left in x64 by a module at
+  import.
 
 ### Fixed
 

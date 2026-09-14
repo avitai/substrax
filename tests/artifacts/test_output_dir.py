@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
-import json
-import subprocess
 import tempfile
 import textwrap
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from substrax.artifacts import OUTPUT_DIR_ENV, resolve_output_dir
-
-
-type Runner = Callable[[list[str], dict[str, str]], subprocess.CompletedProcess[str]]
+from substrax.testing import run_python
 
 
 @pytest.fixture
@@ -127,26 +122,22 @@ _IMPORT_PROBE = """
 """
 
 
-def _probe(run_interpreter: Runner, tmp_path: Path, action: str) -> dict[str, list[str]]:
+def _probe(tmp_path: Path, action: str) -> dict[str, list[str]]:
     temp, cwd = tmp_path / "temp", tmp_path / "cwd"
     temp.mkdir()
     cwd.mkdir()
     program = textwrap.dedent(_IMPORT_PROBE.format(cwd=str(cwd), temp=str(temp), action=action))
-    completed = run_interpreter(["-c", program], {"TMPDIR": str(temp)})
-    assert completed.returncode == 0, completed.stderr
-    return json.loads(completed.stdout.strip().splitlines()[-1])
+    return run_python(program, env={"TMPDIR": str(temp)}, timeout=180.0).check().last_json()
 
 
-def test_importing_the_package_creates_nothing(run_interpreter: Runner, tmp_path: Path) -> None:
-    assert _probe(run_interpreter, tmp_path, "pass") == {"temp": [], "cwd": []}
+def test_importing_the_package_creates_nothing(tmp_path: Path) -> None:
+    assert _probe(tmp_path, "pass") == {"temp": [], "cwd": []}
 
 
-def test_the_import_probe_sees_a_run_directory_being_created(
-    run_interpreter: Runner, tmp_path: Path
-) -> None:
+def test_the_import_probe_sees_a_run_directory_being_created(tmp_path: Path) -> None:
     """Control: the same probe reports the directory a default resolution creates."""
     action = "substrax.artifacts.resolve_output_dir('run', env={})"
 
-    observed = _probe(run_interpreter, tmp_path, action)
+    observed = _probe(tmp_path, action)
 
     assert (len(observed["temp"]), observed["cwd"]) == (1, [])

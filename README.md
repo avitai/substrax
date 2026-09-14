@@ -31,6 +31,7 @@ home and one test suite:
 | --- | --- |
 | `substrax.runtime` | `JaxRuntime` process settings rendered as the environment of a process that has not imported jax, or applied to the current one; XLA flags merged by name; test-run device emulation; entry-point logging |
 | `substrax.artifacts` | Output directories resolved from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
+| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
 | `substrax.devices` | `detect_devices()` (platform, device kind, count), device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |
 | `substrax.spmd` | Data-parallel sharding and batch placement, `spmd_train_step`, gradient reduction and collectives |
@@ -48,6 +49,7 @@ spec tables (calibrax), data pipelines (datarax), models and trainers (artifex, 
 uv add substrax          # or: pip install substrax
 uv add "substrax[wandb]"  # Weights & Biases backend
 uv add "substrax[mlflow]" # MLflow backend
+uv add "substrax[testing]" # pytest plugin and fresh-interpreter test helpers
 ```
 
 Substrax requires Python 3.12 or 3.13, `jax>=0.11.1`, `flax>=0.12.9` and
@@ -143,6 +145,33 @@ from substrax.artifacts import resolve_output_dir
 location = resolve_output_dir("fno_darcy")  # or explicit=Path("docs/assets/examples/fno_darcy")
 figure_path = location.path / "prediction.png"
 print(location.source)  # "argument", "environment" or "run_default"
+```
+
+### Testing
+
+`run_python` runs code in a fresh interpreter with the JAX settings a test chooses, and the opt-in
+pytest plugin adds device markers and fails a test that changes jax's global configuration, as
+jax's own test harness does.
+
+```python
+# conftest.py
+pytest_plugins = ["substrax.testing.pytest_plugin"]
+
+# test_sharding.py
+import pytest
+
+from substrax.runtime import JaxRuntime
+from substrax.testing import run_python
+
+
+@pytest.mark.devices(2)
+def test_on_two_devices() -> None: ...
+
+
+def test_eight_emulated_devices() -> None:
+    program = "import json, jax; print(json.dumps(jax.device_count()))"
+    result = run_python(program, runtime=JaxRuntime(cpu_devices=8), timeout=120)
+    assert result.check().last_json() == 8
 ```
 
 ### Devices

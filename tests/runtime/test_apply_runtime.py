@@ -3,7 +3,9 @@
 Settings jax reads only when its backends start (platforms, XLA flags, client memory) are refused
 once jax is imported, because jax offers no public signal of backend initialisation and a late
 write would silently change nothing. The device count, the compilation cache and the paths that
-need a fresh interpreter are covered in ``test_runtime_process.py``.
+need a fresh interpreter are covered in ``test_runtime_process.py``. The substrax pytest plugin
+fails a test that changes jax's global configuration, so the tests that apply settings on purpose
+set them back through ``restored_jax_config``.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import jax
 import pytest
 
 from substrax.runtime import apply_runtime, JaxRuntime, RuntimeConfigurationError
+from substrax.testing import restored_jax_config
 
 
 @pytest.fixture
@@ -84,24 +87,24 @@ def test_a_refused_runtime_changes_no_jax_setting() -> None:
 
 
 def test_x64_goes_through_jax_config_once_jax_is_imported() -> None:
-    previous = jax.config.jax_enable_x64
+    requested = not jax.config.jax_enable_x64
     environ: dict[str, str] = {}
-    try:
-        apply_runtime(JaxRuntime(enable_x64=not previous), environ=environ)
 
-        assert jax.config.jax_enable_x64 is (not previous)
-    finally:
-        jax.config.update("jax_enable_x64", previous)
+    with restored_jax_config() as changed:
+        apply_runtime(JaxRuntime(enable_x64=requested), environ=environ)
+        applied = jax.config.jax_enable_x64
 
+    assert applied is requested
+    assert changed == ["jax_enable_x64"]
     assert environ == {}
 
 
 def test_matmul_precision_goes_through_jax_config_once_jax_is_imported() -> None:
-    previous = jax.config.jax_default_matmul_precision
-    requested = "highest" if previous != "highest" else "high"
-    try:
-        apply_runtime(JaxRuntime(matmul_precision=requested), environ={})
+    requested = "highest" if jax.config.jax_default_matmul_precision != "highest" else "high"
 
-        assert jax.config.jax_default_matmul_precision == requested
-    finally:
-        jax.config.update("jax_default_matmul_precision", previous)
+    with restored_jax_config() as changed:
+        apply_runtime(JaxRuntime(matmul_precision=requested), environ={})
+        applied = jax.config.jax_default_matmul_precision
+
+    assert applied == requested
+    assert changed == ["jax_default_matmul_precision"]

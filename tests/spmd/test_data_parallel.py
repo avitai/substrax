@@ -35,7 +35,7 @@ class TestCreateDataParallelSharding:
         sharding = create_data_parallel_sharding(mesh, data_axis="batch")
         assert sharding.spec == jax.sharding.PartitionSpec("batch")  # type: ignore[reportAttributeAccessIssue]
 
-    @pytest.mark.skipif(jax.device_count() < 2, reason="Requires 2+ devices")
+    @pytest.mark.devices(2)
     def test_multi_device_sharding(self) -> None:
         """Test creating sharding across multiple devices."""
         mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=2)
@@ -67,7 +67,7 @@ class TestShardBatch:
 
         assert result["label"] == "test_string"
 
-    @pytest.mark.skipif(jax.device_count() < 2, reason="Requires 2+ devices")
+    @pytest.mark.devices(2)
     def test_multi_device_shard(self) -> None:
         """Test sharding across multiple devices."""
         mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=2)
