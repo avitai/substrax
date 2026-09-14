@@ -10,7 +10,8 @@ It provides:
 * a session failure when a module leaves x64 on at import, since every module collected after it
   would build float64 constants;
 * ``@pytest.mark.devices(count, kind=None)`` and ``@pytest.mark.accelerator(kind=None)``, which skip
-  a test the visible devices cannot run.
+  a test the visible devices cannot run;
+* an ``output_dir`` fixture: a fresh directory with ``AVITAI_OUTPUT_DIR`` pointing at it.
 
 Importing the plugin imports neither jax nor ``substrax.devices``; both load when a test runs.
 """
@@ -25,10 +26,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from substrax.artifacts import OUTPUT_DIR_ENV
 from substrax.testing.jax_config import restored_jax_config
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from substrax.devices import DeviceInfo, DeviceKind
 
 
@@ -112,6 +116,26 @@ def substrax_jax_config_isolation(request: pytest.FixtureRequest) -> Iterator[No
             "that need 64-bit types with @pytest.mark.x64",
             pytrace=False,
         )
+
+
+@pytest.fixture
+def output_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A fresh directory for a test's outputs, with ``AVITAI_OUTPUT_DIR`` pointing at it.
+
+    ``resolve_output_dir`` calls in the test, and in every child interpreter it starts, write under
+    this directory. The variable is set back after the test.
+
+    Args:
+        tmp_path: The test's temporary directory.
+        monkeypatch: Sets the variable for the test and restores it afterwards.
+
+    Returns:
+        The created directory.
+    """
+    directory = tmp_path / "outputs"
+    directory.mkdir()
+    monkeypatch.setenv(OUTPUT_DIR_ENV, str(directory))
+    return directory
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:

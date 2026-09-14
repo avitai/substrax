@@ -153,7 +153,8 @@ print(location.source)  # "argument", "environment" or "run_default"
 pytest plugin adds device markers and fails a test that changes jax's global configuration, as
 jax's own test harness does.
 `TraceCounter` asserts how many times a jitted function traced, for example that a training step
-compiles once.
+compiles once. `run_example` runs each example in its own interpreter, with its outputs redirected
+away from the repository.
 
 ```python
 # conftest.py

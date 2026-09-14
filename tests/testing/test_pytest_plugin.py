@@ -211,6 +211,30 @@ def test_a_malformed_device_marker_is_a_usage_error(pytester: pytest.Pytester, m
     assert _run(pytester).ret == pytest.ExitCode.USAGE_ERROR
 
 
+def test_the_output_dir_fixture_points_the_output_variable_at_a_fresh_directory(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("AVITAI_OUTPUT_DIR", raising=False)
+    pytester.makepyfile(
+        test_outputs="""
+        import os
+
+        from substrax.artifacts import OUTPUT_DIR_ENV, resolve_output_dir
+
+        def test_uses_the_fixture(output_dir, tmp_path):
+            assert output_dir.is_dir()
+            assert output_dir.parent == tmp_path
+            assert os.environ[OUTPUT_DIR_ENV] == str(output_dir)
+            assert resolve_output_dir("figures").path == (output_dir / "figures").resolve()
+
+        def test_the_variable_is_gone_afterwards():
+            assert OUTPUT_DIR_ENV not in os.environ
+        """
+    )
+
+    _run(pytester).assert_outcomes(passed=2)
+
+
 _IMPORT_PROBE = "import json, sys; import {module}; print(json.dumps('jax' in sys.modules))"
 
 

@@ -39,6 +39,12 @@ and uses semantic versioning while the public API stabilizes.
   `jax.jit` and `nnx.jit` is once per trace. `expect(new_traces=n)` raises `RetraceError` unless
   exactly `n` traces happen inside its block. Each counter is independent, with no global
   registry to clear.
+- `substrax.testing.run_example` runs one example in a fresh interpreter from the repository root,
+  with `AVITAI_OUTPUT_DIR` set to a given directory. It runs the file as a script, or calls its
+  `main()` and decodes the returned summary from JSON. A timeout raises `ExampleTimeoutError`.
+  `discover_examples` lists example scripts, skipping names that start with `_`.
+  `unavailable_reason` matches a failed run's standard error against messages that mean the
+  example cannot run here. The pytest plugin gains an `output_dir` fixture.
 
 ### Fixed
 
