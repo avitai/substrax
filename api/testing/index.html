@@ -496,6 +496,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#running-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pytest-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -565,6 +576,28 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.ExampleRun" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ExampleRun
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.ExampleTimeoutError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ExampleTimeoutError
+      
+    </span>
+  </a>
   
 </li>
         
@@ -645,6 +678,39 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.discover_examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;discover_examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.run_example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.unavailable_reason" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unavailable_reason
       
     </span>
   </a>
@@ -889,6 +955,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#running-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pytest-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -958,6 +1035,28 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.ExampleRun" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ExampleRun
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.ExampleTimeoutError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ExampleTimeoutError
+      
+    </span>
+  </a>
   
 </li>
         
@@ -1038,6 +1137,39 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.discover_examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;discover_examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.run_example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;run_example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.unavailable_reason" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;unavailable_reason
       
     </span>
   </a>
@@ -1130,7 +1262,8 @@
 
 <h1 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">¤</a></h1>
 <p><code>substrax.testing</code> holds the test infrastructure JAX packages share: fresh-interpreter runs with a
-chosen JAX configuration, and an opt-in pytest plugin. Install it with <code>substrax[testing]</code>.</p>
+chosen JAX configuration, trace counts, example runs, and an opt-in pytest plugin. Install it with
+<code>substrax[testing]</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">JaxRuntime</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_python</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -1173,9 +1306,47 @@ counts, and an error raised inside the block propagates unchanged. Each counter 
 count, so there is no global registry to clear. Wrap the Python function, then jit the wrapper.
 The counter does not listen to jax's <code>jax.monitoring</code> trace event: jax records that event only
 for top-level traces, and its name is not documented.</p>
+<h2 id="running-examples">Running examples<a class="headerlink" href="#running-examples" title="Permanent link">¤</a></h2>
+<p><code>discover_examples</code> lists a repository's example scripts, and <code>run_example</code> runs one in a fresh
+interpreter from the repository root:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover_examples</span><span class="p">,</span> <span class="n">run_example</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parents</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">EXAMPLES</span> <span class="o">=</span> <span class="n">discover_examples</span><span class="p">(</span><span class="n">ROOT</span> <span class="o">/</span> <span class="s2">"examples"</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">parametrize</span><span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="n">EXAMPLES</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">ROOT</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">())</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_example_runs</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">run</span> <span class="o">=</span> <span class="n">run_example</span><span class="p">(</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">path</span><span class="p">,</span> <span class="n">repo_root</span><span class="o">=</span><span class="n">ROOT</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">call_main</span><span class="o">=</span><span class="kc">True</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="k">assert</span> <span class="n">run</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">check</span><span class="p">()</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="k">assert</span> <span class="n">run</span><span class="o">.</span><span class="n">summary</span><span class="p">[</span><span class="s2">"relative_l2_error"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">1e-2</span>
+</code></pre></div>
+<ul>
+<li><code>discover_examples</code> skips every file or directory whose name starts with <code>_</code>, such as
+  <code>__init__.py</code>, <code>_common</code> helpers and <code>_templates</code>. <code>include</code> narrows the list further, for
+  example to a numbering rule.</li>
+<li><code>call_main=True</code> loads the example under a name other than <code>__main__</code>, calls <code>main()</code> and decodes
+  its return value from JSON into <code>run.summary</code>. 0-d numpy and jax values become Python numbers,
+  and a value JSON cannot hold fails the run, naming its key. <code>call_main=False</code> runs the file as
+  a script. In both modes the example's own directory comes first on <code>sys.path</code>, and it sees no
+  command-line arguments, as in a script run.</li>
+<li>The child runs through <code>run_python</code>, with <code>AVITAI_OUTPUT_DIR</code> set to <code>output_dir</code>. An example that
+  resolves its outputs with <code>resolve_output_dir</code> never writes into the repository, and logging or
+  64-bit settings made at import end with the child.</li>
+<li>A timeout raises <code>ExampleTimeoutError</code>, an <code>AssertionError</code> naming the budget and the end of the
+  example's standard error. A timeout is a failure, not a skip.</li>
+<li><code>unavailable_reason(run, signatures)</code> returns the first of a repository's messages found in a
+  failed run's standard error, for skipping an example whose dataset is not configured here.</li>
+</ul>
 <h2 id="the-pytest-plugin">The pytest plugin<a class="headerlink" href="#the-pytest-plugin" title="Permanent link">¤</a></h2>
 <p>Enable it in the top-level <code>conftest.py</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pytest_plugins</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"substrax.testing.pytest_plugin"</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">pytest_plugins</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"substrax.testing.pytest_plugin"</span><span class="p">]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -1205,23 +1376,27 @@ for top-level traces, and its name is not documented.</p>
 <td><code>@pytest.mark.accelerator(kind=None)</code></td>
 <td>Skips unless jax's default backend is an accelerator, of <code>kind</code> when given</td>
 </tr>
+<tr>
+<td><code>output_dir</code> fixture</td>
+<td>A fresh <code>outputs</code> directory under <code>tmp_path</code>, with <code>AVITAI_OUTPUT_DIR</code> pointing at it for the test</td>
+</tr>
 </tbody>
 </table>
 <p>The isolation follows jax's own test harness, whose <code>JaxTestCase</code> fails a test that changes a
 global configuration value. A test whose subject changes the global configuration sets it back
 with <code>restored_jax_config()</code>, which reports the names it restored:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">JaxRuntime</span><span class="p">,</span> <span class="n">apply_runtime</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">restored_jax_config</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_apply_runtime_enables_x64</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">with</span> <span class="n">restored_jax_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">changed</span><span class="p">:</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">apply_runtime</span><span class="p">(</span><span class="n">JaxRuntime</span><span class="p">(</span><span class="n">enable_x64</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="k">assert</span> <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">jax_enable_x64</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="k">assert</span> <span class="n">changed</span> <span class="o">==</span> <span class="p">[</span><span class="s2">"jax_enable_x64"</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">JaxRuntime</span><span class="p">,</span> <span class="n">apply_runtime</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">restored_jax_config</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_apply_runtime_enables_x64</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">with</span> <span class="n">restored_jax_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">changed</span><span class="p">:</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="n">apply_runtime</span><span class="p">(</span><span class="n">JaxRuntime</span><span class="p">(</span><span class="n">enable_x64</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="k">assert</span> <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">jax_enable_x64</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="k">assert</span> <span class="n">changed</span> <span class="o">==</span> <span class="p">[</span><span class="s2">"jax_enable_x64"</span><span class="p">]</span>
 </code></pre></div>
 <p>A malformed <code>devices</code> or <code>accelerator</code> marker is a usage error at collection. No entry point
 loads the plugin, so installing substrax changes no other project's tests, and importing it
@@ -1245,7 +1420,9 @@ imports no jax.</p>
 with everything the parent's shell exported about jax removed, and returns a <code>ChildResult</code>.
 <code>cuda_is_visible</code> probes the CUDA backend in such a child. <code>restored_jax_config</code> sets back the
 global jax configuration a block changed. <code>TraceCounter</code> counts the traces a jitted function
-takes and raises <code>RetraceError</code> when a block caused an unexpected number. The plugin, <code>substrax.testing.pytest_plugin</code>, is
+takes and raises <code>RetraceError</code> when a block caused an unexpected number. <code>discover_examples</code>
+lists a repository's examples, and <code>run_example</code> runs one per child interpreter with its
+outputs redirected. The plugin, <code>substrax.testing.pytest_plugin</code>, is
 enabled from a <code>conftest.py</code>: it adds the <code>x64</code>, <code>devices</code> and <code>accelerator</code> markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
 Importing this package imports no jax.</p>
@@ -1624,6 +1801,266 @@ standard error.</p>
     </div>
 
 </div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.testing.ExampleRun" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">ExampleRun</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">summary</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#substrax.testing.ExampleRun" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One run of an example.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.ExampleRun.path">path</span></code></td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The example that ran.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.ExampleRun.result">result</span></code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              ChildResult(*, argv, returncode, stdout, stderr, seconds)
+
+  
+      dataclass
+   (substrax.testing.child_process.ChildResult)" href="#substrax.testing.ChildResult">ChildResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The child interpreter's exit code, output and duration.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.ExampleRun.summary">summary</span></code></td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>What <code>main()</code> returned, decoded from JSON, for a run that called it and exited 0;
+<code>None</code> otherwise.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.testing.ExampleTimeoutError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">ExampleTimeoutError</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">timeout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.ExampleTimeoutError" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="AssertionError">AssertionError</span></code></p>
+
+
+
+        <p>An example ran past its budget and was killed.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.ExampleTimeoutError.path">path</span></code></td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The example.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.ExampleTimeoutError.timeout">timeout</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Its budget in seconds.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.ExampleTimeoutError.stderr_tail">stderr_tail</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The last lines it wrote to standard error before it was killed.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+        <p>Name the example, its budget and the end of its standard error.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The example.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timeout</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Its budget in seconds.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>stderr</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Everything it wrote to standard error before it was killed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2293,6 +2730,419 @@ the child is not started.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the child runs longer than <code>timeout</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.testing.discover_examples" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">discover_examples</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.discover_examples" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>List the example scripts under <code>root</code>, sorted.</p>
+<p>A file or directory whose name starts with <code>_</code> is private, as <code>_common</code> helpers,
+<code>_templates</code> and <code>__init__.py</code> are, and so is everything under it. Only the parts below
+<code>root</code> count, so <code>root</code> itself may have such a name.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>root</code>
+            </td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The examples directory.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>include</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="pathlib.Path">Path</span>], <span title="bool">bool</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keeps a path when it returns <code>True</code>, such as a repository's numbering rule.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="pathlib.Path">Path</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <code>*.py</code> files under <code>root</code> that are not private and that <code>include</code> keeps.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.testing.run_example" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">run_example</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">repo_root</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">timeout</span><span class="p">,</span> <span class="n">call_main</span><span class="p">,</span> <span class="n">runtime</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.run_example" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run one example in a fresh interpreter from the repository root, with outputs redirected.</p>
+<p>The child starts through :func:<code>~substrax.testing.run_python</code>, so the JAX settings are the
+<code>runtime</code> and <code>env</code> given here, not the parent shell's. <code>AVITAI_OUTPUT_DIR</code> is set to
+<code>output_dir</code>, so an example resolving its outputs with
+:func:<code>~substrax.artifacts.resolve_output_dir</code> never writes into the repository. Whatever the
+example configures at import, such as logging or 64-bit types, ends with the child.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The example.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>repo_root</code>
+            </td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The child's working directory, which relative paths in examples assume.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>output_dir</code>
+            </td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where the example's outputs go.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timeout</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seconds before the child is killed; every run states its budget.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>call_main</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>True</code> loads the example under a name other than <code>__main__</code>, calls its
+<code>main()</code> without arguments and decodes the return value; <code>False</code> runs the file
+as a script.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>runtime</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              JaxRuntime(*, platforms=None, cpu_devices=None, enable_x64=None, matmul_precision=None, compilation_cache_dir=None, xla_flags=(), preallocate=None, memory_fraction=None)
+
+  
+      dataclass
+   (substrax.runtime.JaxRuntime)" href="../runtime/#substrax.runtime.JaxRuntime">JaxRuntime</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>JAX settings of the child.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>env</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Variables set in the child before <code>runtime</code> is applied.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              ExampleRun(*, path, result, summary)
+
+  
+      dataclass
+   (substrax.testing.examples.ExampleRun)" href="#substrax.testing.ExampleRun">ExampleRun</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The run. A non-zero exit is returned, not raised; <code>run.result.check()</code> raises it.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>env</code> sets <code>AVITAI_OUTPUT_DIR</code> to a directory other than <code>output_dir</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              ExampleTimeoutError(path, timeout, stderr) (substrax.testing.examples.ExampleTimeoutError)" href="#substrax.testing.ExampleTimeoutError">ExampleTimeoutError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the example runs longer than <code>timeout</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="XlaFlagConflictError">XlaFlagConflictError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a flag in <code>runtime</code> conflicts with <code>XLA_FLAGS</code> in <code>env</code>; the
+child is not started.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.testing.unavailable_reason" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">unavailable_reason</span><span class="p">(</span><span class="n">run</span><span class="p">,</span> <span class="n">signatures</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.unavailable_reason" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the first signature found in a failed run's standard error, ignoring case.</p>
+<p>A repository lists the messages that mean an example cannot run in this environment, such as a
+dataset that is not configured, and skips the example when one matches. A run that exited 0
+matches nothing, and standard output is not searched.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>run</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              ExampleRun(*, path, result, summary)
+
+  
+      dataclass
+   (substrax.testing.examples.ExampleRun)" href="#substrax.testing.ExampleRun">ExampleRun</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The finished run.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>signatures</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Messages that mean the example cannot run here.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The first signature found, as given, or <code>None</code>.</p>
               </div>
             </td>
           </tr>
