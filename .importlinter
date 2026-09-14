@@ -37,6 +37,22 @@ forbidden_modules =
     substrax.spmd
     substrax.tracking
 
+[importlinter:contract:testing]
+name = only testing imports pytest and no other subpackage imports testing
+type = forbidden
+source_modules =
+    substrax.artifacts
+    substrax.callbacks
+    substrax.checkpoint
+    substrax.devices
+    substrax.mesh
+    substrax.runtime
+    substrax.spmd
+    substrax.tracking
+forbidden_modules =
+    pytest
+    substrax.testing
+
 [importlinter:contract:siblings]
 name = substrax never imports a sibling package
 type = forbidden

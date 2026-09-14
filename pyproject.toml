@@ -47,13 +47,13 @@ requires-python = ">=3.12"
 
 [project.optional-dependencies]
 all = [
-  "substrax[cuda12,dev,docs,mlflow,plots,test,wandb]"
+  "substrax[cuda12,dev,docs,mlflow,plots,test,testing,wandb]"
 ]
 all-cpu = [
-  "substrax[dev,docs,mlflow,plots,test,wandb]"
+  "substrax[dev,docs,mlflow,plots,test,testing,wandb]"
 ]
 all-macos = [
-  "substrax[dev,docs,metal,mlflow,plots,test,wandb]"
+  "substrax[dev,docs,metal,mlflow,plots,test,testing,wandb]"
 ]
 cuda-dev = [
   "substrax[cuda12,dev]"
@@ -116,6 +116,10 @@ test = [
   "pytest>=9.0.3",
   # The file and MLflow loggers draw figures with the plots extra; the tests exercise them.
   "substrax[plots]"
+]
+# The pytest plugin and child-process helpers in substrax.testing import pytest.
+testing = [
+  "pytest>=9.0.3"
 ]
 wandb = [
   "wandb>=0.18"
