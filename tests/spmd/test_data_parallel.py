@@ -4,9 +4,11 @@ Tests both SPMD-based and legacy pmap-based data parallel utilities.
 """
 
 from typing import Any
+from unittest import mock
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 import pytest
 from flax import nnx
@@ -66,6 +68,35 @@ class TestShardBatch:
 
         result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
 
+        assert result["label"] == "test_string"
+
+    def test_numpy_array_values_are_placed(self) -> None:
+        """A host batch, as a data loader yields it, is placed like a jax.Array batch."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+        sharding = create_data_parallel_sharding(mesh)
+        batch = {"inputs": np.ones((4, 2), dtype=np.float32), "label": "test_string"}
+
+        result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
+
+        assert isinstance(result["inputs"], jax.Array)
+        assert result["inputs"].sharding == sharding
+        assert result["label"] == "test_string"
+
+    def test_array_leaves_are_placed_in_one_transfer(self) -> None:
+        """jax.device_put batches a pytree's leaves into one transfer, so placement calls it once."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+        sharding = create_data_parallel_sharding(mesh)
+        batch = {
+            "inputs": np.ones((4, 2), dtype=np.float32),
+            "targets": jnp.zeros((4,)),
+            "label": "test_string",
+        }
+
+        with mock.patch.object(jax, "device_put", wraps=jax.device_put) as device_put:
+            result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
+
+        assert device_put.call_count == 1
+        assert result["targets"].sharding == sharding
         assert result["label"] == "test_string"
 
     @pytest.mark.devices(2)
