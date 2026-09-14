@@ -21,6 +21,11 @@ and uses semantic versioning while the public API stabilizes.
   value instead of letting the last one win. `resolve_test_runtime` chooses a test run's
   backend and emulated CPU devices, and `configure_entry_point_logging` sets up the root
   logger from an entry point without `force=True`.
+- `substrax.artifacts.resolve_output_dir` chooses where a run writes its outputs: an explicit
+  directory, then `$AVITAI_OUTPUT_DIR/<name>`, then a directory created once per process under
+  the system temporary directory with `tempfile.mkdtemp`. It never defaults into the working
+  tree, refuses a relative `AVITAI_OUTPUT_DIR` and a name that leaves the output directory, and
+  creates the directory it returns.
 
 ### Fixed
 

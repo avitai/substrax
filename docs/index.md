@@ -7,6 +7,7 @@ and holds the code those packages used to carry separately.
 | Subpackage | What it owns |
 | --- | --- |
 | `substrax.runtime` | JAX process settings applied before or after jax is imported, XLA flags merged by name, test-run device emulation, entry-point logging |
+| `substrax.artifacts` | Output directories from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
 | `substrax.devices` | Device information and device placement |
 | `substrax.mesh` | Device meshes, mesh rules, partition-spec helpers, sharding strategies |
 | `substrax.spmd` | Data-parallel placement, `spmd_train_step`, gradient reduction, collectives |
