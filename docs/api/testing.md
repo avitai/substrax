@@ -22,6 +22,37 @@ test never starts an accelerator it did not ask for. `check()` raises `ChildFail
 the end of the child's standard error, and `last_json()` parses the last line the child printed.
 `cuda_is_visible()` asks a child on the CUDA backend whether jax sees a GPU.
 
+## Counting traces
+
+`TraceCounter` counts how often a function's Python body runs. Under `jax.jit` and `nnx.jit`
+the body runs once per trace, so the count is the number of traces a test caused:
+
+```python
+import jax
+import jax.numpy as jnp
+
+from substrax.testing import TraceCounter
+
+
+def double(x):
+    return x * 2.0
+
+
+counter = TraceCounter()
+step = jax.jit(counter.wrap(double))
+
+with counter.expect(new_traces=1):
+    step(jnp.ones(3))
+with counter.expect(new_traces=0):  # same shape and dtype: no new trace
+    step(jnp.zeros(3))
+```
+
+`expect` raises `RetraceError`, an `AssertionError` that names the expected and observed
+counts, and an error raised inside the block propagates unchanged. Each counter keeps its own
+count, so there is no global registry to clear. Wrap the Python function, then jit the wrapper.
+The counter does not listen to jax's `jax.monitoring` trace event: jax records that event only
+for top-level traces, and its name is not documented.
+
 ## The pytest plugin
 
 Enable it in the top-level `conftest.py`:

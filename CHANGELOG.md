@@ -35,6 +35,10 @@ and uses semantic versioning while the public API stabilizes.
   adds the `x64`, `devices` and `accelerator` markers, fails a test that changes jax's global
   configuration as jax's own `JaxTestCase` does, and fails a session left in x64 by a module at
   import.
+- `substrax.testing.TraceCounter` counts how often a function's Python body runs, which under
+  `jax.jit` and `nnx.jit` is once per trace. `expect(new_traces=n)` raises `RetraceError` unless
+  exactly `n` traces happen inside its block. Each counter is independent, with no global
+  registry to clear.
 
 ### Fixed
 
