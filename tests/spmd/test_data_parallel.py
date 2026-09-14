@@ -27,20 +27,21 @@ class TestCreateDataParallelSharding:
         """Test creating sharding with single device mesh."""
         mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
         sharding = create_data_parallel_sharding(mesh)
-        assert sharding.spec == jax.sharding.PartitionSpec("data")  # type: ignore[reportAttributeAccessIssue]
+        assert sharding.mesh == mesh
+        assert sharding.spec == jax.sharding.PartitionSpec("data")
 
     def test_custom_data_axis(self) -> None:
         """Test creating sharding with custom axis name."""
         mesh = DeviceMeshManager.create_device_mesh([("batch", 1)])
         sharding = create_data_parallel_sharding(mesh, data_axis="batch")
-        assert sharding.spec == jax.sharding.PartitionSpec("batch")  # type: ignore[reportAttributeAccessIssue]
+        assert sharding.spec == jax.sharding.PartitionSpec("batch")
 
     @pytest.mark.devices(2)
     def test_multi_device_sharding(self) -> None:
         """Test creating sharding across multiple devices."""
         mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=2)
         sharding = create_data_parallel_sharding(mesh)
-        assert sharding.spec == jax.sharding.PartitionSpec("data")  # type: ignore[reportAttributeAccessIssue]
+        assert sharding.spec == jax.sharding.PartitionSpec("data")
 
 
 class TestShardBatch:

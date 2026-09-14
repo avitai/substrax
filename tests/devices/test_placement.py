@@ -10,12 +10,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from jax.sharding import Mesh, NamedSharding, PartitionSpec, SingleDeviceSharding
+from jax.sharding import Mesh, SingleDeviceSharding
 
 from substrax.devices import (
     BatchSizeRecommendation,
     DevicePlacement,
-    distribute_batch,
     get_batch_size_recommendation,
     HardwareType,
     place_on_device,
@@ -161,34 +160,6 @@ class TestPlaceOnDevice:
         assert result["float32"].dtype == jnp.float32
         assert result["int32"].dtype == jnp.int32
         assert result["float16"].dtype == jnp.float16
-
-
-class TestDistributeBatch:
-    """Tests for distribute_batch method."""
-
-    def test_distribute_with_single_device_sharding(
-        self, placement: DevicePlacement, sample_data: dict[str, jax.Array]
-    ) -> None:
-        """Test distribution with single device sharding."""
-        sharding = SingleDeviceSharding(jax.devices()[0])
-
-        result = placement.distribute_batch(sample_data, sharding)
-
-        assert isinstance(result, dict)
-        for value in result.values():
-            assert isinstance(value, jax.Array)
-
-    def test_distribute_with_named_sharding(
-        self, placement: DevicePlacement, single_device_mesh: Mesh
-    ) -> None:
-        """Test distribution with NamedSharding."""
-        data = {"x": jnp.ones((4, 8))}
-        sharding = NamedSharding(single_device_mesh, PartitionSpec("data", None))
-
-        result = placement.distribute_batch(data, sharding)
-
-        assert isinstance(result["x"], jax.Array)
-        assert result["x"].sharding == sharding
 
 
 class TestReplicateAcrossDevices:
@@ -360,15 +331,6 @@ class TestConvenienceFunctions:
         """Test the place_on_device convenience function."""
         device = jax.devices()[0]
         result = place_on_device(sample_data, device)
-
-        assert isinstance(result, dict)
-        for value in result.values():
-            assert isinstance(value, jax.Array)
-
-    def test_distribute_batch_function(self, sample_data: dict[str, jax.Array]) -> None:
-        """Test the distribute_batch convenience function."""
-        sharding = SingleDeviceSharding(jax.devices()[0])
-        result = distribute_batch(sample_data, sharding)
 
         assert isinstance(result, dict)
         for value in result.values():
