@@ -2236,7 +2236,7 @@ with a mesh context active.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <p>mesh = jax.make_mesh((4,), ("data",))
+  <p>mesh = DeviceMeshManager.create_device_mesh({"data": 4})
 rules = data_parallel_rules()</p>
 <p>@nnx.jit
 def train_step(model, optimizer, batch):
