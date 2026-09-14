@@ -76,7 +76,7 @@ def spmd_train_step(
         The loss value.
 
     Example:
-        mesh = jax.make_mesh((4,), ("data",))
+        mesh = DeviceMeshManager.create_device_mesh({"data": 4})
         rules = data_parallel_rules()
 
         @nnx.jit
