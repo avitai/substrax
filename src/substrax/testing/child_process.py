@@ -87,7 +87,7 @@ class ChildFailedError(AssertionError):
         Args:
             result: The failed run.
         """
-        tail = "\n".join(result.stderr.splitlines()[-_STDERR_TAIL_LINES:])
+        tail = tail_lines(result.stderr)
         super().__init__(
             f"child {result.argv[1:2]} failed with exit code {result.returncode}; "
             f"last lines of stderr:\n{tail}"
@@ -173,6 +173,18 @@ def cuda_is_visible(*, timeout: float = 120.0) -> bool:
     probe = "import sys, jax; sys.exit(0 if jax.devices('gpu') else 1)"
     result = run_python(probe, runtime=JaxRuntime(platforms=("cuda",)), timeout=timeout)
     return result.returncode == 0
+
+
+def tail_lines(stderr: str) -> str:
+    """Return the last lines of a child's standard error, where the error that ended it is.
+
+    Args:
+        stderr: Everything the child wrote to standard error.
+
+    Returns:
+        Its last 40 lines.
+    """
+    return "\n".join(stderr.splitlines()[-_STDERR_TAIL_LINES:])
 
 
 def _with_safe_defaults(runtime: JaxRuntime | None, base: Mapping[str, str]) -> JaxRuntime:
