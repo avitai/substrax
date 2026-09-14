@@ -13,6 +13,13 @@ and uses semantic versioning while the public API stabilizes.
   builds, so callers read `.mesh` and `.spec` without a cast, and it builds that sharding
   through `substrax.mesh.create_named_sharding`.
 
+### Fixed
+
+- `substrax.spmd.place_batch_on_shards` returned NumPy array leaves unplaced, so a host batch
+  from a data loader stayed on the host. It now places NumPy and `jax.Array` leaves alike, and
+  hands them to `jax.device_put` in one call, which jax runs as one batched transfer instead
+  of one transfer per leaf.
+
 ### Removed
 
 - The documentation's migration page. A name that moved into Substrax is recorded in the
@@ -20,7 +27,7 @@ and uses semantic versioning while the public API stabilizes.
   page now states that `JaxRuntime` applies no per-backend XLA flag presets.
 - `substrax.devices.distribute_batch` and `DevicePlacement.distribute_batch`, which duplicated
   batch placement. Use `substrax.spmd.place_batch_on_shards(batch, sharding)`, which places the
-  batch's `jax.Array` leaves and leaves other leaves as they are.
+  batch's array leaves and returns other leaves as they are.
 
 ## [0.1.6] - 2026-09-14
 

@@ -10,6 +10,7 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from flax import nnx
 from jax.sharding import Mesh, NamedSharding, PartitionSpec, Sharding
 
@@ -34,22 +35,27 @@ def create_data_parallel_sharding(mesh: Mesh, data_axis: str = "data") -> NamedS
 
 
 def place_batch_on_shards(batch: PyTree, sharding: Sharding) -> PyTree:
-    """Shard a batch of data across devices.
+    """Place a batch's arrays on ``sharding``.
+
+    Array leaves, whether ``jax.Array`` or a NumPy array as a host data loader yields them, go
+    to ``jax.device_put`` together, which runs one batched transfer for all of them. Any other
+    leaf, such as a string, is returned as it is.
 
     Args:
         batch: The batch to shard.
         sharding: The sharding specification to use.
 
     Returns:
-        The sharded batch.
+        The batch with every array leaf placed on ``sharding``.
     """
-
-    def maybe_shard(x: Any) -> Any:
-        if isinstance(x, jax.Array):
-            return jax.device_put(x, sharding)
-        return x
-
-    return jax.tree.map(maybe_shard, batch)
+    leaves, treedef = jax.tree.flatten(batch)
+    positions = [
+        index for index, leaf in enumerate(leaves) if isinstance(leaf, jax.Array | np.ndarray)
+    ]
+    placed = jax.device_put([leaves[index] for index in positions], sharding)
+    for index, leaf in zip(positions, placed, strict=True):
+        leaves[index] = leaf
+    return jax.tree.unflatten(treedef, leaves)
 
 
 def spmd_train_step(
