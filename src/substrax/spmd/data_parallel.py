@@ -41,7 +41,8 @@ def place_batch_on_shards(batch: PyTree, sharding: Sharding) -> PyTree:
     to ``jax.make_array_from_process_local_data`` in one call. On a single process that is one
     batched ``jax.device_put``. On several processes each process passes the slice of the
     global batch it loaded, and jax stitches the slices into one global array. Any other leaf,
-    such as a string, is returned as it is.
+    such as a string, is returned as it is. Call it on the host batches a loader yields, outside
+    ``jax.jit``: inside a traced function the result is not placed on ``sharding``.
 
     Args:
         batch: The batch this process loaded.

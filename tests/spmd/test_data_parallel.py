@@ -82,6 +82,45 @@ class TestShardBatch:
         assert result["inputs"].sharding == sharding
         assert result["label"] == "test_string"
 
+    def test_placement_keeps_values_dtypes_and_nesting(self) -> None:
+        """Placement moves every array leaf of a nested batch and changes nothing else."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+        sharding = create_data_parallel_sharding(mesh)
+        batch = {
+            "features": {
+                "images": np.arange(8, dtype=np.float16).reshape(4, 2),
+                "mask": np.array([True, False, True, True]),
+            },
+            "targets": {"labels": jnp.arange(4, dtype=jnp.int32)},
+        }
+
+        result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
+
+        assert jax.tree.structure(result) == jax.tree.structure(batch)
+        for placed, original in zip(jax.tree.leaves(result), jax.tree.leaves(batch), strict=True):
+            assert placed.sharding == sharding
+            assert placed.dtype == original.dtype
+            np.testing.assert_array_equal(np.asarray(placed), np.asarray(original))
+
+    def test_empty_batch_is_returned_empty(self) -> None:
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
+
+        assert place_batch_on_shards({}, create_data_parallel_sharding(mesh)) == {}
+
+    @pytest.mark.devices(2)
+    def test_an_array_already_on_another_sharding_is_moved(self) -> None:
+        """A replicated array lands split over the data axis with its values unchanged."""
+        mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=2)
+        sharding = create_data_parallel_sharding(mesh)
+        replicated = jax.device_put(
+            jnp.arange(4.0), jax.sharding.NamedSharding(mesh, jax.sharding.PartitionSpec())
+        )
+
+        result = place_batch_on_shards({"x": replicated}, sharding)  # type: ignore[reportArgumentType]
+
+        assert result["x"].sharding == sharding
+        np.testing.assert_array_equal(np.asarray(result["x"]), np.arange(4.0))
+
     def test_array_leaves_become_global_arrays_in_one_call(self) -> None:
         """Each process passes its local batch; jax assembles the global batch in one call.
 
