@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 import time
 from collections.abc import Mapping
@@ -141,7 +141,7 @@ def run_python(  # noqa: DOC502
     )
     argv = (*command, *args)
     started = time.perf_counter()
-    completed = subprocess.run(  # noqa: S603 - argv is this interpreter and the caller's program
+    completed = subprocess.run(  # noqa: S603  # nosec B603  # this interpreter and the caller's program; no shell
         argv,
         env=child_env,
         cwd=cwd,
