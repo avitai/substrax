@@ -152,6 +152,8 @@ print(location.source)  # "argument", "environment" or "run_default"
 `run_python` runs code in a fresh interpreter with the JAX settings a test chooses, and the opt-in
 pytest plugin adds device markers and fails a test that changes jax's global configuration, as
 jax's own test harness does.
+`TraceCounter` asserts how many times a jitted function traced, for example that a training step
+compiles once.
 
 ```python
 # conftest.py
