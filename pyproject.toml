@@ -253,7 +253,7 @@ reportUnknownVariableType = false
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --strict-config --tb=short --color=yes --durations=10 --cov=substrax --cov-branch --cov-report=term-missing --cov-fail-under=80 --timeout=300 -p no:cacheprovider"
+addopts = "--strict-markers --strict-config --tb=short --color=yes --durations=10 --cov=src/substrax --cov-branch --cov-report=term-missing --cov-fail-under=80 --timeout=300 -p no:cacheprovider"
 console_output_style = "progress"
 filterwarnings = [
   "error",
