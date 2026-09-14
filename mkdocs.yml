@@ -75,7 +75,6 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Migration: migration.md
   - API Reference:
       - Runtime: api/runtime.md
       - Artifacts: api/artifacts.md

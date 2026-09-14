@@ -7,6 +7,12 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Removed
+
+- The documentation's migration page. A name that moved into Substrax is recorded in the
+  CHANGELOG of the package that removed it, which names its Substrax replacement. The runtime
+  page now states that `JaxRuntime` applies no per-backend XLA flag presets.
+
 ## [0.1.6] - 2026-09-14
 
 ### Added

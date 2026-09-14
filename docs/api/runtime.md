@@ -40,7 +40,8 @@ assert jax.device_count() == 8
 A requested XLA flag that is already set to a different value raises `XlaFlagConflictError`,
 so a device count or GPU flag exported by the caller is never silently replaced. A memory
 fraction raises while the deprecated `XLA_PYTHON_CLIENT_MEM_FRACTION` is still set, because
-jax refuses both at once.
+jax refuses both at once. `JaxRuntime` applies no per-backend flag presets: `xla_flags` is empty
+unless a run names the flags it needs.
 
 Once jax is imported, `apply_runtime` applies the CPU device count, 64-bit types, matmul
 precision and compilation cache directory through `jax.config`; jax refuses a new device count

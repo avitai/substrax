@@ -328,9 +328,7 @@ than a lint pass.
 
 ## Documentation
 
-<https://substrax.readthedocs.io> — one page per subpackage under *API Reference*, plus
-the [migration page](https://substrax.readthedocs.io/en/latest/migration/) that maps the
-names the sibling packages used to carry to their Substrax homes.
+<https://substrax.readthedocs.io> — one page per subpackage under *API Reference*.
 
 ## Contributing
 
