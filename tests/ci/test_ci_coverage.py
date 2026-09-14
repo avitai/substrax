@@ -20,12 +20,16 @@ def _load_workflow(path: Path) -> dict[str, Any]:
     return yaml.load(path.read_text(), Loader=yaml.BaseLoader)  # noqa: S506
 
 
+def _addopts(pyproject: dict[str, Any]) -> str:
+    addopts = pyproject["tool"]["pytest"]["ini_options"].get("addopts", "")
+    return " ".join(addopts) if isinstance(addopts, list) else addopts
+
+
 def coverage_cap_violations(workflow: dict[str, Any], pyproject: dict[str, Any]) -> list[str]:
     """Return why the test job would not fail below the coverage floor, if it would not."""
     job = workflow["jobs"]["test"]
     command = next(step["run"] for step in job["steps"] if "pytest" in step.get("run", ""))
-    addopts = pyproject["tool"]["pytest"]["ini_options"].get("addopts", "")
-    addopts = " ".join(addopts) if isinstance(addopts, list) else addopts
+    addopts = _addopts(pyproject)
     # A cap on the command line overrides the one in addopts.
     caps = re.findall(r"--cov-fail-under[= ](\d+)", command) or re.findall(
         r"--cov-fail-under[= ](\d+)", addopts
@@ -63,6 +67,21 @@ def test_coverage_follows_child_processes() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
     assert "subprocess" in pyproject["tool"]["coverage"]["run"].get("patch", [])
+
+
+def test_pytest_measures_coverage_by_source_directory() -> None:
+    """Every ``--cov`` in addopts names a directory, so package files run as scripts are measured.
+
+    coverage treats a ``--cov`` value that is not a directory as a package and matches executed
+    code to it by module name. A file run as a script executes as ``__main__`` without a module
+    spec, so under ``--cov=substrax`` it never counts toward the package and reports 0%; the
+    example loader ``substrax/testing/_example_main.py`` is such a file.
+    """
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    sources = re.findall(r"--cov=(\S+)", _addopts(pyproject))
+
+    assert sources, "pytest addopts measure no coverage source"
+    assert [source for source in sources if not (ROOT / source).is_dir()] == []
 
 
 def test_ci_uploads_no_coverage_to_codecov() -> None:
