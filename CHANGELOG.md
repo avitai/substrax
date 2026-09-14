@@ -7,6 +7,21 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.runtime` declares the settings a JAX process starts with and applies them where
+  they still take effect. `JaxRuntime` holds the backends, CPU device count, 64-bit types,
+  matmul precision, compilation cache directory, XLA flags and accelerator memory settings,
+  and refuses invalid values. `runtime_environment` renders them as the variables jax and XLA
+  read at start-up, using `XLA_CLIENT_MEM_FRACTION`, the name jaxlib reads, for the memory
+  fraction. `apply_runtime` writes that environment before jax is imported. After the import
+  it applies the device count, 64-bit types, matmul precision and cache directory through
+  `jax.config`, and raises for platforms, XLA flags and memory settings, which jax reads only
+  when its backends start. `merge_xla_flags` merges by flag name and raises on a conflicting
+  value instead of letting the last one win. `resolve_test_runtime` chooses a test run's
+  backend and emulated CPU devices, and `configure_entry_point_logging` sets up the root
+  logger from an entry point without `force=True`.
+
 ### Fixed
 
 - The module docstring of `substrax.mesh.rules` and the `spmd_train_step` example built their

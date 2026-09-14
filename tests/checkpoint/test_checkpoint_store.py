@@ -19,10 +19,9 @@ from __future__ import annotations
 
 import inspect
 import json
-import os
 import subprocess
-import sys
 import warnings
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -67,24 +66,19 @@ def _cpu_devices(count: int) -> dict[str, str]:
     return {"JAX_PLATFORMS": "cpu", "JAX_NUM_CPU_DEVICES": str(count)}
 
 
-def _run_interpreter(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    """Run this test's own interpreter on ``argv`` in a fresh process with ``env`` overrides."""
-    child_env = {**os.environ, "XLA_PYTHON_CLIENT_PREALLOCATE": "false", **env}
-    return subprocess.run(  # noqa: S603 - fixed argv: the test's interpreter and its own files
-        [sys.executable, *argv],
-        env=child_env,
-        capture_output=True,
-        text=True,
-        timeout=180,
-        check=False,
-    )
+type _Runner = Callable[[list[str], dict[str, str]], subprocess.CompletedProcess[str]]
 
 
 def _run_child(
-    mode: str, directory: Path, *, env: dict[str, str], extra: tuple[str, ...] = ()
+    run_interpreter: _Runner,
+    mode: str,
+    directory: Path,
+    *,
+    env: dict[str, str],
+    extra: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
-    """Run the cross-topology program in ``mode`` against ``directory``."""
-    return _run_interpreter([str(_CROSS_TOPOLOGY_PROGRAM), mode, str(directory), *extra], env)
+    """Run the cross-topology program in ``mode`` against ``directory`` in a fresh interpreter."""
+    return run_interpreter([str(_CROSS_TOPOLOGY_PROGRAM), mode, str(directory), *extra], env)
 
 
 def _child_result(completed: subprocess.CompletedProcess[str]) -> dict[str, Any]:
@@ -93,9 +87,9 @@ def _child_result(completed: subprocess.CompletedProcess[str]) -> dict[str, Any]
     return json.loads(completed.stdout.splitlines()[-1])
 
 
-def _cuda_is_visible() -> bool:
+def _cuda_is_visible(run_interpreter: _Runner) -> bool:
     """Whether a fresh interpreter can initialise jax's CUDA backend."""
-    probe = _run_interpreter(["-c", "import jax; jax.devices('gpu')"], {"JAX_PLATFORMS": "cuda"})
+    probe = run_interpreter(["-c", "import jax; jax.devices('gpu')"], {"JAX_PLATFORMS": "cuda"})
     return probe.returncode == 0
 
 
@@ -309,11 +303,15 @@ class TestCrossTopologyRestore:
     payload and the metadata onto that one device is the contract.
     """
 
-    def test_two_device_save_restores_onto_a_one_device_target(self, tmp_path: Path) -> None:
-        saved = _child_result(_run_child("save", tmp_path, env=_cpu_devices(2)))
+    def test_two_device_save_restores_onto_a_one_device_target(
+        self, tmp_path: Path, run_interpreter: _Runner
+    ) -> None:
+        saved = _child_result(_run_child(run_interpreter, "save", tmp_path, env=_cpu_devices(2)))
         assert saved["saved_on"] == [{"platform": "cpu", "id": 1}]
 
-        restored = _child_result(_run_child("restore", tmp_path, env=_cpu_devices(1)))
+        restored = _child_result(
+            _run_child(run_interpreter, "restore", tmp_path, env=_cpu_devices(1))
+        )
 
         assert restored["devices"] == [_CPU_0]
         assert restored["restored_on"] == [_CPU_0]
@@ -344,7 +342,7 @@ class TestCrossTopologyRestore:
         assert payload["history"] == [0.5, 0.25]
 
     def test_two_device_save_without_a_target_cannot_resolve_the_saved_device(
-        self, tmp_path: Path
+        self, tmp_path: Path, run_interpreter: _Runner
     ) -> None:
         """Control: template-free, the same checkpoint fails on the device it was saved on.
 
@@ -352,29 +350,35 @@ class TestCrossTopologyRestore:
         pass above measures placement rather than a shared device set. It also pins
         the documented target-free behaviour: arrays come back as stored, or not at all.
         """
-        _child_result(_run_child("save", tmp_path, env=_cpu_devices(2)))
+        _child_result(_run_child(run_interpreter, "save", tmp_path, env=_cpu_devices(2)))
 
         completed = _run_child(
-            "restore", tmp_path, env=_cpu_devices(1), extra=("--without-target",)
+            run_interpreter, "restore", tmp_path, env=_cpu_devices(1), extra=("--without-target",)
         )
 
         assert completed.returncode != 0
         assert "Device cpu:1 was not found in jax.local_devices()" in completed.stderr
 
     @pytest.mark.gpu
-    def test_gpu_save_restores_onto_a_cpu_target(self, tmp_path: Path) -> None:
+    def test_gpu_save_restores_onto_a_cpu_target(
+        self, tmp_path: Path, run_interpreter: _Runner
+    ) -> None:
         """A checkpoint written on an accelerator restores onto a CPU-only target.
 
         The CPU-to-CPU case above does not prove this: an accelerator checkpoint
         records a different platform, not just a different device id.
         """
-        if not _cuda_is_visible():
+        if not _cuda_is_visible(run_interpreter):
             pytest.skip("no CUDA device visible to jax")
 
-        saved = _child_result(_run_child("save", tmp_path, env={"JAX_PLATFORMS": "cuda"}))
+        saved = _child_result(
+            _run_child(run_interpreter, "save", tmp_path, env={"JAX_PLATFORMS": "cuda"})
+        )
         assert [d["platform"] for d in saved["saved_on"]] == ["gpu"]
 
-        restored = _child_result(_run_child("restore", tmp_path, env=_cpu_devices(1)))
+        restored = _child_result(
+            _run_child(run_interpreter, "restore", tmp_path, env=_cpu_devices(1))
+        )
 
         assert restored["restored_on"] == [_CPU_0]
         assert restored["state"] == saved["state"]
