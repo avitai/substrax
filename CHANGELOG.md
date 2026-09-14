@@ -7,6 +7,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- The module docstring of `substrax.mesh.rules` and the `spmd_train_step` example built their
+  meshes with `jax.make_mesh` and no `axis_types`. From jax 0.11 that gives `Explicit` axes, under
+  which the backward pass of a batch-sharded step raises. Both examples now use
+  `DeviceMeshManager.create_device_mesh`, which builds `Auto` axes. A contract test fails on any
+  `make_mesh(` call without `axis_types` in a docstring, the README or a docs page.
+
 ## [0.1.5] - 2026-09-09
 
 ### Fixed

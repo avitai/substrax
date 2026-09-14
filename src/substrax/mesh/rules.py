@@ -8,7 +8,7 @@ The core abstraction is MeshRules, which maps logical dimension names
 create standard configurations for data-parallel and FSDP training.
 
 Example:
-    mesh = jax.make_mesh((4, 2), ("data", "model"))
+    mesh = DeviceMeshManager.create_device_mesh({"data": 4, "model": 2})
     rules = fsdp_rules(data_axis="data", model_axis="model")
     spec = partition_spec_for_names(rules, "data", "embed")
     # => PartitionSpec("data", "model")
