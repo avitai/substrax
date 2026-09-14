@@ -621,17 +621,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#substrax.devices.DevicePlacement.distribute_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;distribute_batch
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#substrax.devices.DevicePlacement.replicate_across_devices" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -707,17 +696,6 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;detect_devices
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#substrax.devices.distribute_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;distribute_batch
       
     </span>
   </a>
@@ -1069,17 +1047,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#substrax.devices.DevicePlacement.distribute_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;distribute_batch
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#substrax.devices.DevicePlacement.replicate_across_devices" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1155,17 +1122,6 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;detect_devices
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#substrax.devices.distribute_batch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;distribute_batch
       
     </span>
   </a>
@@ -1936,104 +1892,6 @@ data is transferred to the target device.</p>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="substrax.devices.DevicePlacement.distribute_batch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">distribute_batch</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sharding</span><span class="p">)</span></code>
-
-<a href="#substrax.devices.DevicePlacement.distribute_batch" class="headerlink" title="Permanent link">¤</a></h4>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Distribute data across devices using the specified sharding.</p>
-<p>This applies explicit device placement using jax.device_put with
-a Sharding object, distributing the data across multiple devices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>data</code>
-            </td>
-            <td>
-                  <code><span title="substrax.typing.PyTree">PyTree</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>PyTree of JAX arrays to distribute.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>sharding</code>
-            </td>
-            <td>
-                  <code><span title="jax.sharding.Sharding">Sharding</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JAX Sharding specification.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="substrax.typing.PyTree">PyTree</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>PyTree with arrays distributed according to the sharding.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<details class="example" open>
-  <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"data"</span><span class="p">,))</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">sharding</span> <span class="o">=</span> <span class="n">NamedSharding</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">PartitionSpec</span><span class="p">(</span><span class="s2">"data"</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">distributed</span> <span class="o">=</span> <span class="n">placement</span><span class="o">.</span><span class="n">distribute_batch</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sharding</span><span class="p">)</span>
-</code></pre></div>
-</details>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h4 id="substrax.devices.DevicePlacement.replicate_across_devices" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">replicate_across_devices</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">devices</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
@@ -2541,94 +2399,6 @@ cannot see its devices should not be told it is running on a CPU.</p>
             <td>
               <div class="doc-md-description">
                 <p>The device snapshot.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="substrax.devices.distribute_batch" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">distribute_batch</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sharding</span><span class="p">)</span></code>
-
-<a href="#substrax.devices.distribute_batch" class="headerlink" title="Permanent link">¤</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Convenience function for distributing data across devices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>data</code>
-            </td>
-            <td>
-                  <code><span title="substrax.typing.PyTree">PyTree</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>PyTree of JAX arrays.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>sharding</code>
-            </td>
-            <td>
-                  <code><span title="jax.sharding.Sharding">Sharding</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>JAX Sharding specification.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="substrax.typing.PyTree">PyTree</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>PyTree with arrays distributed according to sharding.</p>
               </div>
             </td>
           </tr>

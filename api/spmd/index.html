@@ -1874,7 +1874,7 @@ If None, defaults to "mean" for all metrics.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Create a Sharding object for data-parallel training.</p>
+        <p>Create the sharding that splits a batch's leading axis over a mesh axis.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1935,11 +1935,11 @@ If None, defaults to "mean" for all metrics.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="jax.sharding.Sharding">Sharding</span></code>
+                  <code><span title="jax.sharding.NamedSharding">NamedSharding</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A JAX Sharding object for data-parallel training.</p>
+                <p>A <code>NamedSharding</code> over <code>mesh</code> with spec <code>PartitionSpec(data_axis)</code>.</p>
               </div>
             </td>
           </tr>
@@ -1962,7 +1962,12 @@ If None, defaults to "mean" for all metrics.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Shard a batch of data across devices.</p>
+        <p>Turn this process's batch into global arrays on <code>sharding</code>.</p>
+<p>Array leaves, whether <code>jax.Array</code> or a NumPy array as a host data loader yields them, go
+to <code>jax.make_array_from_process_local_data</code> in one call. On a single process that is one
+batched <code>jax.device_put</code>. On several processes each process passes the slice of the
+global batch it loaded, and jax stitches the slices into one global array. Any other leaf,
+such as a string, is returned as it is.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1985,7 +1990,7 @@ If None, defaults to "mean" for all metrics.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The batch to shard.</p>
+                <p>The batch this process loaded.</p>
               </div>
             </td>
             <td>
@@ -2001,7 +2006,7 @@ If None, defaults to "mean" for all metrics.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The sharding specification to use.</p>
+                <p>The sharding of the global batch.</p>
               </div>
             </td>
             <td>
@@ -2027,7 +2032,7 @@ If None, defaults to "mean" for all metrics.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The sharded batch.</p>
+                <p>The batch with every array leaf replaced by the global array on <code>sharding</code>.</p>
               </div>
             </td>
           </tr>
