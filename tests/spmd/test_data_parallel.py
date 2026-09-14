@@ -82,8 +82,13 @@ class TestShardBatch:
         assert result["inputs"].sharding == sharding
         assert result["label"] == "test_string"
 
-    def test_array_leaves_are_placed_in_one_transfer(self) -> None:
-        """jax.device_put batches a pytree's leaves into one transfer, so placement calls it once."""
+    def test_array_leaves_become_global_arrays_in_one_call(self) -> None:
+        """Each process passes its local batch; jax assembles the global batch in one call.
+
+        ``jax.make_array_from_process_local_data`` is jax's data-loading primitive: on one
+        process it is a single batched ``device_put``, and on several it stitches every
+        process's local slice into one global array.
+        """
         mesh = DeviceMeshManager.create_data_parallel_mesh(num_devices=1)
         sharding = create_data_parallel_sharding(mesh)
         batch = {
@@ -92,10 +97,17 @@ class TestShardBatch:
             "label": "test_string",
         }
 
-        with mock.patch.object(jax, "device_put", wraps=jax.device_put) as device_put:
+        with mock.patch.object(
+            jax,
+            "make_array_from_process_local_data",
+            wraps=jax.make_array_from_process_local_data,
+        ) as assemble:
             result = place_batch_on_shards(batch, sharding)  # type: ignore[reportArgumentType]
 
-        assert device_put.call_count == 1
+        assert assemble.call_count == 1
+        placed_sharding, local_leaves = assemble.call_args.args
+        assert placed_sharding == sharding
+        assert [leaf.shape for leaf in local_leaves] == [(4, 2), (4,)]
         assert result["targets"].sharding == sharding
         assert result["label"] == "test_string"
 
