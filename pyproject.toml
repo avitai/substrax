@@ -161,6 +161,9 @@ omit = [
   "*/tests/*"
 ]
 parallel = true
+# Measure code the tests run in child interpreters (substrax.testing.run_python, pytester);
+# pytest-cov 7 dropped its own subprocess support in favour of this coverage option.
+patch = ["subprocess"]
 relative_files = true
 source = ["src"]
 
