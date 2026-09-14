@@ -7,11 +7,16 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-14
+
 ### Changed
 
 - `substrax.spmd.create_data_parallel_sharding` is annotated to return the `NamedSharding` it
   builds, so callers read `.mesh` and `.spec` without a cast, and it builds that sharding
   through `substrax.mesh.create_named_sharding`.
+- The numpy requirement allows numpy 2.5 (`numpy>=1.24,<2.6.0`), and the lock resolves 2.5.3.
+- `substrax.spmd.place_batch_on_shards` documents that it places host batches outside `jax.jit`;
+  inside a traced function its result is not placed on the sharding.
 
 ### Fixed
 
