@@ -1,8 +1,9 @@
 # Substrax
 
-**JAX/Flax NNX training infrastructure: device detection and placement, device meshes and
-SPMD sharding (data, FSDP, tensor and pipeline strategies), an Orbax checkpoint store that
-restores onto the current devices, early stopping and callbacks, and W&B/MLflow logging.**
+**JAX/Flax NNX training infrastructure: JAX process configuration, device detection and
+placement, device meshes and SPMD sharding (data, FSDP, tensor and pipeline strategies), an
+Orbax checkpoint store that restores onto the current devices, early stopping and callbacks,
+and W&B/MLflow logging.**
 It is the shared layer of the Avitai JAX stack.
 
 [![CI](https://github.com/avitai/substrax/actions/workflows/ci.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/ci.yml)
@@ -28,6 +29,7 @@ home and one test suite:
 
 | Subpackage | What it owns |
 | --- | --- |
+| `substrax.runtime` | `JaxRuntime` process settings rendered as the environment of a process that has not imported jax, or applied to the current one; XLA flags merged by name; test-run device emulation; entry-point logging |
 | `substrax.devices` | `detect_devices()` (platform, device kind, count), device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |
 | `substrax.spmd` | Data-parallel sharding and batch placement, `spmd_train_step`, gradient reduction and collectives |
@@ -100,6 +102,32 @@ with OrbaxCheckpointStore("checkpoints/quick-start", max_to_keep=2) as store:
 ```
 
 ## The subpackages
+
+### Runtime
+
+`JaxRuntime` declares the settings a JAX process starts with: backends, CPU device count,
+64-bit types, matmul precision, compilation cache, XLA flags and accelerator memory.
+`runtime_environment` renders them for a process that has not imported jax, and
+`apply_runtime` applies them to the current one, refusing any setting jax would no longer
+read.
+
+```python
+import os
+import subprocess
+import sys
+
+from substrax.runtime import JaxRuntime, runtime_environment
+
+runtime = JaxRuntime(platforms=("cpu",), cpu_devices=8)
+env = {**os.environ, **runtime_environment(runtime, os.environ)}
+program = "import jax; print(jax.device_count())"
+subprocess.run([sys.executable, "-c", program], env=env, check=True)  # prints 8
+```
+
+XLA flags merge by name: a flag already set to a different value raises
+`XlaFlagConflictError` instead of being replaced. `resolve_test_runtime` picks a test run's
+backend and emulated CPU devices, and `configure_entry_point_logging` sets up logging from
+`main()` without `force=True`.
 
 ### Devices
 
