@@ -485,6 +485,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#counting-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Counting traces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pytest-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -546,6 +557,67 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;last_json
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.RetraceError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;RetraceError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TraceCounter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" TraceCounter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter.count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter.wrap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;wrap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter.expect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;expect
       
     </span>
   </a>
@@ -806,6 +878,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#counting-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Counting traces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pytest-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -867,6 +950,67 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;last_json
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.RetraceError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;RetraceError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TraceCounter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" TraceCounter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter.count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter.wrap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;wrap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.testing.TraceCounter.expect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;expect
       
     </span>
   </a>
@@ -1003,9 +1147,35 @@ either of them chooses otherwise, the child runs on the CPU backend without prea
 test never starts an accelerator it did not ask for. <code>check()</code> raises <code>ChildFailedError</code> with
 the end of the child's standard error, and <code>last_json()</code> parses the last line the child printed.
 <code>cuda_is_visible()</code> asks a child on the CUDA backend whether jax sees a GPU.</p>
+<h2 id="counting-traces">Counting traces<a class="headerlink" href="#counting-traces" title="Permanent link">¤</a></h2>
+<p><code>TraceCounter</code> counts how often a function's Python body runs. Under <code>jax.jit</code> and <code>nnx.jit</code>
+the body runs once per trace, so the count is the number of traces a test caused:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TraceCounter</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">double</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="mf">2.0</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">TraceCounter</span><span class="p">()</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">step</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">counter</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">double</span><span class="p">))</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">with</span> <span class="n">counter</span><span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="n">new_traces</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">step</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="k">with</span> <span class="n">counter</span><span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="n">new_traces</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>  <span class="c1"># same shape and dtype: no new trace</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">step</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+</code></pre></div>
+<p><code>expect</code> raises <code>RetraceError</code>, an <code>AssertionError</code> that names the expected and observed
+counts, and an error raised inside the block propagates unchanged. Each counter keeps its own
+count, so there is no global registry to clear. Wrap the Python function, then jit the wrapper.
+The counter does not listen to jax's <code>jax.monitoring</code> trace event: jax records that event only
+for top-level traces, and its name is not documented.</p>
 <h2 id="the-pytest-plugin">The pytest plugin<a class="headerlink" href="#the-pytest-plugin" title="Permanent link">¤</a></h2>
 <p>Enable it in the top-level <code>conftest.py</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">pytest_plugins</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"substrax.testing.pytest_plugin"</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pytest_plugins</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"substrax.testing.pytest_plugin"</span><span class="p">]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -1040,18 +1210,18 @@ the end of the child's standard error, and <code>last_json()</code> parses the l
 <p>The isolation follows jax's own test harness, whose <code>JaxTestCase</code> fails a test that changes a
 global configuration value. A test whose subject changes the global configuration sets it back
 with <code>restored_jax_config()</code>, which reports the names it restored:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">JaxRuntime</span><span class="p">,</span> <span class="n">apply_runtime</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">restored_jax_config</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_apply_runtime_enables_x64</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">with</span> <span class="n">restored_jax_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">changed</span><span class="p">:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="n">apply_runtime</span><span class="p">(</span><span class="n">JaxRuntime</span><span class="p">(</span><span class="n">enable_x64</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="k">assert</span> <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">jax_enable_x64</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">assert</span> <span class="n">changed</span> <span class="o">==</span> <span class="p">[</span><span class="s2">"jax_enable_x64"</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">JaxRuntime</span><span class="p">,</span> <span class="n">apply_runtime</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">restored_jax_config</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_apply_runtime_enables_x64</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">with</span> <span class="n">restored_jax_config</span><span class="p">()</span> <span class="k">as</span> <span class="n">changed</span><span class="p">:</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">apply_runtime</span><span class="p">(</span><span class="n">JaxRuntime</span><span class="p">(</span><span class="n">enable_x64</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="k">assert</span> <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">jax_enable_x64</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="k">assert</span> <span class="n">changed</span> <span class="o">==</span> <span class="p">[</span><span class="s2">"jax_enable_x64"</span><span class="p">]</span>
 </code></pre></div>
 <p>A malformed <code>devices</code> or <code>accelerator</code> marker is a usage error at collection. No entry point
 loads the plugin, so installing substrax changes no other project's tests, and importing it
@@ -1074,7 +1244,8 @@ imports no jax.</p>
 <p><code>run_python</code> runs code or a script in a child interpreter whose JAX settings the test chooses,
 with everything the parent's shell exported about jax removed, and returns a <code>ChildResult</code>.
 <code>cuda_is_visible</code> probes the CUDA backend in such a child. <code>restored_jax_config</code> sets back the
-global jax configuration a block changed. The plugin, <code>substrax.testing.pytest_plugin</code>, is
+global jax configuration a block changed. <code>TraceCounter</code> counts the traces a jitted function
+takes and raises <code>RetraceError</code> when a block caused an unexpected number. The plugin, <code>substrax.testing.pytest_plugin</code>, is
 enabled from a <code>conftest.py</code>: it adds the <code>x64</code>, <code>devices</code> and <code>accelerator</code> markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
 Importing this package imports no jax.</p>
@@ -1443,6 +1614,402 @@ standard error.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the child wrote no output, or its last line is not JSON.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.testing.RetraceError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">RetraceError</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">observed</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.RetraceError" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="AssertionError">AssertionError</span></code></p>
+
+
+
+        <p>A block caused a different number of traces than the test expected.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.RetraceError.expected">expected</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of new traces the test expected.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.testing.RetraceError.observed">observed</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of new traces the block caused.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+        <p>Record both counts and name them in the message.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>expected</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of new traces the test expected.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>observed</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of new traces the block caused.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.testing.TraceCounter" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">TraceCounter</span><span class="p">()</span></code>
+
+<a href="#substrax.testing.TraceCounter" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Count how often wrapped functions run their Python body.</p>
+<p><code>jax.jit</code> runs a function's body once per trace and reuses the cached trace for later calls
+with the same static signature, and <code>nnx.jit</code> calls the user function once inside the
+function jax traces. The count of body executions is therefore the count of traces. An eager
+call also runs the body and also counts.</p>
+<p>Each counter keeps its own count, so tests share no state to clear.</p>
+
+        <p>Start at zero.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="substrax.testing.TraceCounter.count" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">count</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#substrax.testing.TraceCounter.count" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The number of body executions of every function this counter wrapped.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.testing.TraceCounter.wrap" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">wrap</span><span class="p">(</span><span class="n">function</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.TraceCounter.wrap" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return <code>function</code> counting each run of its body; jit the result, not the original.</p>
+<p>The wrapper keeps the function's name, docstring and signature, so <code>static_argnames</code>
+and other signature-based arguments of a transform still resolve.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>function</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[<span title="substrax.testing.traces.TraceCounter.wrap[**P]">P</span>, <span title="substrax.testing.traces.TraceCounter.wrap[R]">R</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The Python function to count.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[<span title="substrax.testing.traces.TraceCounter.wrap[**P]">P</span>, <span title="substrax.testing.traces.TraceCounter.wrap[R]">R</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A function that adds one to the count, then calls <code>function</code>. The count rises</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[<span title="substrax.testing.traces.TraceCounter.wrap[**P]">P</span>, <span title="substrax.testing.traces.TraceCounter.wrap[R]">R</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>before the call, so a trace that raises still counts.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.testing.TraceCounter.expect" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">expect</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">new_traces</span><span class="p">)</span></code>
+
+<a href="#substrax.testing.TraceCounter.expect" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Require exactly <code>new_traces</code> body executions inside the block.</p>
+<p>An exception raised inside the block propagates unchanged, without a count check.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>new_traces</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many new traces the block must cause.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Yields:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>None</code></td>            <td>
+                  <code>None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Control to the block.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>new_traces</code> is negative.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              RetraceError(expected, observed) (substrax.testing.traces.RetraceError)" href="#substrax.testing.RetraceError">RetraceError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the block caused a different number of traces.</p>
               </div>
             </td>
           </tr>
