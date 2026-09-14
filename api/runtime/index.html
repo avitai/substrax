@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://substrax.readthedocs.io/api/runtime/">
       
       
-        <link rel="prev" href="../../migration/">
+        <link rel="prev" href="../..">
       
       
         <link rel="next" href="../artifacts/">
@@ -290,33 +290,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../../migration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Migration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -330,10 +303,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -351,8 +324,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1096,7 +1069,8 @@ point where they still take effect.</p>
 <p>A requested XLA flag that is already set to a different value raises <code>XlaFlagConflictError</code>,
 so a device count or GPU flag exported by the caller is never silently replaced. A memory
 fraction raises while the deprecated <code>XLA_PYTHON_CLIENT_MEM_FRACTION</code> is still set, because
-jax refuses both at once.</p>
+jax refuses both at once. <code>JaxRuntime</code> applies no per-backend flag presets: <code>xla_flags</code> is empty
+unless a run names the flags it needs.</p>
 <p>Once jax is imported, <code>apply_runtime</code> applies the CPU device count, 64-bit types, matmul
 precision and compilation cache directory through <code>jax.config</code>; jax refuses a new device count
 after its first operation, and that refusal is raised as <code>RuntimeConfigurationError</code>.
