@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-14
+
 ### Added
 
 - `substrax.runtime` declares the settings a JAX process starts with and applies them where
