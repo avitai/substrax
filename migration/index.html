@@ -18,7 +18,7 @@
         <link rel="prev" href="..">
       
       
-        <link rel="next" href="../api/devices/">
+        <link rel="next" href="../api/runtime/">
       
       
         
@@ -377,6 +377,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../api/runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/devices/" class="md-nav__link">
         
   
@@ -647,8 +675,33 @@ lists what changed in each module and what was not carried over.</p>
 <td><code>artifex.generative_models.utils.logging</code></td>
 <td><code>substrax.tracking</code></td>
 </tr>
+<tr>
+<td><code>opifex.setup_jax_optimization</code></td>
+<td><code>substrax.runtime.apply_runtime</code> with a <code>JaxRuntime</code></td>
+</tr>
+<tr>
+<td><code>opifex.core.device_utils.configure_jax_precision</code></td>
+<td><code>substrax.runtime.apply_runtime(JaxRuntime(enable_x64=...))</code></td>
+</tr>
+<tr>
+<td><code>artifex.generative_models.core.jax_config.configure_jax</code></td>
+<td><code>substrax.runtime.apply_runtime</code> with a <code>JaxRuntime</code></td>
+</tr>
+<tr>
+<td><code>datarax.performance.xla_optimization.apply_xla_flags</code></td>
+<td><code>substrax.runtime.merge_xla_flags</code>, or <code>JaxRuntime(xla_flags=...)</code></td>
+</tr>
+<tr>
+<td><code>datarax.performance.xla_optimization.XLAOptimizer</code></td>
+<td><code>substrax.runtime.apply_runtime</code> with a <code>JaxRuntime</code></td>
+</tr>
 </tbody>
 </table>
+<p><code>substrax.runtime</code> carries no per-backend flag presets: the fast-math CPU flags, GPU Triton
+flags and forced single-device count that <code>setup_jax_optimization</code>, <code>get_xla_flags</code> and
+<code>XLAOptimizer</code> added are not applied by default. Pass the flags a run needs in
+<code>JaxRuntime(xla_flags=...)</code>. A flag already set to a different value raises instead of being
+appended after it.</p>
 <p>Two classes were named <code>EarlyStopping</code> with incompatible interfaces; the trainer-hook
 one is now <code>EarlyStoppingCallback</code>. <code>ReduceLROnPlateau</code> has no replacement here: use
 <code>optax.contrib.reduce_on_plateau</code>.</p>
