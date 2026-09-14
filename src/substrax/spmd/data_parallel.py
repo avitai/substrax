@@ -11,25 +11,26 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 from flax import nnx
-from jax.sharding import Mesh, PartitionSpec, Sharding
+from jax.sharding import Mesh, NamedSharding, PartitionSpec, Sharding
 
+from substrax.mesh import create_named_sharding
 from substrax.typing import PyTree
 
 
 logger = logging.getLogger(__name__)
 
 
-def create_data_parallel_sharding(mesh: Mesh, data_axis: str = "data") -> Sharding:
-    """Create a Sharding object for data-parallel training.
+def create_data_parallel_sharding(mesh: Mesh, data_axis: str = "data") -> NamedSharding:
+    """Create the sharding that splits a batch's leading axis over a mesh axis.
 
     Args:
         mesh: The device mesh to use for sharding.
         data_axis: The name of the mesh axis to use for data parallelism.
 
     Returns:
-        A JAX Sharding object for data-parallel training.
+        A ``NamedSharding`` over ``mesh`` with spec ``PartitionSpec(data_axis)``.
     """
-    return jax.sharding.NamedSharding(mesh, PartitionSpec(data_axis))
+    return create_named_sharding(mesh, data_axis)
 
 
 def place_batch_on_shards(batch: PyTree, sharding: Sharding) -> PyTree:

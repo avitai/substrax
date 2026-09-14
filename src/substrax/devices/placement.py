@@ -24,10 +24,9 @@ Example:
     placement = DevicePlacement()
     data = jnp.ones((256, 224, 224, 3))
     placed = placement.place_on_device(data, jax.devices()[0])  # Place on device
-    mesh = Mesh(np.array(jax.devices()), axis_names=("data",))
-    sharding = NamedSharding(mesh, PartitionSpec("data", None, None, None))
-    distributed = placement.distribute_batch(data, sharding)  # Distribute batch
     ```
+
+    To split a batch across a mesh, use ``substrax.spmd.place_batch_on_shards``.
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ from typing import Any
 
 import jax
 import numpy as np
-from jax.sharding import Mesh, NamedSharding, PartitionSpec, Sharding, SingleDeviceSharding
+from jax.sharding import Mesh, NamedSharding, PartitionSpec, SingleDeviceSharding
 
 from substrax.typing import PyTree
 
@@ -238,32 +237,6 @@ class DevicePlacement:
         sharding = SingleDeviceSharding(device)
         return jax.device_put(data, sharding)
 
-    def distribute_batch(
-        self,
-        data: PyTree,
-        sharding: Sharding,
-    ) -> PyTree:
-        """Distribute data across devices using the specified sharding.
-
-        This applies explicit device placement using jax.device_put with
-        a Sharding object, distributing the data across multiple devices.
-
-        Args:
-            data: PyTree of JAX arrays to distribute.
-            sharding: JAX Sharding specification.
-
-        Returns:
-            PyTree with arrays distributed according to the sharding.
-
-        Example:
-            ```python
-            mesh = Mesh(np.array(jax.devices()), ("data",))
-            sharding = NamedSharding(mesh, PartitionSpec("data", None))
-            distributed = placement.distribute_batch(data, sharding)
-            ```
-        """
-        return jax.device_put(data, sharding)
-
     def replicate_across_devices(
         self,
         data: PyTree,
@@ -436,19 +409,6 @@ def place_on_device(data: PyTree, device: jax.Device | None = None) -> PyTree:  
     """
     placement = DevicePlacement(device)
     return placement.place_on_device(data, device)
-
-
-def distribute_batch(data: PyTree, sharding: Sharding) -> PyTree:
-    """Convenience function for distributing data across devices.
-
-    Args:
-        data: PyTree of JAX arrays.
-        sharding: JAX Sharding specification.
-
-    Returns:
-        PyTree with arrays distributed according to sharding.
-    """
-    return jax.device_put(data, sharding)
 
 
 def get_batch_size_recommendation(
