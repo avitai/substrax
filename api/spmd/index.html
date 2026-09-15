@@ -1967,7 +1967,8 @@ If None, defaults to "mean" for all metrics.</p>
 to <code>jax.make_array_from_process_local_data</code> in one call. On a single process that is one
 batched <code>jax.device_put</code>. On several processes each process passes the slice of the
 global batch it loaded, and jax stitches the slices into one global array. Any other leaf,
-such as a string, is returned as it is.</p>
+such as a string, is returned as it is. Call it on the host batches a loader yields, outside
+<code>jax.jit</code>: inside a traced function the result is not placed on <code>sharding</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
