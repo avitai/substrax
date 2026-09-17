@@ -79,6 +79,7 @@ nav:
       - Runtime: api/runtime.md
       - Artifacts: api/artifacts.md
       - Rng: api/rng.md
+      - Optim: api/optim.md
       - Testing: api/testing.md
       - Devices: api/devices.md
       - Mesh: api/mesh.md
