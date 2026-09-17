@@ -7,6 +7,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- `substrax.optim.OptimizerConfig` refuses an `optimizer_type` it does not build and a
+  `gradient_clip_norm` or `gradient_clip_value` that is not positive when it is constructed;
+  the unknown type used to pass construction and fail only in `create_transformation`, and a
+  zero or negative clip was accepted.
+
 ## [0.1.8] - 2026-09-17
 
 ### Added

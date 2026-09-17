@@ -124,11 +124,18 @@ class TestConfig:
         with pytest.raises(ValueError, match="learning_rate"):
             OptimizerConfig(learning_rate=0.0)
 
-    def test_an_unknown_optimizer_type_raises_at_build(self, model: KnobModel) -> None:
-        config = OptimizerConfig(optimizer_type="lion", learning_rate=1e-3)  # pyright: ignore[reportArgumentType]
+    def test_an_unknown_optimizer_type_is_refused_at_construction(self) -> None:
+        with pytest.raises(ValueError, match=r"lion.*adam"):
+            OptimizerConfig(optimizer_type="lion", learning_rate=1e-3)  # pyright: ignore[reportArgumentType]
 
-        with pytest.raises(ValueError, match="lion"):
-            create_transformation(model, config)
+    @pytest.mark.parametrize("value", [0.0, -1.0])
+    def test_a_clip_norm_must_be_positive(self, value: float) -> None:
+        with pytest.raises(ValueError, match="gradient_clip_norm"):
+            OptimizerConfig(learning_rate=1e-3, gradient_clip_norm=value)
+
+    def test_a_clip_value_must_be_positive(self) -> None:
+        with pytest.raises(ValueError, match="gradient_clip_value"):
+            OptimizerConfig(learning_rate=1e-3, gradient_clip_value=0.0)
 
 
 class TestWeightDecayMask:
