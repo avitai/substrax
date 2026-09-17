@@ -1,0 +1,1 @@
+Checkpoint commit was successful to /mnt/ssd2/Works/substrax/tests/checkpoint/fixtures/format2/diffav_model/7.orbax-checkpoint-tmp/model

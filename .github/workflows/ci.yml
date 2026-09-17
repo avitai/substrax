@@ -78,6 +78,41 @@ jobs:
           uv run pytest tests/ \
             -p randomly -v
 
+  checkpoint-orbax-floor:
+    name: Checkpoint tests on the Orbax floor
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      JAX_PLATFORMS: cpu
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+      TF_CPP_MIN_LOG_LEVEL: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Create virtual environment
+        run: uv venv
+
+      - name: Install dependencies
+        run: uv sync --locked --extra dev --extra test
+
+      - name: Pin Orbax to the floor
+        run: uv pip install orbax-checkpoint==0.11.33
+
+      - name: The floor is installed
+        run: |
+          uv run --no-sync python -c "import importlib.metadata as m; v = m.version('orbax-checkpoint'); assert v == '0.11.33', v; print(v)"
+
+      - name: Run the checkpoint tests
+        run: uv run --no-sync pytest tests/checkpoint --no-cov -p no:randomly
+
   build:
     name: Build
     runs-on: ubuntu-latest

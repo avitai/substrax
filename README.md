@@ -223,10 +223,11 @@ partition specs for a `ParallelismConfig`; `substrax.spmd` adds `reduce_gradient
 
 ### Checkpoint
 
-`OrbaxCheckpointStore` writes a step-addressed store: the payload (an `nnx.Module`, a
-`TrainState` or a pytree of arrays) with `PyTreeSave`, and a JSON sidecar with the step,
-the loss and any extra metadata. Restoring onto a target places every array on the
-target's device, so a checkpoint written on `cuda:0` restores in a CPU-only process.
+`OrbaxCheckpointStore` writes a step-addressed store: a checkpoint is a step holding named
+items, the things a training loop owns (`model`, `optimizer`, `rng`, `data_iterator`,
+`extensions`), each a `PyTreeSave` item, beside one `CheckpointMetadata` record. Restoring
+onto templates places every array on its template's device, so a checkpoint written on
+`cuda:0` restores in a CPU-only process.
 
 ```python
 from flax import nnx
@@ -234,20 +235,26 @@ from substrax.checkpoint import OrbaxCheckpointStore
 
 model = nnx.Linear(4, 4, rngs=nnx.Rngs(0))
 with OrbaxCheckpointStore("checkpoints/demo", max_to_keep=3) as store:
-    store.save(model, step=100, loss=0.25, additional_metadata={"epoch": 2})
-    store.save(model, step=200, loss=0.20)
+    store.save(100, {"model": nnx.state(model)}, epoch=2, metrics={"loss": 0.25})
+    store.save(200, {"model": nnx.state(model)}, metrics={"loss": 0.20})
 
     assert store.list_steps() == [100, 200]
     assert store.best_step("loss") == 200
     fresh = nnx.Linear(4, 4, rngs=nnx.Rngs(1))
-    restored, metadata = store.restore(fresh, step=100)  # fresh is updated in place
-    assert metadata["epoch"] == 2
+    checkpoint = store.restore(100, templates={"model": nnx.state(fresh)})
+    nnx.update(fresh, checkpoint.items["model"])
+    assert checkpoint.metadata.epoch == 2
 
-    payload, _ = store.restore(step=200)  # no target: the payload as it was stored
+    as_stored = store.restore(200).items["model"]  # no template: the item as it was stored
 ```
 
-`restore` with a target raises `ValueError` when the checkpoint's arrays do not fit it,
-which is how a store written for another architecture is refused rather than loaded.
+Writes are strict: an existing step is refused unless `overwrite=True`, a step below the
+latest is refused, and each refusal is a `CheckpointNotWrittenError` naming the reason. A
+template that does not fit the checkpoint's arrays raises `ValueError`, which is how a store
+written for another architecture is refused rather than loaded. Checkpoints written by
+substrax 0.1.5 to 0.1.9 restore through the migration registry, and
+`python -m substrax.checkpoint upgrade SOURCE DESTINATION` rewrites such a root in the current
+format.
 
 ### Callbacks
 

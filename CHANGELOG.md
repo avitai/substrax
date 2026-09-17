@@ -7,6 +7,44 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- Checkpoint format 3. A checkpoint is a step holding named items, the things a training
+  loop owns (`model`, `optimizer`, `rng`, `data_iterator`, `extensions`), each an Orbax
+  pytree item, beside one `CheckpointMetadata` record (format, format version, step, epoch,
+  item names, library versions, producer, metrics, extra, creation time).
+  `OrbaxCheckpointStore(directory, *, max_to_keep=5)` opens Orbax on first use, so nothing is
+  created before the first save; `save(step, items, *, epoch, metrics, producer, extra,
+  overwrite)` refuses an existing step unless `overwrite=True` and a step below the latest,
+  raising `CheckpointNotWrittenError` with the step, the latest step and the reason;
+  `restore(step, *, templates, legacy_layout)` returns a `Checkpoint` with every templated
+  item placed on its template's device, raising `CheckpointNotFoundError` for a missing step
+  and `UnsupportedCheckpointError` for a newer format; `read_metadata`, `best_step(metric,
+  mode="min" | "max")` and `delete` (which raises for a missing step) complete the protocol.
+- A migration registry. A format-2 checkpoint (substrax 0.1.5 to 0.1.9) is upgraded in
+  memory on restore, its payload split into items by a `LegacyLayout`: the module-only
+  layout (`MODULE_ONLY_FORMAT2`) by default, or the producer's own. `upgrade_checkpoints`
+  and `python -m substrax.checkpoint upgrade SOURCE DESTINATION` rewrite a root in the
+  current format into a new root, never in place. `tests/checkpoint/fixtures/format2` holds
+  one checkpoint per producer layout, written by substrax 0.1.5 through
+  `scripts/make_format2_fixtures.py`.
+- `resolve_checkpoint_dir(checkpoint_dir, run_dir)`: an explicit directory, else the run
+  directory's `checkpoints` subdirectory, created by nothing but the first save.
+- CI runs `tests/checkpoint` against the Orbax floor, `orbax-checkpoint==0.11.33`, beside the
+  locked version.
+
+### Removed
+
+- `ModelLike` and the Flax `TrainState` support (`create_train_state`, `save_train_state`,
+  `restore_train_state`); the store is pytree-only, and a trainer writes its optimizer state
+  as the `optimizer` item.
+- `save(model, step, loss, physics_metadata=..., additional_metadata=...)`; the loss is
+  `metrics={"loss": ...}` and the rest goes in `extra`, under keys that are not fields of
+  the record.
+- `restore(target_model, step, return_original_on_missing=..., restrict_to_nnx_module=...)`;
+  a missing step raises `CheckpointNotFoundError`, and templates replace the target.
+- `delete` no longer returns a boolean; a missing step raises.
+
 ## [0.1.9] - 2026-09-17
 
 ### Changed
