@@ -232,6 +232,21 @@ class TestWriteRules:
         assert caught.value.reason == "below_latest"
         assert store.list_steps() == [20]
 
+    def test_a_write_orbax_declines_raises(
+        self, tmp_path: Path, model: SimpleModel, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import orbax.checkpoint as ocp  # type: ignore[import-untyped]  # noqa: PLC0415
+
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save(1, {"model": nnx.state(model)})
+        monkeypatch.setattr(ocp.CheckpointManager, "save", lambda *_args, **_kwargs: False)
+
+        with pytest.raises(CheckpointNotWrittenError) as caught:
+            store.save(2, {"model": nnx.state(model)})
+
+        assert caught.value.reason == "rejected"
+        assert caught.value.latest_step == 1
+
     def test_a_refusal_names_the_steps(self, tmp_path: Path, model: SimpleModel) -> None:
         store = OrbaxCheckpointStore(tmp_path / "ckpt")
         store.save(20, {"model": nnx.state(model)})

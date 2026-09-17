@@ -61,6 +61,11 @@ class TestContract:
         }
         assert check_extra(extra) == extra
 
+    def test_a_distribution_that_is_not_installed_is_skipped(self) -> None:
+        assert library_versions(("jax", "no-such-distribution-for-this-test")) == {
+            "jax": library_versions()["jax"]
+        }
+
     def test_library_versions_name_the_stack(self) -> None:
         versions = library_versions()
         assert {"jax", "flax", "orbax-checkpoint", "substrax"} <= set(versions)
