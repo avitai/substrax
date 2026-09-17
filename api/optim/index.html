@@ -1071,7 +1071,7 @@ and reads back the learning rate the last update applied.</p>
 <tbody>
 <tr>
 <td><code>OptimizerConfig</code></td>
-<td>Frozen, keyword-only; <code>optimizer_type</code> is one of <code>adam</code>, <code>adamw</code>, <code>sgd</code>, <code>rmsprop</code>, <code>adagrad</code>, <code>lamb</code>, <code>radam</code>, <code>nadam</code> (<code>adam</code> with Nesterov momentum), <code>learning_rate</code> a positive constant or an <code>optax.Schedule</code>, <code>b1</code>, <code>b2</code>, <code>eps</code>, <code>momentum</code> (<code>sgd</code> and <code>rmsprop</code>), <code>weight_decay</code> (<code>adamw</code> and <code>lamb</code>), <code>weight_decay_filter</code>, one of <code>gradient_clip_norm</code> and <code>gradient_clip_value</code>, and <code>wrt</code></td>
+<td>Frozen, keyword-only; <code>optimizer_type</code> is one of <code>adam</code>, <code>adamw</code>, <code>sgd</code>, <code>rmsprop</code>, <code>adagrad</code>, <code>lamb</code>, <code>radam</code>, <code>nadam</code> (<code>adam</code> with Nesterov momentum), <code>learning_rate</code> a positive constant or an <code>optax.Schedule</code>, <code>b1</code>, <code>b2</code>, <code>eps</code>, <code>momentum</code> (<code>sgd</code> and <code>rmsprop</code>), <code>weight_decay</code> (<code>adamw</code> and <code>lamb</code>), <code>weight_decay_filter</code>, one of <code>gradient_clip_norm</code> and <code>gradient_clip_value</code> (positive), and <code>wrt</code>; anything else is refused when the configuration is constructed</td>
 </tr>
 <tr>
 <td><code>weight_decay_filter</code></td>
@@ -1417,7 +1417,8 @@ a path.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If both clip fields are set, <code>weight_decay</code> is negative or set for an
+                <p>If <code>optimizer_type</code> is not one built here, both clip fields are set
+or a clip is not positive, <code>weight_decay</code> is negative or set for an
 optimizer without decoupled decay, <code>momentum</code> is set for an optimizer that
 has none, or a constant <code>learning_rate</code> is not positive.</p>
               </div>
