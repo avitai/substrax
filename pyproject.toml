@@ -28,6 +28,9 @@ dependencies = [
   "jax>=0.11.1",
   "jaxlib>=0.11.1",
   "numpy>=1.24,<2.6.0",
+  # substrax.optim builds optimizers over optax; below 0.2.8 optax calls
+  # jax.config.update("jax_pmap_shmap_merge"), which jax removed in 0.10.
+  "optax>=0.2.8",
   "orbax-checkpoint>=0.11.33"
 ]
 description = "JAX/Flax NNX training infrastructure: device meshes and SPMD sharding, an Orbax checkpoint store, early stopping and callbacks, W&B and MLflow logging"
@@ -106,7 +109,6 @@ plots = [
 test = [
   "coverage>=7",
   "hypothesis>=6.100",
-  "optax>=0.2.8",
   "pytest-cov>=6.1.1",
   "pytest-env>=1.0.1",
   "pytest-json-report>=1.5.0",
@@ -352,10 +354,6 @@ convention = "google"
 max-args = 8
 
 [tool.uv]
-# substrax does not import optax; flax does. Below 0.2.8 optax calls
-# jax.config.update("jax_pmap_shmap_merge"), which jax removed in 0.10, so importing flax
-# raises AttributeError. Constrained rather than declared, because it is transitive.
-constraint-dependencies = ["optax>=0.2.8"]
 python-preference = "only-managed"
 
 [tool.uv.pip]
