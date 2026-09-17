@@ -76,10 +76,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev --extra test
 
-      - name: Write the format-2 checkpoint fixtures with the release that produced them
-        run: |
-          uv run --no-project --with "substrax==0.1.5" --with "optax==0.2.8" \
-            python scripts/make_format2_fixtures.py tests/checkpoint/fixtures/format2
+      - uses: ./.github/actions/format2-fixtures
 
       - name: Run tests
         run: |
@@ -118,10 +115,7 @@ jobs:
         run: |
           uv run --no-sync python -c "import importlib.metadata as m; v = m.version('orbax-checkpoint'); assert v == '0.11.33', v; print(v)"
 
-      - name: Write the format-2 checkpoint fixtures with the release that produced them
-        run: |
-          uv run --no-project --with "substrax==0.1.5" --with "optax==0.2.8" \
-            python scripts/make_format2_fixtures.py tests/checkpoint/fixtures/format2
+      - uses: ./.github/actions/format2-fixtures
 
       - name: Run the checkpoint tests
         run: uv run --no-sync pytest tests/checkpoint --no-cov -p no:randomly
