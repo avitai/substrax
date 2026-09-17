@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-17
+
 ### Added
 
 - `substrax.rng`: `key_from(rng, *, streams, context)` takes a key from the first stream an
