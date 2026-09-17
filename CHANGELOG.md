@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-17
+
 ### Changed
 
 - `substrax.optim.OptimizerConfig` refuses an `optimizer_type` it does not build and a
