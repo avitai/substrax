@@ -19,7 +19,9 @@ with OrbaxCheckpointStore("checkpoints", max_to_keep=5) as store:
 
 Every item is written with `PyTreeSave`, which carries arrays, typed PRNG keys and
 plain-Python leaves (ints, strings, booleans, lists) alike, and the metadata with `JsonSave`,
-so restoring a checkpoint never executes code. Restoring onto templates places every array on
+so restoring a checkpoint never executes code. On disk each item holds its pytree under a
+single `tree` node, so an item that is a bare array (the `rng` key) is accepted by every
+supported Orbax, the 0.11.33 floor included. Restoring onto templates places every array on
 its template leaf's device and dtype, whatever topology the checkpoint was written on; an item
 without a template comes back as stored.
 

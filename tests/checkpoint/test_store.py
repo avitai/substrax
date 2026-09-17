@@ -519,6 +519,48 @@ class TestSerializationSafety:
                 assert not file.read_bytes()[:2].startswith(b"\x80"), f"pickle stream in {file}"
 
 
+class TestOnDiskLayout:
+    """Each item is one Orbax item holding the pytree under a single ``tree`` node.
+
+    The node is what lets an item that is a bare array, such as the ``rng`` key, pass
+    Orbax 0.11.33's ``if not item`` check; the floor lane in CI runs this file on it.
+    """
+
+    def test_each_item_holds_its_tree_under_one_node(
+        self, tmp_path: Path, model: SimpleModel
+    ) -> None:
+        import orbax.checkpoint as ocp  # type: ignore[import-untyped]  # noqa: PLC0415
+
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save(1, {"model": nnx.state(model), "rng": jax.random.key(3)})
+        store.close()
+
+        with ocp.CheckpointManager(store.directory) as manager:
+            raw = manager.restore(
+                1,
+                args=ocp.args.Composite(  # type: ignore[reportCallIssue]
+                    model=ocp.args.PyTreeRestore(),  # type: ignore[reportCallIssue]
+                    rng=ocp.args.PyTreeRestore(),  # type: ignore[reportCallIssue]
+                ),
+            )
+        assert set(raw["model"]) == {"tree"}
+        assert set(raw["rng"]) == {"tree"}
+        assert jnp.array_equal(
+            jax.random.key_data(raw["rng"]["tree"]), jax.random.key_data(jax.random.key(3))
+        )
+
+    def test_a_bare_array_item_round_trips_onto_a_template(self, tmp_path: Path) -> None:
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save(1, {"rng": jax.random.PRNGKey(0), "data_iterator": jnp.asarray(2.0)})
+
+        restored = store.restore(
+            1, templates={"rng": jax.random.PRNGKey(1), "data_iterator": jnp.asarray(0.0)}
+        ).items
+
+        assert jnp.array_equal(restored["rng"], jax.random.PRNGKey(0))
+        assert float(restored["data_iterator"]) == 2.0
+
+
 class TestPlainLeaves:
     """A ``data_iterator`` item carries ints, lists, strings, booleans and typed keys."""
 

@@ -13,6 +13,8 @@ and uses semantic versioning while the public API stabilizes.
   loop owns (`model`, `optimizer`, `rng`, `data_iterator`, `extensions`), each an Orbax
   pytree item, beside one `CheckpointMetadata` record (format, format version, step, epoch,
   item names, library versions, producer, metrics, extra, creation time).
+  On disk each item holds its pytree under a single `tree` node, so an item that is a bare
+  array (the `rng` key) is accepted by the Orbax floor.
   `OrbaxCheckpointStore(directory, *, max_to_keep=5)` opens Orbax on first use, so nothing is
   created before the first save; `save(step, items, *, epoch, metrics, producer, extra,
   overwrite)` refuses an existing step unless `overwrite=True` and a step below the latest,
