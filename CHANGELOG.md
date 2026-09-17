@@ -7,6 +7,19 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.rng`: `key_from(rng, *, streams, context)` takes a key from the first stream an
+  `nnx.Rngs` holds, in the order given, or returns a key given directly, and raises
+  `MissingRngStreamError` or `TypeError` instead of falling back to a default seed;
+  `rngs_from_seed(seed, streams)` derives each stream from the seed and the stream's name, so
+  adding or reordering streams leaves the others' keys unchanged; `split_key(key, num)` refuses
+  `num` below one; `fold_in_name(key, name)` folds in the name's BLAKE2b digest, the same in
+  every interpreter. The pytest plugin gains `rng_key` (a typed key from seed 42) and `rngs`
+  (an `nnx.Rngs` from the same seed with `default`, `params`, `dropout` and `sample` streams).
+  This is the home of artifex's `extract_rng_key`, DiffBio's `ensure_rngs` and `get_rng_key`
+  and datarax's `create_rngs`, each removed in its own release.
+
 ## [0.1.7] - 2026-09-14
 
 ### Changed
