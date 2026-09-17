@@ -235,6 +235,35 @@ def test_the_output_dir_fixture_points_the_output_variable_at_a_fresh_directory(
     _run(pytester).assert_outcomes(passed=2)
 
 
+def test_the_key_fixtures_come_from_seed_42(pytester: pytest.Pytester) -> None:
+    pytester.makepyfile(
+        test_keys="""
+        import jax
+        import numpy as np
+
+        from substrax.rng import rngs_from_seed
+        from substrax.testing.pytest_plugin import FIXTURE_SEED, RNGS_FIXTURE_STREAMS
+
+        def test_rng_key(rng_key):
+            assert jax.dtypes.issubdtype(rng_key.dtype, jax.dtypes.prng_key)
+            assert np.array_equal(
+                jax.random.key_data(rng_key), jax.random.key_data(jax.random.key(FIXTURE_SEED))
+            )
+
+        def test_rngs(rngs):
+            expected = rngs_from_seed(FIXTURE_SEED, streams=RNGS_FIXTURE_STREAMS)
+            for name in RNGS_FIXTURE_STREAMS:
+                assert name in rngs
+                assert np.array_equal(
+                    jax.random.key_data(getattr(rngs, name)()),
+                    jax.random.key_data(getattr(expected, name)()),
+                )
+        """
+    )
+
+    _run(pytester).assert_outcomes(passed=2)
+
+
 _IMPORT_PROBE = "import json, sys; import {module}; print(json.dumps('jax' in sys.modules))"
 
 

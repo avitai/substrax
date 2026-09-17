@@ -31,6 +31,7 @@ home and one test suite:
 | --- | --- |
 | `substrax.runtime` | `JaxRuntime` process settings rendered as the environment of a process that has not imported jax, or applied to the current one; XLA flags merged by name; test-run device emulation; entry-point logging |
 | `substrax.artifacts` | Output directories resolved from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
+| `substrax.rng` | Keys from an explicit owner (`key_from`, no default seed), streams derived from a seed by name (`rngs_from_seed`), `split_key` and the interpreter-stable `fold_in_name` |
 | `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
 | `substrax.devices` | `detect_devices()` (platform, device kind, count), device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |

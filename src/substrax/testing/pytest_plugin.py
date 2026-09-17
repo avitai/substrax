@@ -11,7 +11,9 @@ It provides:
   would build float64 constants;
 * ``@pytest.mark.devices(count, kind=None)`` and ``@pytest.mark.accelerator(kind=None)``, which skip
   a test the visible devices cannot run;
-* an ``output_dir`` fixture: a fresh directory with ``AVITAI_OUTPUT_DIR`` pointing at it.
+* an ``output_dir`` fixture: a fresh directory with ``AVITAI_OUTPUT_DIR`` pointing at it;
+* ``rng_key`` and ``rngs`` fixtures: a typed key from seed 42, and an ``nnx.Rngs`` from the
+  same seed with ``default``, ``params``, ``dropout`` and ``sample`` streams.
 
 Importing the plugin imports neither jax nor ``substrax.devices``; both load when a test runs.
 """
@@ -33,7 +35,13 @@ from substrax.testing.jax_config import restored_jax_config
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import jax
+    from flax import nnx
+
     from substrax.devices import DeviceInfo, DeviceKind
+
+FIXTURE_SEED = 42
+RNGS_FIXTURE_STREAMS = ("default", "params", "dropout", "sample")
 
 
 _MARKERS = (
@@ -136,6 +144,30 @@ def output_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     directory.mkdir()
     monkeypatch.setenv(OUTPUT_DIR_ENV, str(directory))
     return directory
+
+
+@pytest.fixture
+def rng_key() -> jax.Array:
+    """A typed JAX key from seed ``FIXTURE_SEED``, new for every test.
+
+    Returns:
+        The key.
+    """
+    return importlib.import_module("jax").random.key(FIXTURE_SEED)
+
+
+@pytest.fixture
+def rngs() -> nnx.Rngs:
+    """An ``nnx.Rngs`` from seed ``FIXTURE_SEED`` with the ``RNGS_FIXTURE_STREAMS`` streams.
+
+    Each stream is the seed's key folded by the stream's name (``substrax.rng.rngs_from_seed``),
+    so a test that draws from ``params`` is unaffected by one that draws from ``dropout``.
+
+    Returns:
+        The rngs.
+    """
+    rngs_from_seed = importlib.import_module("substrax.rng").rngs_from_seed
+    return rngs_from_seed(FIXTURE_SEED, streams=RNGS_FIXTURE_STREAMS)
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
