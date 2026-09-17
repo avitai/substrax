@@ -29,6 +29,7 @@ from substrax.checkpoint import (
     MigrationRegistry,
     MODULE_ONLY_FORMAT2,
     OrbaxCheckpointStore,
+    UnsupportedCheckpointError,
     upgrade_checkpoints,
 )
 from substrax.checkpoint.migration import DEFAULT_REGISTRY, FORMAT2_TO_3
@@ -107,6 +108,17 @@ class TestRegistry:
         one = Migration(source_version=1, applies=lambda _raw: False, upgrade=FORMAT2_TO_3.upgrade)
         with pytest.raises(ValueError, match="contiguous"):
             MigrationRegistry([one])
+
+    def test_two_migrations_for_one_version_are_refused(self) -> None:
+        with pytest.raises(ValueError, match="two migrations read format 2"):
+            MigrationRegistry([FORMAT2_TO_3, FORMAT2_TO_3])
+
+    def test_upgrading_a_current_record_is_refused(self, tmp_path: Path) -> None:
+        store = OrbaxCheckpointStore(tmp_path / "ckpt")
+        store.save(1, {"model": nnx.state(_model())})
+        raw = raw_metadata(store.directory, 1)
+        with pytest.raises(UnsupportedCheckpointError, match="no migration"):
+            DEFAULT_REGISTRY.upgrade({}, raw, MODULE_ONLY_FORMAT2)
 
     def test_a_migration_for_the_current_format_is_refused(self) -> None:
         current = Migration(
