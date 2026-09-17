@@ -19,6 +19,19 @@ and uses semantic versioning while the public API stabilizes.
   (an `nnx.Rngs` from the same seed with `default`, `params`, `dropout` and `sample` streams).
   This is the home of artifex's `extract_rng_key`, DiffBio's `ensure_rngs` and `get_rng_key`
   and datarax's `create_rngs`, each removed in its own release.
+- `substrax.optim`: `OptimizerConfig`, a frozen specification in optax's terms (`optimizer_type`
+  among `adam`, `adamw`, `sgd`, `rmsprop`, `adagrad`, `lamb`, `radam` and `nadam`,
+  `learning_rate` as a constant or an `optax.Schedule`, `b1`, `b2`, `eps`, `momentum`,
+  `weight_decay`, `weight_decay_filter`, one clip field and `wrt`), which refuses a decay
+  for an optimizer without decoupled decay, momentum for one without it, both clip fields,
+  a string filter and a non-positive constant rate; `create_transformation` and
+  `create_optimizer`, which pass a schedule as the base optimizer's learning rate and the
+  filter as a static mask of Python booleans, so the optimizer state has one structure
+  whatever the filter, and refuse a filter that selects no parameter; `EXCLUDE_BIAS_AND_NORM_SCALE`;
+  `current_learning_rate`, the rate the last update applied, read on device through
+  `optax.inject_hyperparams`. optax is a declared dependency (`optax>=0.2.8`) rather than a
+  constraint. artifex's `OptimizerConfig` and `create_optimizer`, opifex's `OptimizationConfig`
+  and DiffBio's `MiniBatchConfig` move onto this spec in their own releases.
 
 ## [0.1.7] - 2026-09-14
 
