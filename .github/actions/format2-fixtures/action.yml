@@ -1,0 +1,14 @@
+name: Write the format-2 checkpoint fixtures
+description: >-
+  Writes the format-2 checkpoint fixtures with the substrax release that produced them into the
+  gitignored directory the migration tests read. The tests raise, naming this command, when the
+  directory is missing, so every job that runs them writes the fixtures first.
+
+runs:
+  using: composite
+  steps:
+    - name: Write the format-2 checkpoint fixtures with the release that produced them
+      shell: bash
+      run: |
+        uv run --no-project --with "substrax==0.1.5" --with "optax==0.2.8" \
+          python scripts/make_format2_fixtures.py tests/checkpoint/fixtures/format2
