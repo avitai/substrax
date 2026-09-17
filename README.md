@@ -98,13 +98,15 @@ with OrbaxCheckpointStore("checkpoints/quick-start", max_to_keep=2) as store:
     for step in range(5):
         with jax.set_mesh(mesh):
             loss = spmd_train_step(model, optimizer, loss_fn, batch)
-        store.save(model, step, float(loss))
+        store.save(step, {"model": nnx.state(model)}, metrics={"loss": float(loss)})
         stopper.update(float(loss))  # True when the loss improved on the best so far
         if stopper.should_stop:
             break
 
-    restored, metadata = store.restore(model, store.latest_step())
-    assert metadata["loss"] == float(loss)
+    latest = store.latest_step()
+    checkpoint = store.restore(latest, templates={"model": nnx.state(model)})
+    nnx.update(model, checkpoint.items["model"])
+    assert checkpoint.metadata.metrics["loss"] == float(loss)
 ```
 
 ## The subpackages
