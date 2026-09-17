@@ -1,0 +1,2110 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Shared training and hardware infrastructure for the Avitai JAX stack">
+      
+      
+        <meta name="author" content="Mahdi Shafiei">
+      
+      
+        <link rel="canonical" href="https://substrax.readthedocs.io/api/optim/">
+      
+      
+        <link rel="prev" href="../rng/">
+      
+      
+        <link rel="next" href="../testing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Optim - Substrax</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#optim" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Substrax" class="md-header__button md-logo" aria-label="Substrax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Substrax
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Optim
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/avitai/substrax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    avitai/substrax
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Substrax" class="md-nav__button md-logo" aria-label="Substrax" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0 3 7l1.63 1.27L12 14l7.36-5.73L21 7zm7.37 10.73L12 16.47l-7.38-5.73L3 12l9 7 9-7zm0 5L12 21.47l-7.38-5.73L3 17l9 7 9-7z"/></svg>
+
+    </a>
+    Substrax
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/avitai/substrax" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    avitai/substrax
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../artifacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Artifacts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rng/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rng
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optim
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.optim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;optim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" optim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.EXCLUDE_BIAS_AND_NORM_SCALE" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;EXCLUDE_BIAS_AND_NORM_SCALE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.OptimizerConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OptimizerConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" OptimizerConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.OptimizerConfig.__post_init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__post_init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.create_optimizer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_optimizer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.create_transformation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_transformation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.mask_callable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;mask_callable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.mask_from_filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;mask_from_filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.weight_decay_mask" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;weight_decay_mask
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.current_learning_rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;current_learning_rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spmd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SPMD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../callbacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Callbacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.optim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;optim
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" optim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.EXCLUDE_BIAS_AND_NORM_SCALE" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;EXCLUDE_BIAS_AND_NORM_SCALE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.OptimizerConfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OptimizerConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" OptimizerConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.OptimizerConfig.__post_init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__post_init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.create_optimizer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_optimizer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.create_transformation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_transformation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.mask_callable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;mask_callable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.mask_from_filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;mask_from_filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.weight_decay_mask" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;weight_decay_mask
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.current_learning_rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;current_learning_rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../runtime/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    API Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="optim">Optim<a class="headerlink" href="#optim" title="Permanent link">¤</a></h1>
+<p><code>substrax.optim</code> turns one specification into an optax transformation or an NNX optimizer,
+and reads back the learning rate the last update applied.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">optax</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flax</span><span class="w"> </span><span class="kn">import</span> <span class="n">nnx</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.optim</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">EXCLUDE_BIAS_AND_NORM_SCALE</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">OptimizerConfig</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">create_optimizer</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">current_learning_rate</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">config</span> <span class="o">=</span> <span class="n">OptimizerConfig</span><span class="p">(</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">optimizer_type</span><span class="o">=</span><span class="s2">"adamw"</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">learning_rate</span><span class="o">=</span><span class="n">optax</span><span class="o">.</span><span class="n">warmup_cosine_decay_schedule</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">3e-4</span><span class="p">,</span> <span class="n">warmup_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">decay_steps</span><span class="o">=</span><span class="mi">10_000</span><span class="p">),</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">weight_decay_filter</span><span class="o">=</span><span class="n">EXCLUDE_BIAS_AND_NORM_SCALE</span><span class="p">,</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">gradient_clip_norm</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">optimizer</span> <span class="o">=</span> <span class="n">create_optimizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">grads</span> <span class="o">=</span> <span class="n">nnx</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">loss</span><span class="p">)(</span><span class="n">model</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">optimizer</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">grads</span><span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">current_learning_rate</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)))</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OptimizerConfig</code></td>
+<td>Frozen, keyword-only; <code>optimizer_type</code> is one of <code>adam</code>, <code>adamw</code>, <code>sgd</code>, <code>rmsprop</code>, <code>adagrad</code>, <code>lamb</code>, <code>radam</code>, <code>nadam</code> (<code>adam</code> with Nesterov momentum), <code>learning_rate</code> a positive constant or an <code>optax.Schedule</code>, <code>b1</code>, <code>b2</code>, <code>eps</code>, <code>momentum</code> (<code>sgd</code> and <code>rmsprop</code>), <code>weight_decay</code> (<code>adamw</code> and <code>lamb</code>), <code>weight_decay_filter</code>, one of <code>gradient_clip_norm</code> and <code>gradient_clip_value</code>, and <code>wrt</code></td>
+</tr>
+<tr>
+<td><code>weight_decay_filter</code></td>
+<td>A Flax NNX filter naming the parameters that are decayed, the polarity of optax's <code>mask</code>; <code>None</code> decays every leaf in <code>wrt</code>, as <code>torch.optim.AdamW(model.parameters())</code> does; <code>EXCLUDE_BIAS_AND_NORM_SCALE</code> skips biases and normalisation scales, the Hugging Face and timm convention; a string raises, because NNX reads it as a tag, not a path</td>
+</tr>
+<tr>
+<td><code>weight_decay_mask(model, config)</code></td>
+<td>The filter as a static tree of Python booleans over <code>nnx.state(model, config.wrt)</code>; a filter that selects nothing raises instead of becoming optax's silent no-op</td>
+</tr>
+<tr>
+<td><code>create_transformation(model, config)</code></td>
+<td>Clipping first, then the base alias wrapped in <code>optax.inject_hyperparams</code>; a schedule is the base optimizer's learning rate, never a <code>scale_by_schedule</code> placed before an adaptive optimizer, whose normalisation would cancel it</td>
+</tr>
+<tr>
+<td><code>create_optimizer(model, config)</code></td>
+<td><code>nnx.Optimizer(model, create_transformation(model, config), wrt=config.wrt)</code></td>
+</tr>
+<tr>
+<td><code>current_learning_rate(optimizer)</code></td>
+<td>The rate the last update applied, a scalar array on device; the schedule at step zero before the first update, and unchanged by a step <code>optax.apply_if_finite</code> skips</td>
+</tr>
+</tbody>
+</table>
+<p>The optimizer-state tree has the same structure whatever the filter, so a checkpoint written
+with one filter restores into an optimizer built with another.</p>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="substrax.optim" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>substrax.optim</code>
+
+
+<a href="#substrax.optim" class="headerlink" title="Permanent link">¤</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>One optimizer specification, one builder over optax, and the learning rate read on device.</p>
+<p><code>OptimizerConfig</code> names the optimizer in optax's terms; <code>create_transformation</code> and
+<code>create_optimizer</code> build it, passing a schedule as the base optimizer's learning rate and
+the weight-decay filter as a static mask; <code>current_learning_rate</code> reads the rate the last
+update applied. <code>EXCLUDE_BIAS_AND_NORM_SCALE</code> is the filter that decays neither biases nor
+normalisation scales.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="substrax.optim.EXCLUDE_BIAS_AND_NORM_SCALE" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">EXCLUDE_BIAS_AND_NORM_SCALE</span> <span class="o">=</span> <span class="n">_is_neither_bias_nor_scale</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#substrax.optim.EXCLUDE_BIAS_AND_NORM_SCALE" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Decay every parameter except biases and normalisation scales, as Hugging Face and timm do.</p>
+
+    </div>
+
+</div>
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.optim.OptimizerConfig" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">OptimizerConfig</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">optimizer_type</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">,</span> <span class="n">learning_rate</span><span class="p">,</span> <span class="n">b1</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">b2</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-08</span><span class="p">,</span> <span class="n">momentum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">weight_decay_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gradient_clip_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gradient_clip_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="n">nnx</span><span class="o">.</span><span class="n">Param</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#substrax.optim.OptimizerConfig" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>What an optimizer is, in optax's terms.</p>
+<p>A schedule is passed as the base optimizer's learning rate, never as a
+<code>scale_by_schedule</code> placed before an adaptive optimizer, whose normalisation would
+cancel the scaling. The names map onto other libraries as follows.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>PyTorch</th>
+<th>Flax NNX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>learning_rate</code></td>
+<td><code>lr</code></td>
+<td>the base optax alias's <code>learning_rate</code></td>
+</tr>
+<tr>
+<td><code>b1</code>, <code>b2</code></td>
+<td><code>betas</code></td>
+<td><code>b1</code>, <code>b2</code></td>
+</tr>
+<tr>
+<td><code>weight_decay</code></td>
+<td><code>weight_decay</code> on a parameter group</td>
+<td><code>optax.adamw(weight_decay=...)</code></td>
+</tr>
+<tr>
+<td><code>weight_decay_filter</code></td>
+<td>the parameter group</td>
+<td><code>optax.adamw(mask=...)</code>, True where decayed</td>
+</tr>
+<tr>
+<td><code>wrt</code></td>
+<td><code>model.parameters()</code></td>
+<td><code>nnx.Optimizer(model, tx, wrt=...)</code></td>
+</tr>
+</tbody>
+</table>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.optimizer_type">optimizer_type</span></code></td>
+            <td>
+                  <code><span title="substrax.optim.config.OptimizerType">OptimizerType</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The optax alias; <code>nadam</code> is <code>adam</code> with Nesterov momentum.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.learning_rate">learning_rate</span></code></td>
+            <td>
+                  <code><span title="float">float</span> | <span title="optax.Schedule">Schedule</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A positive constant, or an <code>optax.Schedule</code> of the step count.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.b1">b1</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>First-moment decay of the Adam family and LAMB.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.b2">b2</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Second-moment decay of the Adam family and LAMB.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.eps">eps</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The denominator offset.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.momentum">momentum</span></code></td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Momentum of <code>sgd</code> and <code>rmsprop</code>; <code>None</code> for no momentum.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.weight_decay">weight_decay</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Decoupled weight decay, <code>adamw</code> and <code>lamb</code> only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.weight_decay_filter">weight_decay_filter</span></code></td>
+            <td>
+                  <code><span title="flax.nnx.filterlib.Filter">Filter</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A Flax NNX filter naming the parameters that are decayed, the
+polarity of optax's <code>mask</code>; <code>None</code> decays every leaf in <code>wrt</code>, as
+<code>torch.optim.AdamW(model.parameters())</code> does. <code>EXCLUDE_BIAS_AND_NORM_SCALE</code>
+is the Hugging Face and timm convention.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.gradient_clip_norm">gradient_clip_norm</span></code></td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Global-norm clipping applied before the update, or <code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.gradient_clip_value">gradient_clip_value</span></code></td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Element-wise clipping applied before the update, or <code>None</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="substrax.optim.OptimizerConfig.wrt">wrt</span></code></td>
+            <td>
+                  <code><span title="flax.nnx.filterlib.Filter">Filter</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The filter naming the parameters the optimizer updates.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.optim.OptimizerConfig.__post_init__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">__post_init__</span><span class="p">()</span></code>
+
+<a href="#substrax.optim.OptimizerConfig.__post_init__" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Refuse a specification optax would silently misread.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>weight_decay_filter</code> is a string, which NNX reads as a tag, not
+a path.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If both clip fields are set, <code>weight_decay</code> is negative or set for an
+optimizer without decoupled decay, <code>momentum</code> is set for an optimizer that
+has none, or a constant <code>learning_rate</code> is not positive.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.create_optimizer" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">create_optimizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.create_optimizer" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Build an <code>nnx.Optimizer</code> over <code>create_transformation</code> for <code>config.wrt</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="flax.nnx.Module">Module</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model the optimizer updates.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              OptimizerConfig(*, optimizer_type='adam', learning_rate, b1=0.9, b2=0.999, eps=1e-08, momentum=None, weight_decay=0.0, weight_decay_filter=None, gradient_clip_norm=None, gradient_clip_value=None, wrt=nnx.Param)
+
+  
+      dataclass
+   (substrax.optim.config.OptimizerConfig)" href="#substrax.optim.OptimizerConfig">OptimizerConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The specification.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="flax.nnx.Optimizer">Optimizer</span>[<span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The optimizer; step it with <code>optimizer.update(model, grads)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.create_transformation" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">create_transformation</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.create_transformation" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Build the optax transformation <code>config</code> describes for <code>model</code>.</p>
+<p>Clipping, when configured, comes first; the base alias follows, wrapped in
+<code>optax.inject_hyperparams</code> so its learning rate, a schedule of optax's own step count
+when one is given, can be read on device with <code>current_learning_rate</code>. The weight-decay
+filter becomes a mask of Python booleans over the parameter tree, never optimizer state,
+so the state has the same structure whatever the filter.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="flax.nnx.Module">Module</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model the optimizer updates, which fixes the mask's tree.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              OptimizerConfig(*, optimizer_type='adam', learning_rate, b1=0.9, b2=0.999, eps=1e-08, momentum=None, weight_decay=0.0, weight_decay_filter=None, gradient_clip_norm=None, gradient_clip_value=None, wrt=nnx.Param)
+
+  
+      dataclass
+   (substrax.optim.config.OptimizerConfig)" href="#substrax.optim.OptimizerConfig">OptimizerConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The specification.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="optax.GradientTransformation">GradientTransformation</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The transformation.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>config.optimizer_type</code> is not an optax alias this builder knows, or
+the weight-decay filter selects no parameter.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.mask_callable" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">mask_callable</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.mask_callable" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the callable optax evaluates on the parameter tree to get the decay mask.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              OptimizerConfig(*, optimizer_type='adam', learning_rate, b1=0.9, b2=0.999, eps=1e-08, momentum=None, weight_decay=0.0, weight_decay_filter=None, gradient_clip_norm=None, gradient_clip_value=None, wrt=nnx.Param)
+
+  
+      dataclass
+   (substrax.optim.config.OptimizerConfig)" href="#substrax.optim.OptimizerConfig">OptimizerConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The specification holding <code>weight_decay_filter</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="typing.Any">Any</span>], <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A function from a parameter tree to a tree of Python booleans of the same structure.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.mask_from_filter" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">mask_from_filter</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">chosen</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.mask_from_filter" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Map an NNX filter over a parameter tree, giving a Python boolean per leaf.</p>
+<p>The tree may be an <code>nnx.State</code> or the pure tree optax hands a callable mask; a trailing
+<code>value</code> attribute key of a Variable is not part of the parameter's path.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>params</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The parameter tree.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>chosen</code>
+            </td>
+            <td>
+                  <code><span title="flax.nnx.filterlib.Filter">Filter</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The filter, evaluated on each leaf's path and value.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A tree of the same structure with a <code>bool</code> at every leaf.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.weight_decay_mask" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">weight_decay_mask</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.weight_decay_mask" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the optax mask for <code>config.weight_decay_filter</code> over <code>nnx.state(model, wrt)</code>.</p>
+<p>The mask is the parameters' pure tree (nested dicts, as <code>nnx.to_pure_dict</code> gives it)
+with a static Python boolean at every leaf, <code>True</code> where the filter selects the
+parameter. <code>None</code> selects every leaf. The builder passes optax the callable form,
+<code>mask_callable</code>, which maps the same filter over whatever parameter tree optax hands it.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="flax.nnx.Module">Module</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model the optimizer updates.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              OptimizerConfig(*, optimizer_type='adam', learning_rate, b1=0.9, b2=0.999, eps=1e-08, momentum=None, weight_decay=0.0, weight_decay_filter=None, gradient_clip_norm=None, gradient_clip_value=None, wrt=nnx.Param)
+
+  
+      dataclass
+   (substrax.optim.config.OptimizerConfig)" href="#substrax.optim.OptimizerConfig">OptimizerConfig</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The specification holding <code>wrt</code> and <code>weight_decay_filter</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The mask tree.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the filter selects no parameter, which optax would accept as a silent
+no-op.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.current_learning_rate" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">current_learning_rate</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.current_learning_rate" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the learning rate the last <code>update</code> applied, as an array on device.</p>
+<p><code>create_transformation</code> wraps the base alias in <code>optax.inject_hyperparams</code>, which
+stores the rate it evaluated at optax's own step count. Before the first update the value
+is the schedule at step zero; a step a wrapper such as <code>optax.apply_if_finite</code> skips
+leaves it unchanged, because optax's count does not advance.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimizer</code>
+            </td>
+            <td>
+                  <code><span title="flax.nnx.Optimizer">Optimizer</span>[<span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An optimizer built over <code>create_transformation</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The learning rate, a scalar array.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the optimizer's state holds no injected learning rate.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "navigation.path", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
