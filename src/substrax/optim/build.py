@@ -7,7 +7,7 @@ from typing import Any
 import optax
 from flax import nnx
 
-from substrax.optim.config import OPTIMIZER_TYPES, OptimizerConfig
+from substrax.optim.config import OptimizerConfig
 from substrax.optim.filters import mask_callable, weight_decay_mask
 
 
@@ -58,8 +58,6 @@ def _base_transformation(
     model: nnx.Module, config: OptimizerConfig
 ) -> optax.GradientTransformation:
     kind = config.optimizer_type
-    if kind not in OPTIMIZER_TYPES:
-        raise ValueError(f"optimizer_type {kind!r} is not one of {', '.join(OPTIMIZER_TYPES)}")
     learning_rate = config.learning_rate
     if kind in {"adam", "nadam"}:
         return optax.inject_hyperparams(optax.adam, static_args=("nesterov",))(

@@ -70,10 +70,12 @@ class OptimizerConfig:  # pylint: disable=too-many-instance-attributes
         Raises:
             TypeError: If ``weight_decay_filter`` is a string, which NNX reads as a tag, not
                 a path.
-            ValueError: If both clip fields are set, ``weight_decay`` is negative or set for an
+            ValueError: If ``optimizer_type`` is not one built here, both clip fields are set
+                or a clip is not positive, ``weight_decay`` is negative or set for an
                 optimizer without decoupled decay, ``momentum`` is set for an optimizer that
                 has none, or a constant ``learning_rate`` is not positive.
         """
+        _check_optimizer_type(self.optimizer_type)
         _check_clipping(self.gradient_clip_norm, self.gradient_clip_value)
         _check_weight_decay(self.optimizer_type, self.weight_decay)
         _check_momentum(self.optimizer_type, self.momentum)
@@ -81,11 +83,21 @@ class OptimizerConfig:  # pylint: disable=too-many-instance-attributes
         _check_learning_rate(self.learning_rate)
 
 
+def _check_optimizer_type(optimizer_type: str) -> None:
+    if optimizer_type not in OPTIMIZER_TYPES:
+        raise ValueError(
+            f"optimizer_type {optimizer_type!r} is not one of {', '.join(OPTIMIZER_TYPES)}"
+        )
+
+
 def _check_clipping(clip_norm: float | None, clip_value: float | None) -> None:
     if clip_norm is not None and clip_value is not None:
         raise ValueError(
             "gradient_clip_norm and gradient_clip_value cannot both be set; choose one"
         )
+    for name, value in (("gradient_clip_norm", clip_norm), ("gradient_clip_value", clip_value)):
+        if value is not None and value <= 0.0:
+            raise ValueError(f"{name} must be positive, got {value}")
 
 
 def _check_weight_decay(optimizer_type: str, weight_decay: float) -> None:
