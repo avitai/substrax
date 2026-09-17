@@ -6,6 +6,10 @@ A checkpoint is a step holding named items (``model``, ``optimizer``, ``rng``,
 ``PyTreeSave`` carries arrays, typed PRNG keys and plain-Python leaves (ints, floats,
 strings, booleans, lists) alike, so restoring a checkpoint never executes code.
 
+On disk each item is one Orbax item holding the pytree under a single ``tree`` node:
+Orbax 0.11.33, the floor, refuses an item that is a bare array (a PRNG key on its own
+fails its ``if not item`` check), and the node makes every item a mapping.
+
 Restoring onto templates places every array on its template leaf's device and dtype,
 whatever topology the checkpoint was written on; without templates the items come back
 as stored. A format-2 checkpoint (substrax 0.1.5 to 0.1.9) is upgraded in memory through
@@ -39,6 +43,7 @@ from substrax.checkpoint.migration import DEFAULT_REGISTRY, MigrationRegistry
 logger = logging.getLogger(__name__)
 
 METADATA_ITEM = "metadata"
+ITEM_NODE = "tree"
 _LEGACY_PAYLOAD_ITEM = "model"
 
 BestMode = Literal["min", "max"]
@@ -131,6 +136,11 @@ def _restore_arg(template: Any) -> Any:
     return ocp.args.PyTreeRestore(  # type: ignore[arg-type, reportCallIssue]
         template, restore_args=ocp.checkpoint_utils.construct_restore_args(template)
     )
+
+
+def _wrapped(template: Any) -> Any:
+    """The on-disk form of an item's template: the pytree under the ``tree`` node."""
+    return None if template is None else {ITEM_NODE: template}
 
 
 class OrbaxCheckpointStore:
@@ -289,7 +299,7 @@ class OrbaxCheckpointStore:
             created_at=now_iso(),
         )
         args = ocp.args.Composite(  # type: ignore[reportCallIssue]
-            **{name: ocp.args.PyTreeSave(items[name]) for name in names},  # type: ignore[reportCallIssue]
+            **{name: ocp.args.PyTreeSave({ITEM_NODE: items[name]}) for name in names},  # type: ignore[reportCallIssue]
             **{METADATA_ITEM: ocp.args.JsonSave(metadata.to_dict())},  # type: ignore[reportCallIssue]
         )
         manager = self._open()
@@ -351,10 +361,10 @@ class OrbaxCheckpointStore:
         restored = manager.restore(
             step,
             args=ocp.args.Composite(  # type: ignore[reportCallIssue]
-                **{name: _restore_arg(given.get(name)) for name in metadata.items}
+                **{name: _restore_arg(_wrapped(given.get(name))) for name in metadata.items}
             ),
         )
-        items = {name: restored[name] for name in metadata.items}
+        items = {name: restored[name][ITEM_NODE] for name in metadata.items}
         return Checkpoint(step=step, items=items, metadata=metadata)
 
     def read_metadata(  # noqa: DOC502  # raised by _require_step and from_dict
