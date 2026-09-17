@@ -1,1 +1,0 @@
-Checkpoint commit was successful to /mnt/ssd2/Works/substrax/tests/checkpoint/fixtures/format2/opifex_module/7.orbax-checkpoint-tmp/metadata

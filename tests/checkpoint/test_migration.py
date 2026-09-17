@@ -1,7 +1,8 @@
 """Format 2 checkpoints restore through the migration registry and upgrade to new roots.
 
-The fixtures under ``fixtures/format2`` were written by substrax 0.1.5 through
-``scripts/make_format2_fixtures.py``, one per producer layout: the module-only payload
+The roots under ``fixtures/format2`` are written by substrax 0.1.5 through
+``scripts/make_format2_fixtures.py`` (CI writes them before the tests run; they are never
+committed), one per producer layout: the module-only payload
 substrax, opifex and cellifex wrote, artifex's trainer tree, pertrax's phase tree,
 DiffAV's model and model-plus-optimizer payloads, and a datarax iterator state. Each
 producer's own layout is a ``LegacyLayout`` it passes to ``restore``; substrax ships the
@@ -19,7 +20,13 @@ import jax
 import jax.numpy as jnp
 import optax
 import pytest
-from _helpers import FIXTURE_STEP, FORMAT2_FIXTURES, raw_metadata
+from _helpers import (
+    FIXTURE_STEP,
+    FORMAT2_FIXTURES,
+    FORMAT2_LAYOUTS,
+    raw_metadata,
+    require_format2_fixtures,
+)
 from flax import nnx
 
 from substrax.checkpoint import (
@@ -35,15 +42,8 @@ from substrax.checkpoint import (
 from substrax.checkpoint.migration import DEFAULT_REGISTRY, FORMAT2_TO_3
 
 
-LAYOUTS = (
-    "substrax_module",
-    "opifex_module",
-    "artifex_trainer",
-    "pertrax_phase",
-    "diffav_model",
-    "diffav_model_optimizer",
-    "datarax_iterator",
-)
+LAYOUTS = FORMAT2_LAYOUTS
+require_format2_fixtures()
 
 # The producers' own layouts, as their adoption changes define them.
 ARTIFEX_TRAINER_FORMAT2 = LegacyLayout(

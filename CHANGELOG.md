@@ -7,6 +7,12 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- The format-2 checkpoint fixtures are generated, not committed: `scripts/make_format2_fixtures.py`
+  writes them with substrax 0.1.5 in an isolated environment, CI runs it before the tests, and
+  the migration tests fail naming that command when the roots are missing.
+
 ## [0.1.10] - 2026-09-17
 
 ### Added
