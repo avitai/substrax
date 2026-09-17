@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-17
+
 ### Added
 
 - Checkpoint format 3. A checkpoint is a step holding named items, the things a training
