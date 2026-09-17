@@ -8,6 +8,7 @@ caller's extra values under their own keys.
 
 from __future__ import annotations
 
+import functools
 import importlib.metadata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields
@@ -175,15 +176,21 @@ def check_item_names(items: Mapping[str, Any]) -> tuple[str, ...]:
     return names
 
 
-def library_versions(names: Iterable[str] = LIBRARY_NAMES) -> dict[str, str]:
-    """The installed version of each named distribution, skipping the ones not installed."""
-    versions: dict[str, str] = {}
+@functools.cache
+def _installed_versions(names: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+    """Distribution versions, read once per process: they cannot change while it runs."""
+    versions: list[tuple[str, str]] = []
     for name in names:
         try:
-            versions[name] = importlib.metadata.version(name)
+            versions.append((name, importlib.metadata.version(name)))
         except importlib.metadata.PackageNotFoundError:
             continue
-    return versions
+    return tuple(versions)
+
+
+def library_versions(names: Iterable[str] = LIBRARY_NAMES) -> dict[str, str]:
+    """The installed version of each named distribution, skipping the ones not installed."""
+    return dict(_installed_versions(tuple(names)))
 
 
 def now_iso() -> str:
