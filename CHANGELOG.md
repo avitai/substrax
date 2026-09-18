@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-09-18
+
 ### Added
 
 - `substrax.records.read_record(record_type, data)` reads a frozen dataclass from a parsed JSON
