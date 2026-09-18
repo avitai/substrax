@@ -24,6 +24,22 @@ and uses semantic versioning while the public API stabilizes.
   without `axis_types`. The main guard is recognised only as `==` (in either operand order), and
   `os.environ |= ...` counts as a write. A corpus location that does not exist raises. substrax
   runs both checks over its own tree.
+- A `dtypes` item in every checkpoint: `save` writes every array's dtype by item and leaf path
+  as a JSON item beside the metadata record, and `restore` compares against it without opening
+  the arrays. A checkpoint written without it (format 2, or format 3 from 0.1.10 and 0.1.11) is
+  compared against Orbax's per-array metadata, which opens each array's store;
+  `upgrade_checkpoints` rewrites such a root with the item. Readers from 0.1.10 and 0.1.11
+  restore only the items they name, so they read the new checkpoints unchanged.
+
+### Changed
+
+- `OrbaxCheckpointStore.restore` refuses to give a saved array another dtype, raising
+  `CheckpointDtypeMismatchError` with one `DtypeMismatch` (item, leaf, saved and restored
+  dtype) per array: a template whose dtype differs, which Orbax cast to silently, and, without
+  a template, a 64-bit array that jax creates at 32 bits while its x64 mode is off.
+  `restore(..., cast_dtypes=True)` accepts the cast; `CheckpointStore.restore` takes the same
+  parameter. `upgrade_checkpoints` therefore refuses such a step instead of writing it at 32
+  bits.
 
 ### Removed
 

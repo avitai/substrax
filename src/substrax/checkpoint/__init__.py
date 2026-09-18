@@ -13,8 +13,10 @@ the current format into a new root.
 
 from substrax.checkpoint.directory import resolve_checkpoint_dir
 from substrax.checkpoint.errors import (
+    CheckpointDtypeMismatchError,
     CheckpointNotFoundError,
     CheckpointNotWrittenError,
+    DtypeMismatch,
     UnsupportedCheckpointError,
 )
 from substrax.checkpoint.legacy import LegacyLayout, MODULE_ONLY_FORMAT2
@@ -36,10 +38,12 @@ __all__ = [
     "ITEM_NAMES",
     "MODULE_ONLY_FORMAT2",
     "Checkpoint",
+    "CheckpointDtypeMismatchError",
     "CheckpointMetadata",
     "CheckpointNotFoundError",
     "CheckpointNotWrittenError",
     "CheckpointStore",
+    "DtypeMismatch",
     "LegacyLayout",
     "Migration",
     "MigrationRegistry",

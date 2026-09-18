@@ -8,7 +8,7 @@ from substrax.checkpoint.legacy import LegacyLayout
 from substrax.checkpoint.store import OrbaxCheckpointStore
 
 
-def upgrade_checkpoints(
+def upgrade_checkpoints(  # noqa: DOC503  # CheckpointDtypeMismatchError is raised by restore
     source: str | Path, destination: str | Path, *, legacy_layout: LegacyLayout | None = None
 ) -> list[int]:
     """Write every step under ``source`` to ``destination`` in the current format.
@@ -16,7 +16,8 @@ def upgrade_checkpoints(
     The source is read as it is (a format-2 root through the migration registry, split
     by ``legacy_layout``) and never modified; the destination must not exist or must be
     empty, so an upgrade never rewrites a root in place. Items are copied as stored, so
-    the arrays keep their saved placement.
+    the arrays keep their saved placement and dtype: a step whose arrays this process
+    cannot restore at their saved dtype is refused rather than written narrowed.
 
     Args:
         source: The root to read.
@@ -29,6 +30,9 @@ def upgrade_checkpoints(
     Raises:
         ValueError: If ``source`` and ``destination`` are the same directory, or the
             destination exists and is not empty.
+        CheckpointDtypeMismatchError: If a step's arrays would come back with another dtype
+            than they were saved with, such as a 64-bit array while jax's x64 mode is off; the
+            destination holds the steps written before it.
     """
     source_dir = Path(source).resolve()
     destination_dir = Path(destination).resolve()

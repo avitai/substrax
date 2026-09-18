@@ -10,23 +10,38 @@ On disk each item is one Orbax item holding the pytree under a single ``tree`` n
 Orbax 0.11.33, the floor, refuses an item that is a bare array (a PRNG key on its own
 fails its ``if not item`` check), and the node makes every item a mapping.
 
-Restoring onto templates places every array on its template leaf's device and dtype,
-whatever topology the checkpoint was written on; without templates the items come back
-as stored. A format-2 checkpoint (substrax 0.1.5 to 0.1.9) is upgraded in memory through
+Restoring onto templates places every array on its template leaf's device, whatever
+topology the checkpoint was written on; without templates the items come back as stored.
+A template whose dtype differs from a saved array's is refused before any array is read,
+unless the caller asks for the cast with ``cast_dtypes=True``: Orbax would otherwise cast every
+array to its template's dtype. ``save`` writes every array's dtype as a ``dtypes`` JSON item
+beside the metadata record, so the comparison reads one small file; a checkpoint written without
+it is compared against Orbax's per-array metadata. An item restored without a template is
+compared after it is read, which catches a 64-bit array jax creates at 32 bits while its x64
+mode is off. A format-2 checkpoint (substrax 0.1.5 to 0.1.9) is upgraded in memory through
 the migration registry, split by the producer's :class:`~substrax.checkpoint.legacy.LegacyLayout`.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol, runtime_checkable, Self
 
+import jax
+import jax.numpy as jnp
+import numpy as np
 import orbax.checkpoint as ocp  # type: ignore[import-untyped]
 
-from substrax.checkpoint.errors import CheckpointNotFoundError, CheckpointNotWrittenError
+from substrax.checkpoint.errors import (
+    CheckpointDtypeMismatchError,
+    CheckpointNotFoundError,
+    CheckpointNotWrittenError,
+    DtypeMismatch,
+)
 from substrax.checkpoint.legacy import LegacyLayout, MODULE_ONLY_FORMAT2
 from substrax.checkpoint.metadata import (
     check_extra,
@@ -37,12 +52,15 @@ from substrax.checkpoint.metadata import (
     now_iso,
     Producer,
 )
-from substrax.checkpoint.migration import DEFAULT_REGISTRY, MigrationRegistry
+from substrax.checkpoint.migration import DEFAULT_REGISTRY, Migration, MigrationRegistry
 
 
 logger = logging.getLogger(__name__)
 
 METADATA_ITEM = "metadata"
+# Every array's dtype by item and leaf path, a JSON item beside the metadata record so the
+# record that best_step reads for every step stays small.
+DTYPES_ITEM = "dtypes"
 ITEM_NODE = "tree"
 _LEGACY_PAYLOAD_ITEM = "model"
 
@@ -87,6 +105,7 @@ class CheckpointStore(Protocol):
         *,
         templates: Mapping[str, Any] | None = None,
         legacy_layout: LegacyLayout | None = None,
+        cast_dtypes: bool = False,
     ) -> Checkpoint:
         """Read the checkpoint at ``step``, onto ``templates`` where given."""
         ...
@@ -141,6 +160,46 @@ def _restore_arg(template: Any) -> Any:
 def _wrapped(template: Any) -> Any:
     """The on-disk form of an item's template: the pytree under the ``tree`` node."""
     return None if template is None else {ITEM_NODE: template}
+
+
+# Orbax stores a typed PRNG key by its data, which is uint32 for every jax key implementation.
+_KEY_DATA_DTYPE = "uint32"
+
+
+def _dtype_name(dtype: Any) -> str:
+    """The name a dtype is recorded and compared by; a typed PRNG key by its data's dtype."""
+    if jnp.issubdtype(dtype, jax.dtypes.prng_key):
+        return _KEY_DATA_DTYPE
+    return str(np.dtype(dtype))
+
+
+def _leaf_dtypes(tree: Any, *, node_depth: int) -> dict[str, str]:
+    """The dtype name of every leaf of ``tree`` that has one, keyed by its path joined with ``/``.
+
+    The path is Orbax's flat key for the leaf with its first ``node_depth`` keys dropped (1 for
+    an item under the ``tree`` node). Leaves without a dtype, strings and Python numbers, are
+    left out. Arrays, ``jax.ShapeDtypeStruct`` and Orbax's own array metadata all qualify.
+    """
+    return {
+        "/".join(str(part) for part in key[node_depth:]): _dtype_name(dtype)
+        for key, leaf in ocp.tree.to_flat_dict(tree).items()
+        if (dtype := getattr(leaf, "dtype", None)) is not None
+    }
+
+
+def _dtype_mismatches(
+    item: str, saved: Mapping[str, str], tree: Any, *, node_depth: int
+) -> list[DtypeMismatch]:
+    """The leaves of one item's ``tree`` whose dtype differs from the saved array's.
+
+    ``tree`` is the item's template before a restore, or the restored item after one. A leaf
+    the checkpoint lacks is left to Orbax's own structure check.
+    """
+    return [
+        DtypeMismatch(item=item, leaf=leaf, saved=saved[leaf], restored=name)
+        for leaf, name in _leaf_dtypes(tree, node_depth=node_depth).items()
+        if leaf in saved and saved[leaf] != name
+    ]
 
 
 class OrbaxCheckpointStore:
@@ -250,6 +309,16 @@ class OrbaxCheckpointStore:
         )
         return dict(restored[METADATA_ITEM])
 
+    def _recorded_dtypes(self, manager: Any, step: int) -> dict[str, dict[str, str]]:
+        """The ``dtypes`` item of ``step``; empty for a checkpoint written without one."""
+        if not (self.directory / str(step) / DTYPES_ITEM).is_dir():
+            return {}
+        restored = manager.restore(
+            step,
+            args=ocp.args.Composite(**{DTYPES_ITEM: ocp.args.JsonRestore()}),  # type: ignore[reportCallIssue]
+        )
+        return {str(item): dict(leaves) for item, leaves in dict(restored[DTYPES_ITEM]).items()}
+
     def save(
         self,
         step: int,
@@ -261,7 +330,7 @@ class OrbaxCheckpointStore:
         extra: Mapping[str, JsonValue] | None = None,
         overwrite: bool = False,
     ) -> Path:
-        """Write ``items`` at ``step`` with a format-3 metadata record.
+        """Write ``items`` at ``step`` with a format-3 metadata record and every array's dtype.
 
         Args:
             step: Non-negative step the checkpoint is addressed by.
@@ -298,9 +367,11 @@ class OrbaxCheckpointStore:
             extra=checked_extra,
             created_at=now_iso(),
         )
+        dtypes = {name: _leaf_dtypes(_wrapped(items[name]), node_depth=1) for name in names}
         args = ocp.args.Composite(  # type: ignore[reportCallIssue]
             **{name: ocp.args.PyTreeSave({ITEM_NODE: items[name]}) for name in names},  # type: ignore[reportCallIssue]
             **{METADATA_ITEM: ocp.args.JsonSave(metadata.to_dict())},  # type: ignore[reportCallIssue]
+            **{DTYPES_ITEM: ocp.args.JsonSave(dtypes)},  # type: ignore[reportCallIssue]
         )
         manager = self._open()
         written = manager.save(step, args=args, force=True)  # type: ignore[reportCallIssue]
@@ -310,22 +381,146 @@ class OrbaxCheckpointStore:
         logger.info("Saved checkpoint step %s with items %s", step, names)
         return self.directory / str(step)
 
-    def restore(  # noqa: DOC503  # raised by _require_step, from_dict and Orbax
+    def _refuse_dtype_changes(
+        self,
+        step: int,
+        trees: Mapping[str, tuple[Any, int]],
+        recorded: Mapping[str, Mapping[str, str]],
+        *,
+        restored: bool,
+    ) -> None:
+        """Raise when an item would come back with another dtype than it was saved with.
+
+        An item's saved dtypes come from ``recorded``, the metadata record's, when it holds
+        the item, and otherwise from Orbax's per-array metadata, which opens every array's
+        store: a checkpoint written before substrax recorded dtypes pays that once per restore.
+
+        Args:
+            step: The checkpoint's step.
+            trees: Each on-disk item's template, or restored tree, with its node depth (1 under
+                ``tree``).
+            recorded: The dtypes the metadata record holds, by item.
+            restored: Whether ``trees`` are restored items, whose dtypes this process chose.
+
+        Raises:
+            CheckpointDtypeMismatchError: If any leaf's dtype differs from the saved array's.
+        """
+        mismatches: list[DtypeMismatch] = []
+        with contextlib.ExitStack() as stack:
+            handler: Any = None
+            for item, (tree, node_depth) in trees.items():
+                saved = recorded.get(item)
+                if saved is None:
+                    if handler is None:
+                        handler = stack.enter_context(
+                            contextlib.closing(ocp.PyTreeCheckpointHandler())
+                        )
+                    metadata = handler.metadata(self.directory / str(step) / item)
+                    saved = _leaf_dtypes(getattr(metadata, "tree", metadata), node_depth=node_depth)
+                mismatches += _dtype_mismatches(item, saved, tree, node_depth=node_depth)
+        if mismatches:
+            raise CheckpointDtypeMismatchError(
+                step=step,
+                mismatches=tuple(mismatches),
+                x64_disabled=restored and not jax.config.jax_enable_x64,
+            )
+
+    def _restore_format2(
+        self,
+        step: int,
+        raw: Mapping[str, Any],
+        migration: Migration,
+        *,
+        templates: Mapping[str, Any] | None,
+        legacy_layout: LegacyLayout | None,
+        cast_dtypes: bool,
+    ) -> Checkpoint:
+        """Read a format-2 payload, compare its dtypes and split it into items."""
+        layout = MODULE_ONLY_FORMAT2 if legacy_layout is None else legacy_layout
+        template = None if templates is None else layout.template_of(templates)
+        if template is not None and not cast_dtypes:
+            self._refuse_dtype_changes(
+                step, {_LEGACY_PAYLOAD_ITEM: (template, 0)}, {}, restored=False
+            )
+        restored = self._open().restore(
+            step,
+            args=ocp.args.Composite(**{_LEGACY_PAYLOAD_ITEM: _restore_arg(template)}),  # type: ignore[reportCallIssue]
+        )
+        payload = restored[_LEGACY_PAYLOAD_ITEM]
+        if template is None and not cast_dtypes:
+            self._refuse_dtype_changes(
+                step, {_LEGACY_PAYLOAD_ITEM: (payload, 0)}, {}, restored=True
+            )
+        items, metadata = migration.upgrade(payload, raw, layout)
+        return Checkpoint(step=step, items=items, metadata=metadata)
+
+    def _read_items(
+        self, manager: Any, step: int, metadata: CheckpointMetadata, templates: dict[str, Any]
+    ) -> Checkpoint:
+        """Read every item of a format-3 checkpoint, each onto its template where given."""
+        restored = manager.restore(
+            step,
+            args=ocp.args.Composite(  # type: ignore[reportCallIssue]
+                **{name: _restore_arg(_wrapped(templates.get(name))) for name in metadata.items}
+            ),
+        )
+        items = {name: restored[name][ITEM_NODE] for name in metadata.items}
+        return Checkpoint(step=step, items=items, metadata=metadata)
+
+    def _restore_format3(
+        self,
+        manager: Any,
+        step: int,
+        raw: Mapping[str, Any],
+        *,
+        templates: dict[str, Any],
+        cast_dtypes: bool,
+    ) -> Checkpoint:
+        """Read a format-3 checkpoint, comparing every item's dtypes with the saved ones.
+
+        Templates are compared before any array is read; items without one after.
+        """
+        metadata = CheckpointMetadata.from_dict(raw)
+        missing = sorted(set(templates) - set(metadata.items))
+        if missing:
+            raise ValueError(
+                f"templates name items the checkpoint lacks: {missing}; "
+                f"step {step} holds {list(metadata.items)}"
+            )
+        if cast_dtypes:
+            return self._read_items(manager, step, metadata, templates)
+        recorded = self._recorded_dtypes(manager, step)
+        templated = {name: (_wrapped(tree), 1) for name, tree in templates.items()}
+        self._refuse_dtype_changes(step, templated, recorded, restored=False)
+        checkpoint = self._read_items(manager, step, metadata, templates)
+        untemplated = {
+            name: (_wrapped(tree), 1)
+            for name, tree in checkpoint.items.items()
+            if name not in templates
+        }
+        self._refuse_dtype_changes(step, untemplated, recorded, restored=True)
+        return checkpoint
+
+    def restore(  # noqa: DOC502  # raised by _require_step, the format readers and Orbax
         self,
         step: int,
         *,
         templates: Mapping[str, Any] | None = None,
         legacy_layout: LegacyLayout | None = None,
+        cast_dtypes: bool = False,
     ) -> Checkpoint:
         """Read the checkpoint at ``step``.
 
         Args:
             step: The step to read.
             templates: Pytrees by item name; each named item is restored onto its template's
-                leaves (device placement and dtype included), and an item without a template
-                comes back as stored.
+                leaves (device placement included), and an item without a template comes back
+                as stored. Leaves may be arrays or ``jax.ShapeDtypeStruct``.
             legacy_layout: How a format-2 payload splits into items; the module-only layout
                 when not given. Read only for a format-2 checkpoint.
+            cast_dtypes: Accept an array coming back with another dtype than it was saved with:
+                cast to its template leaf's, or, without a template, a 64-bit array at 32 bits
+                while jax's x64 mode is off. Without it, either is refused.
 
         Returns:
             The restored items and the checkpoint's metadata, upgraded to the current format.
@@ -334,6 +529,8 @@ class OrbaxCheckpointStore:
             CheckpointNotFoundError: If the store holds no checkpoint at ``step``.
             UnsupportedCheckpointError: If the checkpoint's format is newer than this substrax
                 reads, or is not a substrax checkpoint.
+            CheckpointDtypeMismatchError: If an array would come back with another dtype than
+                it was saved with and ``cast_dtypes`` is false.
             ValueError: If ``templates`` names an item the checkpoint lacks, or a template's
                 tree does not match the checkpoint's.
         """
@@ -341,31 +538,18 @@ class OrbaxCheckpointStore:
         raw = self._raw_metadata(manager, step)
         migration = self._registry.for_metadata(raw)
         if migration is not None:
-            layout = MODULE_ONLY_FORMAT2 if legacy_layout is None else legacy_layout
-            template = None if templates is None else layout.template_of(templates)
-            restored = manager.restore(
+            return self._restore_format2(
                 step,
-                args=ocp.args.Composite(**{_LEGACY_PAYLOAD_ITEM: _restore_arg(template)}),  # type: ignore[reportCallIssue]
+                raw,
+                migration,
+                templates=templates,
+                legacy_layout=legacy_layout,
+                cast_dtypes=cast_dtypes,
             )
-            items, metadata = migration.upgrade(restored[_LEGACY_PAYLOAD_ITEM], raw, layout)
-            return Checkpoint(step=step, items=items, metadata=metadata)
 
-        metadata = CheckpointMetadata.from_dict(raw)
-        given = dict(templates or {})
-        missing = sorted(set(given) - set(metadata.items))
-        if missing:
-            raise ValueError(
-                f"templates name items the checkpoint lacks: {missing}; "
-                f"step {step} holds {list(metadata.items)}"
-            )
-        restored = manager.restore(
-            step,
-            args=ocp.args.Composite(  # type: ignore[reportCallIssue]
-                **{name: _restore_arg(_wrapped(given.get(name))) for name in metadata.items}
-            ),
+        return self._restore_format3(
+            manager, step, raw, templates=dict(templates or {}), cast_dtypes=cast_dtypes
         )
-        items = {name: restored[name][ITEM_NODE] for name in metadata.items}
-        return Checkpoint(step=step, items=items, metadata=metadata)
 
     def read_metadata(  # noqa: DOC502  # raised by _require_step and from_dict
         self, step: int, *, legacy_layout: LegacyLayout | None = None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -44,3 +45,65 @@ class CheckpointNotFoundError(FileNotFoundError):
 
 class UnsupportedCheckpointError(ValueError):
     """The checkpoint's metadata describes a format this substrax cannot read."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DtypeMismatch:
+    """One array a restore would give another dtype than the one it was saved with.
+
+    ``item`` is the Orbax item on disk and ``leaf`` the array's path inside it joined with
+    ``/``. ``saved`` is the dtype written; ``restored`` the dtype the restore gives it: the
+    template leaf's, or, without a template, the one this process creates for the saved array.
+    """
+
+    item: str
+    leaf: str
+    saved: str
+    restored: str
+
+
+# The 32-bit dtype jax creates for a 64-bit one while its x64 mode is off.
+_WITHOUT_X64 = {
+    "float64": "float32",
+    "int64": "int32",
+    "uint64": "uint32",
+    "complex128": "complex64",
+}
+
+
+class CheckpointDtypeMismatchError(ValueError):
+    """A restore would give saved arrays another dtype, so it is refused.
+
+    Orbax casts every array to its template leaf's dtype, and without a template jax creates a
+    64-bit array at 32 bits while its x64 mode is off. ``step`` is the checkpoint's step and
+    ``mismatches`` every array concerned; ``restore(..., cast_dtypes=True)`` accepts the cast.
+    """
+
+    def __init__(
+        self, *, step: int, mismatches: tuple[DtypeMismatch, ...], x64_disabled: bool = False
+    ) -> None:
+        """Record the step and every array concerned.
+
+        Args:
+            step: The checkpoint's step.
+            mismatches: Every array whose restored dtype differs from its saved one.
+            x64_disabled: Whether jax's x64 mode was off for a restore without templates, which
+                adds how to keep the saved precision to the message.
+        """
+        self.step = step
+        self.mismatches = mismatches
+        listed = "; ".join(
+            f"{mismatch.item} {mismatch.leaf}: saved {mismatch.saved}, restored as {mismatch.restored}"
+            for mismatch in mismatches
+        )
+        message = (
+            f"checkpoint step {step} would restore arrays at another dtype than they were saved "
+            f"with ({listed}); pass cast_dtypes=True to accept the cast"
+        )
+        narrowed = any(_WITHOUT_X64.get(m.saved) == m.restored for m in mismatches)
+        if x64_disabled and narrowed:
+            message += (
+                ", or enable jax's x64 mode (JAX_ENABLE_X64=1 or jax.enable_x64(True)) to keep "
+                "the 64-bit arrays"
+            )
+        super().__init__(message)
