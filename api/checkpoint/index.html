@@ -649,6 +649,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#substrax.checkpoint.CheckpointDtypeMismatchError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CheckpointDtypeMismatchError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#substrax.checkpoint.CheckpointNotFoundError" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -664,6 +675,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CheckpointNotWrittenError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.checkpoint.DtypeMismatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;DtypeMismatch
       
     </span>
   </a>
@@ -1223,6 +1245,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#substrax.checkpoint.CheckpointDtypeMismatchError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CheckpointDtypeMismatchError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#substrax.checkpoint.CheckpointNotFoundError" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1238,6 +1271,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;CheckpointNotWrittenError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.checkpoint.DtypeMismatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;DtypeMismatch
       
     </span>
   </a>
@@ -1763,8 +1807,24 @@ plain-Python leaves (ints, strings, booleans, lists) alike, and the metadata wit
 so restoring a checkpoint never executes code. On disk each item holds its pytree under a
 single <code>tree</code> node, so an item that is a bare array (the <code>rng</code> key) is accepted by every
 supported Orbax, the 0.11.33 floor included. Restoring onto templates places every array on
-its template leaf's device and dtype, whatever topology the checkpoint was written on; an item
-without a template comes back as stored.</p>
+its template leaf's device, whatever topology the checkpoint was written on; an item without a
+template comes back as stored.</p>
+<p>A template never changes a saved array's dtype silently. Orbax casts every array to its
+template leaf's dtype, so a float64 array restored onto a float32 template, or a float32 model
+onto a bfloat16 one, would lose precision or change without a word. <code>save</code> writes every
+array's dtype, by item and leaf path, as a <code>dtypes</code> JSON item beside the metadata record (which
+<code>best_step</code> reads for every step, so it stays small), and <code>restore</code> compares each template leaf
+against it before reading any array, raising
+<code>CheckpointDtypeMismatchError</code> with a <code>DtypeMismatch</code> (item, leaf, saved and restored dtype)
+for every differing array. An item restored without a template is compared after it is read:
+while jax's x64 mode is off, jax creates a 64-bit array at 32 bits, and the error says how to
+enable x64. <code>restore(..., cast_dtypes=True)</code> accepts the cast in either case. Template leaves
+may be arrays or <code>jax.ShapeDtypeStruct</code>; a typed PRNG key compares by its <code>uint32</code> data, as
+Orbax stores it, and strings and Python numbers are not compared. A checkpoint written without
+the <code>dtypes</code> item (format 2, or format 3 from substrax 0.1.10 and 0.1.11) is compared against
+Orbax's per-array metadata instead, which opens every array's store on each restore;
+<code>upgrade_checkpoints</code> rewrites such a root with the item, and refuses a step it cannot restore at
+its saved dtypes rather than writing it narrowed.</p>
 <p>Writes are strict: an existing step is refused unless <code>overwrite=True</code>, a step below the
 latest is refused, and a step Orbax declines raises. Every refusal is a
 <code>CheckpointNotWrittenError</code> naming the step, the latest step and the reason. Nothing is
@@ -1845,6 +1905,126 @@ the current format into a new root.</p>
 
 
 
+<h3 id="substrax.checkpoint.CheckpointDtypeMismatchError" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">CheckpointDtypeMismatchError</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">mismatches</span><span class="p">,</span> <span class="n">x64_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+
+<a href="#substrax.checkpoint.CheckpointDtypeMismatchError" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="ValueError">ValueError</span></code></p>
+
+
+
+        <p>A restore would give saved arrays another dtype, so it is refused.</p>
+<p>Orbax casts every array to its template leaf's dtype, and without a template jax creates a
+64-bit array at 32 bits while its x64 mode is off. <code>step</code> is the checkpoint's step and
+<code>mismatches</code> every array concerned; <code>restore(..., cast_dtypes=True)</code> accepts the cast.</p>
+
+        <p>Record the step and every array concerned.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The checkpoint's step.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mismatches</code>
+            </td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="              DtypeMismatch(*, item, leaf, saved, restored)
+
+  
+      dataclass
+   (substrax.checkpoint.errors.DtypeMismatch)" href="#substrax.checkpoint.DtypeMismatch">DtypeMismatch</a>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Every array whose restored dtype differs from its saved one.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>x64_disabled</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether jax's x64 mode was off for a restore without templates, which
+adds how to keep the saved precision to the message.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
 <h3 id="substrax.checkpoint.CheckpointNotFoundError" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">CheckpointNotFoundError</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">directory</span><span class="p">)</span></code>
 
@@ -1914,6 +2094,58 @@ newest step the store held at the time (<code>None</code> for an empty store); a
 grow), <code>"rejected"</code> when Orbax declined the write.</p>
 
         <p>Record the refused step, the store's latest step and the reason.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.checkpoint.DtypeMismatch" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>              <code class="highlight language-python"><span class="n">DtypeMismatch</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">leaf</span><span class="p">,</span> <span class="n">saved</span><span class="p">,</span> <span class="n">restored</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#substrax.checkpoint.DtypeMismatch" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One array a restore would give another dtype than the one it was saved with.</p>
+<p><code>item</code> is the Orbax item on disk and <code>leaf</code> the array's path inside it joined with
+<code>/</code>. <code>saved</code> is the dtype written; <code>restored</code> the dtype the restore gives it: the
+template leaf's, or, without a template, the one this process creates for the saved array.</p>
 
 
 
@@ -2952,7 +3184,7 @@ the one implementation.</p>
 
 
 <h4 id="substrax.checkpoint.CheckpointStore.restore" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">restore</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">templates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legacy_layout</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">restore</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">templates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legacy_layout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cast_dtypes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#substrax.checkpoint.CheckpointStore.restore" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -3261,7 +3493,7 @@ a context manager so backend resources are released deterministically::</p>
 
     <div class="doc doc-contents ">
 
-        <p>Write <code>items</code> at <code>step</code> with a format-3 metadata record.</p>
+        <p>Write <code>items</code> at <code>step</code> with a format-3 metadata record and every array's dtype.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3462,7 +3694,7 @@ false, if it is below the latest step, or if Orbax declines the write.</p>
 
 
 <h4 id="substrax.checkpoint.OrbaxCheckpointStore.restore" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">restore</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">templates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legacy_layout</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">restore</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">templates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">legacy_layout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cast_dtypes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#substrax.checkpoint.OrbaxCheckpointStore.restore" class="headerlink" title="Permanent link">¤</a></h4>
 
@@ -3509,8 +3741,8 @@ false, if it is below the latest step, or if Orbax declines the write.</p>
             <td>
               <div class="doc-md-description">
                 <p>Pytrees by item name; each named item is restored onto its template's
-leaves (device placement and dtype included), and an item without a template
-comes back as stored.</p>
+leaves (device placement included), and an item without a template comes back
+as stored. Leaves may be arrays or <code>jax.ShapeDtypeStruct</code>.</p>
               </div>
             </td>
             <td>
@@ -3536,6 +3768,24 @@ when not given. Read only for a format-2 checkpoint.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cast_dtypes</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Accept an array coming back with another dtype than it was saved with:
+cast to its template leaf's, or, without a template, a 64-bit array at 32 bits
+while jax's x64 mode is off. Without it, either is refused.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -3596,6 +3846,17 @@ when not given. Read only for a format-2 checkpoint.</p>
               <div class="doc-md-description">
                 <p>If the checkpoint's format is newer than this substrax
 reads, or is not a substrax checkpoint.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              CheckpointDtypeMismatchError(*, step, mismatches, x64_disabled=False) (substrax.checkpoint.errors.CheckpointDtypeMismatchError)" href="#substrax.checkpoint.CheckpointDtypeMismatchError">CheckpointDtypeMismatchError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If an array would come back with another dtype than
+it was saved with and <code>cast_dtypes</code> is false.</p>
               </div>
             </td>
           </tr>
@@ -4126,7 +4387,8 @@ The store creates the directory on its first save, so resolving one writes nothi
 <p>The source is read as it is (a format-2 root through the migration registry, split
 by <code>legacy_layout</code>) and never modified; the destination must not exist or must be
 empty, so an upgrade never rewrites a root in place. Items are copied as stored, so
-the arrays keep their saved placement.</p>
+the arrays keep their saved placement and dtype: a step whose arrays this process
+cannot restore at their saved dtype is refused rather than written narrowed.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4236,6 +4498,18 @@ the arrays keep their saved placement.</p>
               <div class="doc-md-description">
                 <p>If <code>source</code> and <code>destination</code> are the same directory, or the
 destination exists and is not empty.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              CheckpointDtypeMismatchError(*, step, mismatches, x64_disabled=False) (substrax.checkpoint.errors.CheckpointDtypeMismatchError)" href="#substrax.checkpoint.CheckpointDtypeMismatchError">CheckpointDtypeMismatchError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a step's arrays would come back with another dtype
+than they were saved with, such as a 64-bit array while jax's x64 mode is off; the
+destination holds the steps written before it.</p>
               </div>
             </td>
           </tr>

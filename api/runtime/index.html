@@ -402,6 +402,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-managed-environment-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The managed environment file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#substrax.runtime" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -523,6 +534,78 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;parse_xla_flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;managed_env
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" managed_env">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.nvidia_gpu_visible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;nvidia_gpu_visible
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.resolve_backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.managed_environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;managed_environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;render
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;main
       
     </span>
   </a>
@@ -857,6 +940,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-managed-environment-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The managed environment file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#substrax.runtime" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -978,6 +1072,78 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;parse_xla_flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;managed_env
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" managed_env">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.nvidia_gpu_visible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;nvidia_gpu_visible
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.resolve_backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.managed_environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;managed_environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;render
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.managed_env.main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;main
       
     </span>
   </a>
@@ -1160,6 +1326,61 @@ accelerator or <code>DATARAX_TEST_DEVICE_COUNT</code> names another count; an in
 <p>A second call replaces only the handler the first one installed, so it needs no <code>force=True</code>
 and leaves pytest's log capture in place. Importing <code>substrax.runtime</code> imports no jax and
 changes no process state.</p>
+<h2 id="the-managed-environment-file">The managed environment file<a class="headerlink" href="#the-managed-environment-file" title="Permanent link">¤</a></h2>
+<p>A repository's <code>setup.sh</code> writes the file its <code>activate.sh</code> sources once the project environment
+is synced:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-sync<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>substrax.runtime.managed_env<span class="w"> </span>write<span class="w"> </span>--prefix<span class="w"> </span>DATARAX<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>--backend<span class="w"> </span>auto<span class="w"> </span>--output<span class="w"> </span>.datarax.env<span class="w"> </span>--set<span class="w"> </span><span class="nv">TF_CPP_MIN_LOG_LEVEL</span><span class="o">=</span><span class="m">1</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>python<span class="w"> </span>-m<span class="w"> </span>substrax.runtime.managed_env<span class="w"> </span>show<span class="w"> </span>--prefix<span class="w"> </span>DATARAX<span class="w"> </span>--env-file<span class="w"> </span>.datarax.env<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--user-env<span class="w"> </span>.env<span class="w"> </span>--user-env<span class="w"> </span>.env.local
+</code></pre></div>
+<p><code>auto</code> resolves to <code>cuda12</code> on Linux when <code>nvidia-smi</code> lists a GPU, <code>metal</code> on Apple Silicon,
+and <code>cpu</code> otherwise. The file names every variable it manages in <code>&lt;PREFIX&gt;_MANAGED_ENV_VARS</code>,
+so <code>activate.sh</code> unsets them before sourcing a newer file, then exports or unsets each:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th><code>cpu</code></th>
+<th><code>cuda12</code>, <code>metal</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;PREFIX&gt;_BACKEND</code>, <code>&lt;PREFIX&gt;_ENV_ROOT</code></td>
+<td>the resolved backend and the project root</td>
+<td>the same</td>
+</tr>
+<tr>
+<td><code>JAX_PLATFORMS</code></td>
+<td><code>cpu</code></td>
+<td>unset, so jax picks the accelerator</td>
+</tr>
+<tr>
+<td><code>JAX_ENABLE_X64</code></td>
+<td><code>false</code></td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>XLA_PYTHON_CLIENT_PREALLOCATE</code></td>
+<td>unset</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>XLA_CLIENT_MEM_FRACTION</code></td>
+<td>unset</td>
+<td><code>0.75</code></td>
+</tr>
+<tr>
+<td><code>XLA_PYTHON_CLIENT_MEM_FRACTION</code></td>
+<td>unset</td>
+<td>unset, because jax refuses it beside the current name</td>
+</tr>
+</tbody>
+</table>
+<p>jaxlib reads preallocation and the memory fraction only when it builds the GPU plugin's options,
+so they are unset on the CPU. Each <code>--set NAME=VALUE</code> adds a repository variable to the file; a
+<code>--set</code> naming a variable the file manages itself raises.</p>
 
 
 <div class="doc doc-object doc-module">
@@ -2322,6 +2543,328 @@ raises, so a value already in the environment is never silently replaced.</p>
             <td>
               <div class="doc-md-description">
                 <p>If one flag is given two different values.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="substrax.runtime.managed_env" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>substrax.runtime.managed_env</code>
+
+
+<a href="#substrax.runtime.managed_env" class="headerlink" title="Permanent link">¤</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>The managed environment file a repository's <code>setup.sh</code> writes and its <code>activate.sh</code> sources.</p>
+<p>Run as <code>python -m substrax.runtime.managed_env write --prefix DATARAX --backend auto --output
+.datarax.env</code> after the project environment is synced. The file declares every variable it
+manages in <code>&lt;PREFIX&gt;_MANAGED_ENV_VARS</code>, so <code>activate.sh</code> can unset them before sourcing a new
+one, then exports or unsets each. The JAX settings come from :class:<code>JaxRuntime</code> through
+:func:<code>runtime_environment</code>, so the file uses the names jax reads today: the memory fraction is
+<code>XLA_CLIENT_MEM_FRACTION</code>, and the deprecated <code>XLA_PYTHON_CLIENT_MEM_FRACTION</code>, which jaxlib
+refuses beside it, is always unset. Preallocation and the memory fraction apply only to an
+accelerator backend: jaxlib reads them when it builds the GPU plugin's options, so on the CPU they
+are unset. A repository adds its own variables (for example TensorFlow's log level) with <code>--set</code>.</p>
+<p>Importing this module imports no jax.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.runtime.managed_env.nvidia_gpu_visible" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">nvidia_gpu_visible</span><span class="p">()</span></code>
+
+<a href="#substrax.runtime.managed_env.nvidia_gpu_visible" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Whether <code>nvidia-smi</code> lists at least one GPU.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.runtime.managed_env.resolve_backend" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">resolve_backend</span><span class="p">(</span><span class="n">requested</span><span class="p">)</span></code>
+
+<a href="#substrax.runtime.managed_env.resolve_backend" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The concrete backend for <code>requested</code>, resolving <code>auto</code> from the host.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.runtime.managed_env.managed_environment" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">managed_environment</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">project_root</span><span class="p">,</span> <span class="n">extra</span><span class="p">)</span></code>
+
+<a href="#substrax.runtime.managed_env.managed_environment" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Every managed variable mapped to its value, or <code>None</code> for a variable the file unsets.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>prefix</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The repository's variable prefix, such as <code>"DATARAX"</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>backend</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One of :data:<code>BACKENDS</code>; <code>auto</code> is resolved first.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>project_root</code>
+            </td>
+            <td>
+                  <code><span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The repository root, written as <code>&lt;PREFIX&gt;_ENV_ROOT</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extra</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The repository's own variables, written as given.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="str">str</span> | None]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The managed variables in the order they are written.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the prefix is not an upper-case shell name, the backend is unknown, or
+<code>extra</code> names a variable the file manages itself.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.runtime.managed_env.render" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">render</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span></code>
+
+<a href="#substrax.runtime.managed_env.render" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The shell text of a managed environment file: the manifest, then one line per variable.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.runtime.managed_env.main" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">main</span><span class="p">(</span><span class="n">argv</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.runtime.managed_env.main" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run the <code>write</code> or <code>show</code> command.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>argv</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The arguments after the module name; the process arguments when <code>None</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The exit status.</p>
               </div>
             </td>
           </tr>
