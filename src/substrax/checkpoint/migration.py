@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, UTC
-from typing import Any
 
 from substrax.checkpoint.errors import UnsupportedCheckpointError
 from substrax.checkpoint.legacy import LegacyLayout
@@ -15,10 +14,12 @@ from substrax.checkpoint.metadata import (
     CURRENT_FORMAT_VERSION,
     now_iso,
 )
+from substrax.records import read_record
+from substrax.typing import JsonValue, PyTree
 
 
 Upgrade = Callable[
-    [Any, Mapping[str, Any], LegacyLayout], tuple[dict[str, Any], CheckpointMetadata]
+    [PyTree, Mapping[str, JsonValue], LegacyLayout], tuple[dict[str, PyTree], CheckpointMetadata]
 ]
 
 
@@ -34,7 +35,7 @@ class Migration:
     """
 
     source_version: int
-    applies: Callable[[Mapping[str, Any]], bool]
+    applies: Callable[[Mapping[str, JsonValue]], bool]
     upgrade: Upgrade
 
 
@@ -74,7 +75,7 @@ class MigrationRegistry:
         """The format versions the registry reads, ascending."""
         return tuple(migration.source_version for migration in self._migrations)
 
-    def for_metadata(self, raw: Mapping[str, Any]) -> Migration | None:
+    def for_metadata(self, raw: Mapping[str, JsonValue]) -> Migration | None:
         """The migration that reads ``raw``, or ``None`` when ``raw`` is a current record."""
         for migration in self._migrations:
             if migration.applies(raw):
@@ -82,8 +83,8 @@ class MigrationRegistry:
         return None
 
     def upgrade(
-        self, payload: Any, raw: Mapping[str, Any], layout: LegacyLayout
-    ) -> tuple[dict[str, Any], CheckpointMetadata]:
+        self, payload: PyTree, raw: Mapping[str, JsonValue], layout: LegacyLayout
+    ) -> tuple[dict[str, PyTree], CheckpointMetadata]:
         """Upgrade ``payload`` and its raw metadata through the migration that reads them.
 
         Args:
@@ -103,14 +104,25 @@ class MigrationRegistry:
         return migration.upgrade(payload, raw, layout)
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _Format2Sidecar:
+    """The fields a format-2 sidecar defines; its other keys are the producer's own."""
+
+    step: int
+    timestamp: float | None = None
+    loss: float | None = None
+    epoch: int | None = None
+    metrics: dict[str, float] | None = None
+
+
 _FORMAT2_CONSUMED_KEYS = frozenset(
     {"step", "timestamp", "loss", "epoch", "metrics", "checkpoint_version"}
 )
 
 
 def _upgrade_format2(
-    payload: Any, raw: Mapping[str, Any], layout: LegacyLayout
-) -> tuple[dict[str, Any], CheckpointMetadata]:
+    payload: PyTree, raw: Mapping[str, JsonValue], layout: LegacyLayout
+) -> tuple[dict[str, PyTree], CheckpointMetadata]:
     """Split a format-2 payload by ``layout`` and map its sidecar onto the record.
 
     The sidecar's ``loss`` and ``metrics`` become the metrics, ``epoch`` the epoch,
@@ -120,26 +132,22 @@ def _upgrade_format2(
     """
     items = dict(layout.items_of(payload))
     names = check_item_names(items)
-    metrics: dict[str, float] = {}
-    if raw.get("loss") is not None:
-        metrics["loss"] = float(raw["loss"])
-    recorded = raw.get("metrics")
-    if isinstance(recorded, Mapping):
-        metrics.update({str(name): float(value) for name, value in recorded.items()})
-    epoch = raw.get("epoch")
-    timestamp = raw.get("timestamp")
+    sidecar = read_record(_Format2Sidecar, raw)
+    metrics = dict(sidecar.metrics or {})
+    if sidecar.loss is not None:
+        metrics = {"loss": sidecar.loss, **metrics}
     created_at = (
         now_iso()
-        if timestamp is None
-        else datetime.fromtimestamp(float(timestamp), UTC).isoformat()
+        if sidecar.timestamp is None
+        else datetime.fromtimestamp(sidecar.timestamp, UTC).isoformat()
     )
-    extra: dict[str, Any] = {
+    extra: dict[str, JsonValue] = {
         key: value for key, value in raw.items() if key not in _FORMAT2_CONSUMED_KEYS
     }
     extra["upgraded_from"] = {"format_version": 2}
     metadata = CheckpointMetadata(
-        step=int(raw["step"]),
-        epoch=None if epoch is None else int(epoch),
+        step=sidecar.step,
+        epoch=sidecar.epoch,
         items=names,
         libraries={},
         producer=None,

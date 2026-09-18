@@ -35,6 +35,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import orbax.checkpoint as ocp  # type: ignore[import-untyped]
+from pydantic import TypeAdapter
 
 from substrax.checkpoint.errors import (
     CheckpointDtypeMismatchError,
@@ -47,12 +48,12 @@ from substrax.checkpoint.metadata import (
     check_extra,
     check_item_names,
     CheckpointMetadata,
-    JsonValue,
     library_versions,
     now_iso,
     Producer,
 )
 from substrax.checkpoint.migration import DEFAULT_REGISTRY, Migration, MigrationRegistry
+from substrax.typing import JsonValue
 
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,9 @@ METADATA_ITEM = "metadata"
 DTYPES_ITEM = "dtypes"
 ITEM_NODE = "tree"
 _LEGACY_PAYLOAD_ITEM = "model"
+# The two JSON items as Orbax's JsonRestore returns them, checked before they are read.
+_JSON_OBJECT: TypeAdapter[dict[str, JsonValue]] = TypeAdapter(dict[str, JsonValue])
+_RECORDED_DTYPES: TypeAdapter[dict[str, dict[str, str]]] = TypeAdapter(dict[str, dict[str, str]])
 
 BestMode = Literal["min", "max"]
 
@@ -302,12 +306,12 @@ class OrbaxCheckpointStore:
             raise CheckpointNotWrittenError(step=step, latest_step=latest, reason="below_latest")
         return latest
 
-    def _raw_metadata(self, manager: Any, step: int) -> dict[str, Any]:
+    def _raw_metadata(self, manager: Any, step: int) -> dict[str, JsonValue]:
         restored = manager.restore(
             step,
             args=ocp.args.Composite(**{METADATA_ITEM: ocp.args.JsonRestore()}),  # type: ignore[reportCallIssue]
         )
-        return dict(restored[METADATA_ITEM])
+        return _JSON_OBJECT.validate_python(restored[METADATA_ITEM], strict=True)
 
     def _recorded_dtypes(self, manager: Any, step: int) -> dict[str, dict[str, str]]:
         """The ``dtypes`` item of ``step``; empty for a checkpoint written without one."""
@@ -317,7 +321,7 @@ class OrbaxCheckpointStore:
             step,
             args=ocp.args.Composite(**{DTYPES_ITEM: ocp.args.JsonRestore()}),  # type: ignore[reportCallIssue]
         )
-        return {str(item): dict(leaves) for item, leaves in dict(restored[DTYPES_ITEM]).items()}
+        return _RECORDED_DTYPES.validate_python(restored[DTYPES_ITEM], strict=True)
 
     def save(
         self,
@@ -428,7 +432,7 @@ class OrbaxCheckpointStore:
     def _restore_format2(
         self,
         step: int,
-        raw: Mapping[str, Any],
+        raw: Mapping[str, JsonValue],
         migration: Migration,
         *,
         templates: Mapping[str, Any] | None,
@@ -471,7 +475,7 @@ class OrbaxCheckpointStore:
         self,
         manager: Any,
         step: int,
-        raw: Mapping[str, Any],
+        raw: Mapping[str, JsonValue],
         *,
         templates: dict[str, Any],
         cast_dtypes: bool,

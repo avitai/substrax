@@ -15,6 +15,7 @@ and holds the code those packages used to carry separately.
 | `substrax.checkpoint` | The `CheckpointStore` protocol and its Orbax implementation |
 | `substrax.callbacks` | Training callbacks, `BestMetricTracker`, `EarlyStopping` |
 | `substrax.tracking` | Step-wise experiment tracking backends |
+| `substrax.typing`, `substrax.records` | The shared type aliases (`PyTree`, `JsonValue`) and typed reading of JSON records |
 
 Each subpackage has an [API page](api/devices.md).
 
@@ -24,4 +25,4 @@ Each subpackage has an [API page](api/devices.md).
 uv add substrax
 ```
 
-Python 3.12 or later, `jax>=0.11.1`, `flax>=0.12.9`, `orbax-checkpoint>=0.11.33`.
+Python 3.12 or later, `jax>=0.11.1`, `flax>=0.12.9`, `orbax-checkpoint>=0.11.33`, `pydantic>=2.10`.

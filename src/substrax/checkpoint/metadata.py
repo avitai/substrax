@@ -13,10 +13,10 @@ import importlib.metadata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields
 from datetime import datetime, UTC
-from typing import Any
 
 from substrax.checkpoint.errors import UnsupportedCheckpointError
-from substrax.typing import JsonValue
+from substrax.records import read_record
+from substrax.typing import JsonValue, PyTree
 
 
 FORMAT_NAME = "substrax-checkpoint"
@@ -32,14 +32,24 @@ class Producer:
     name: str
     version: str
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, JsonValue]:
         """The JSON form."""
         return {"name": self.name, "version": self.version}
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> Producer:
-        """Read the JSON form."""
-        return cls(name=str(payload["name"]), version=str(payload["version"]))
+    def from_dict(cls, payload: Mapping[str, JsonValue]) -> Producer:  # noqa: DOC502  # raised by read_record
+        """Read the JSON form.
+
+        Args:
+            payload: The producer's JSON object.
+
+        Returns:
+            The producer.
+
+        Raises:
+            pydantic.ValidationError: If ``name`` or ``version`` is missing or not a string.
+        """
+        return read_record(cls, payload)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -70,7 +80,7 @@ class CheckpointMetadata:
     extra: Mapping[str, JsonValue] = field(default_factory=dict)
     created_at: str
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, JsonValue]:
         """The JSON form Orbax writes as the ``metadata`` item."""
         return {
             "format": self.format,
@@ -86,7 +96,9 @@ class CheckpointMetadata:
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> CheckpointMetadata:
+    def from_dict(  # noqa: DOC503  # pydantic.ValidationError is raised by read_record
+        cls, payload: Mapping[str, JsonValue]
+    ) -> CheckpointMetadata:
         """Read the JSON form, refusing a record this substrax cannot interpret.
 
         Args:
@@ -98,6 +110,8 @@ class CheckpointMetadata:
         Raises:
             UnsupportedCheckpointError: If the record is a format-2 sidecar (those go through
                 the migration registry), names another format, or a newer version.
+            pydantic.ValidationError: If a field is missing or holds a value its annotation
+                does not admit.
         """
         if "checkpoint_version" in payload:
             raise UnsupportedCheckpointError(
@@ -107,26 +121,13 @@ class CheckpointMetadata:
         name = payload.get("format")
         if name != FORMAT_NAME:
             raise UnsupportedCheckpointError(f"not a {FORMAT_NAME} record: format {name!r}")
-        version = int(payload.get("format_version", 0))
-        if version > CURRENT_FORMAT_VERSION:
+        version = payload.get("format_version")
+        if isinstance(version, int) and version > CURRENT_FORMAT_VERSION:
             raise UnsupportedCheckpointError(
                 f"checkpoint format {version} is newer than the format {CURRENT_FORMAT_VERSION} "
                 "this substrax reads; upgrade substrax"
             )
-        producer = payload.get("producer")
-        epoch = payload.get("epoch")
-        return cls(
-            format=name,
-            format_version=version,
-            step=int(payload["step"]),
-            epoch=None if epoch is None else int(epoch),
-            items=tuple(str(item) for item in payload.get("items", ())),
-            libraries={str(k): str(v) for k, v in dict(payload.get("libraries", {})).items()},
-            producer=None if producer is None else Producer.from_dict(producer),
-            metrics={str(k): float(v) for k, v in dict(payload.get("metrics", {})).items()},
-            extra=dict(payload.get("extra", {})),
-            created_at=str(payload["created_at"]),
-        )
+        return read_record(cls, payload)
 
 
 RESERVED_METADATA_KEYS = frozenset(f.name for f in fields(CheckpointMetadata))
@@ -154,7 +155,7 @@ def check_extra(extra: Mapping[str, JsonValue] | None) -> dict[str, JsonValue]:
     return values
 
 
-def check_item_names(items: Mapping[str, Any]) -> tuple[str, ...]:
+def check_item_names(items: Mapping[str, PyTree]) -> tuple[str, ...]:
     """Return the item names in order, refusing an empty mapping or a name outside the format.
 
     Args:

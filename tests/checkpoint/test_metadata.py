@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from substrax.checkpoint import (
     CheckpointMetadata,
@@ -101,3 +102,25 @@ class TestRoundTrip:
     def test_a_format_2_record_is_not_a_format_3_record(self) -> None:
         with pytest.raises(UnsupportedCheckpointError, match=r"2\.0"):
             CheckpointMetadata.from_dict({"checkpoint_version": "2.0", "step": 7})
+
+    @pytest.mark.parametrize(
+        ("key", "value", "location"),
+        [
+            ("step", "100", ("step",)),
+            ("epoch", 2.5, ("epoch",)),
+            ("items", "model", ("items",)),
+            ("metrics", {"loss": "low"}, ("metrics", "loss")),
+            ("libraries", {"jax": 11}, ("libraries", "jax")),
+            ("producer", {"name": "artifex"}, ("producer", "version")),
+            ("created_at", None, ("created_at",)),
+            ("format_version", "3", ("format_version",)),
+        ],
+    )
+    def test_a_field_of_the_wrong_json_type_is_refused_at_its_path(
+        self, key: str, value: JsonValue, location: tuple[str, ...]
+    ) -> None:
+        payload = _metadata().to_dict()
+        payload[key] = value
+        with pytest.raises(ValidationError) as refused:
+            CheckpointMetadata.from_dict(payload)
+        assert refused.value.errors()[0]["loc"] == location

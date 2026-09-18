@@ -7,6 +7,22 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.records.read_record(record_type, data)` reads a frozen dataclass from a parsed JSON
+  object through pydantic's strict JSON validation: each field is checked against its
+  annotation (a number is never read from a string, a `bool` is not a number, nested
+  dataclasses, `datetime`, enums and tuples read by their annotations), and a refused record
+  raises `pydantic.ValidationError` with every field's path. pydantic (`>=2.10`, the first
+  release that reads the recursive `JsonValue` alias) is a dependency.
+
+### Changed
+
+- `CheckpointMetadata.from_dict`, `Producer.from_dict` and the format-2 sidecar reader take
+  `Mapping[str, JsonValue]` and read through `read_record`, so a field of a JSON type its
+  annotation does not admit raises `pydantic.ValidationError`: a `step` of `"100"`, an `items`
+  of `"model"`, an `epoch` of `2.5`. `to_dict` returns `dict[str, JsonValue]`.
+
 ## [0.1.13] - 2026-09-18
 
 ### Added

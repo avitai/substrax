@@ -28,6 +28,7 @@ from _helpers import (
     require_format2_fixtures,
 )
 from flax import nnx
+from pydantic import ValidationError
 
 from substrax.checkpoint import (
     CURRENT_FORMAT_VERSION,
@@ -40,6 +41,7 @@ from substrax.checkpoint import (
     upgrade_checkpoints,
 )
 from substrax.checkpoint.migration import DEFAULT_REGISTRY, FORMAT2_TO_3
+from substrax.typing import JsonValue
 
 
 LAYOUTS = FORMAT2_LAYOUTS
@@ -142,6 +144,32 @@ class TestRegistry:
         raw = raw_metadata(store.directory, 1)
         assert not FORMAT2_TO_3.applies(raw)
         assert DEFAULT_REGISTRY.for_metadata(raw) is None
+
+    @pytest.mark.parametrize(
+        ("key", "value", "location"),
+        [
+            ("step", "7", ("step",)),
+            ("loss", "low", ("loss",)),
+            ("timestamp", "now", ("timestamp",)),
+            ("epoch", 1.5, ("epoch",)),
+            ("metrics", {"val_loss": "high"}, ("metrics", "val_loss")),
+        ],
+    )
+    def test_a_format_2_sidecar_field_of_the_wrong_json_type_is_refused(
+        self, key: str, value: JsonValue, location: tuple[str, ...]
+    ) -> None:
+        raw: dict[str, JsonValue] = {
+            "checkpoint_version": "2.0",
+            "step": 7,
+            "timestamp": 1.0,
+            "loss": 0.25,
+            "epoch": 1,
+            "metrics": {"val_loss": 0.5},
+        }
+        raw[key] = value
+        with pytest.raises(ValidationError) as refused:
+            FORMAT2_TO_3.upgrade({"kernel": jnp.zeros(2)}, raw, MODULE_ONLY_FORMAT2)
+        assert refused.value.errors()[0]["loc"] == location
 
 
 class TestFixturesRestore:
