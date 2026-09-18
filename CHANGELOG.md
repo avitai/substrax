@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-09-17
+
 ### Changed
 
 - Requires `jax>=0.11.1,<0.11.2` and the same for jaxlib and `jax[cuda12]`: jax 0.11.2 renamed
