@@ -34,7 +34,10 @@ dependencies = [
   # substrax.optim builds optimizers over optax; below 0.2.8 optax calls
   # jax.config.update("jax_pmap_shmap_merge"), which jax removed in 0.10.
   "optax>=0.2.8",
-  "orbax-checkpoint>=0.11.33"
+  "orbax-checkpoint>=0.11.33",
+  # substrax.records validates JSON records; 2.10 is the first release that builds a schema for
+  # a recursive PEP 695 alias (substrax.typing.JsonValue).
+  "pydantic>=2.10"
 ]
 description = "JAX/Flax NNX training infrastructure: device meshes and SPMD sharding, an Orbax checkpoint store, early stopping and callbacks, W&B and MLflow logging"
 dynamic = ["version"]

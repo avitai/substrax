@@ -88,3 +88,26 @@ forbidden_modules =
     substrax.runtime
     substrax.spmd
     substrax.tracking
+
+[importlinter:contract:records]
+name = the type aliases and record reading load neither jax nor Orbax nor another subpackage
+type = forbidden
+source_modules =
+    substrax.records
+    substrax.typing
+forbidden_modules =
+    flax
+    jax
+    numpy
+    orbax
+    substrax.artifacts
+    substrax.callbacks
+    substrax.checkpoint
+    substrax.devices
+    substrax.mesh
+    substrax.optim
+    substrax.rng
+    substrax.runtime
+    substrax.spmd
+    substrax.testing
+    substrax.tracking

@@ -40,6 +40,7 @@ home and one test suite:
 | `substrax.checkpoint` | One `CheckpointStore` protocol and one Orbax implementation, `OrbaxCheckpointStore`, over `CheckpointManager` |
 | `substrax.callbacks` | The training-callback protocol, `CallbackList`, `BestMetricTracker`, `EarlyStopping` and `EarlyStoppingCallback` |
 | `substrax.tracking` | Step-wise experiment logging with console, file, Weights & Biases and MLflow backends |
+| `substrax.typing`, `substrax.records` | The shared type aliases (`PyTree`, `JsonValue`) and typed reading of JSON records |
 
 Not in Substrax: optimizer algorithms and schedules (optax, which Substrax assembles from a
 config), loss scaling and gradient accumulation
@@ -55,8 +56,8 @@ uv add "substrax[mlflow]" # MLflow backend
 uv add "substrax[testing]" # pytest plugin and fresh-interpreter test helpers
 ```
 
-Substrax requires Python 3.12 or 3.13, `jax>=0.11.1`, `flax>=0.12.9` and
-`orbax-checkpoint>=0.11.33`. The `cuda12` and `metal` extras select the JAX backend.
+Substrax requires Python 3.12 or 3.13, `jax>=0.11.1`, `flax>=0.12.9`,
+`orbax-checkpoint>=0.11.33` and `pydantic>=2.10`. The `cuda12` and `metal` extras select the JAX backend.
 
 ## Quick start
 

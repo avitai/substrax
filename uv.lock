@@ -4290,6 +4290,7 @@ dependencies = [
     { name = "numpy" },
     { name = "optax" },
     { name = "orbax-checkpoint" },
+    { name = "pydantic" },
 ]
 
 [package.optional-dependencies]
@@ -4582,6 +4583,7 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'all-macos'", specifier = ">=4.2" },
     { name = "pre-commit", marker = "extra == 'cuda-dev'", specifier = ">=4.2" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.2" },
+    { name = "pydantic", specifier = ">=2.10" },
     { name = "pydoclint", marker = "extra == 'all'", specifier = ">=0.5" },
     { name = "pydoclint", marker = "extra == 'all-cpu'", specifier = ">=0.5" },
     { name = "pydoclint", marker = "extra == 'all-macos'", specifier = ">=0.5" },
