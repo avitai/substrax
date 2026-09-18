@@ -67,3 +67,24 @@ forbidden_modules =
     calibrax
     datarax
     opifex
+
+[importlinter:contract:source_scans]
+name = the source scans read files with the standard library only
+type = forbidden
+source_modules =
+    substrax.testing.source_scans
+forbidden_modules =
+    flax
+    jax
+    numpy
+    pytest
+    substrax.artifacts
+    substrax.callbacks
+    substrax.checkpoint
+    substrax.devices
+    substrax.mesh
+    substrax.optim
+    substrax.rng
+    substrax.runtime
+    substrax.spmd
+    substrax.tracking

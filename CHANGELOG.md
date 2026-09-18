@@ -17,6 +17,13 @@ and uses semantic versioning while the public API stabilizes.
   `XLA_PYTHON_CLIENT_MEM_FRACTION`, which jaxlib refuses beside it, is always unset;
   preallocation and the memory fraction are written only for `cuda12` and `metal`. A
   repository adds its own variables with `--set NAME=VALUE`.
+- `substrax.testing.source_scans`: the contract checks a repository runs over its own source
+  without importing it. `import_time_lines` with `configures_logging` or `writes_environment`
+  finds a module that configures the root logger or writes the environment at import;
+  `unguarded_make_mesh_calls` over `documented_texts` finds a documented `jax.make_mesh` call
+  without `axis_types`. The main guard is recognised only as `==` (in either operand order), and
+  `os.environ |= ...` counts as a write. A corpus location that does not exist raises. substrax
+  runs both checks over its own tree.
 
 ### Removed
 

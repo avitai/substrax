@@ -135,4 +135,60 @@ A malformed `devices` or `accelerator` marker is a usage error at collection. No
 loads the plugin, so installing substrax changes no other project's tests, and importing it
 imports no jax.
 
+## Source scans
+
+`substrax.testing.source_scans` holds the checks a repository's contract tests run over its own
+source without importing it. Two import-time side effects change the process for everything
+imported after the module, test collection included: configuring the root logger and writing the
+environment.
+
+```python
+from pathlib import Path
+
+from substrax.testing.source_scans import (
+    configures_logging,
+    import_time_lines,
+    python_files,
+    writes_environment,
+)
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_no_module_changes_the_process_at_import() -> None:
+    modules = python_files(ROOT, ("src", "scripts", "tests"), excluded_parts=("example_data",))
+    found = [
+        f"{path.relative_to(ROOT)}:{line}"
+        for path in modules
+        for predicate in (configures_logging, writes_environment)
+        for line in import_time_lines(path, predicate)
+    ]
+    assert found == []
+```
+
+`import_time_lines` skips function, class and lambda bodies and the `if __name__ == "__main__":`
+block, whose code runs only when called or run as a script; `!=` and chained comparisons are not
+guards. `writes_environment` matches assignment, deletion and `|=` on `os.environ`, its mutating
+methods, and `os.putenv`/`os.unsetenv`.
+
+The mesh scan finds documented `jax.make_mesh` calls that do not name `axis_types`. From jax 0.11
+`jax.make_mesh` builds Explicit axes by default, and the backward pass of a batch-sharded step
+raises under them, so every mesh a reader copies names its axis types:
+
+```python
+from substrax.testing.source_scans import documented_texts, unguarded_make_mesh_calls
+
+
+def test_documented_meshes_name_their_axis_types() -> None:
+    texts = documented_texts(ROOT, package="datarax", script_directories=("examples",))
+    assert {name: calls for name, text in texts.items() if (calls := unguarded_make_mesh_calls(text))} == {}
+```
+
+`documented_texts` reads every docstring under `src/<package>`, the README (or the `pages` given),
+every Markdown page under `docs` and every Python file under the script directories. A location
+that does not exist raises `FileNotFoundError`, so a mistyped directory fails the check instead of
+shrinking what it reads.
+
 ::: substrax.testing
+
+::: substrax.testing.source_scans
