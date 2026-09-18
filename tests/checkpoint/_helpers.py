@@ -22,7 +22,7 @@ FORMAT2_LAYOUTS = (
     "datarax_iterator",
 )
 _MAKE_FIXTURES = (
-    'uv run --no-project --with "substrax==0.1.5" --with "optax==0.2.8" '
+    "uv run --no-project --with-requirements scripts/format2_fixture_requirements.txt "
     "python scripts/make_format2_fixtures.py tests/checkpoint/fixtures/format2"
 )
 

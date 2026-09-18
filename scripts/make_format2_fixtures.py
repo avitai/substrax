@@ -6,7 +6,7 @@ producer in the ecosystem laid its payload out differently, and the migration to
 has to recognise every layout, so this script writes one small checkpoint per layout with
 the substrax release that produced it. Run it in isolation, never from the project venv::
 
-    uv run --no-project --with "substrax==0.1.5" --with "optax==0.2.8" \
+    uv run --no-project --with-requirements scripts/format2_fixture_requirements.txt \
         python scripts/make_format2_fixtures.py tests/checkpoint/fixtures/format2
 
 Every fixture is a few kilobytes: the models are two-parameter linear layers.
