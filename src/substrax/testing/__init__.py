@@ -9,6 +9,8 @@ lists a repository's examples, and ``run_example`` runs one per child interprete
 outputs redirected. The plugin, ``substrax.testing.pytest_plugin``, is
 enabled from a ``conftest.py``: it adds the ``x64``, ``devices`` and ``accelerator`` markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
+``substrax.testing.source_scans`` holds the contract checks a repository runs over its own source:
+import-time logging and environment writes, and documented meshes without axis types.
 Importing this package imports no jax.
 """
 

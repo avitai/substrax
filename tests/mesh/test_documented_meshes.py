@@ -8,73 +8,20 @@ its mesh with ``DeviceMeshManager.create_device_mesh``.
 
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 
 import pytest
 
+from substrax.testing.source_scans import documented_texts, unguarded_make_mesh_calls
+
 
 ROOT = Path(__file__).resolve().parents[2]
-CALL = "make_mesh("
-DOCUMENTED_NODES = ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
 
 pytestmark = pytest.mark.contract
 
 
-def unguarded_make_mesh_calls(text: str) -> list[str]:
-    """Return each ``make_mesh(...)`` call in ``text`` whose arguments do not name ``axis_types``.
-
-    A call whose parentheses never close is returned as well, from its name to the end of the text.
-    """
-    calls = []
-    start = text.find(CALL)
-    while start != -1:
-        depth = 0
-        end = len(text)
-        for index in range(start + len(CALL) - 1, len(text)):
-            depth += {"(": 1, ")": -1}.get(text[index], 0)
-            if depth == 0:
-                end = index + 1
-                break
-        call = text[start:end]
-        if depth != 0 or "axis_types" not in call:
-            calls.append(call)
-        start = text.find(CALL, start + len(CALL))
-    return calls
-
-
-def documented_texts() -> dict[str, str]:
-    """Map every docstring under ``src/substrax``, the README and every docs page to its text."""
-    texts: dict[str, str] = {}
-    for path in sorted((ROOT / "src" / "substrax").rglob("*.py")):
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, DOCUMENTED_NODES) and (docstring := ast.get_docstring(node)):
-                texts[f"{path.relative_to(ROOT)}:{getattr(node, 'lineno', 0)}"] = docstring
-    for path in [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]:
-        texts[str(path.relative_to(ROOT))] = path.read_text(encoding="utf-8")
-    return texts
-
-
-@pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        ('mesh = jax.make_mesh((4,), ("data",))', ['make_mesh((4,), ("data",))']),
-        ('jax.make_mesh((4, 2), ("data", "model"), axis_types=(AxisType.Auto,) * 2)', []),
-        ('jax.make_mesh(\n    (4, 2),\n    ("data", "model"),\n    axis_types=types,\n)', []),
-        ('DeviceMeshManager.create_device_mesh({"data": 4})', []),
-        (
-            'a = jax.make_mesh((1,), ("x",), axis_types=t)\nb = jax.make_mesh((2,), ("y",))',
-            ['make_mesh((2,), ("y",))'],
-        ),
-        ('jax.make_mesh((4,), ("data",)\n', ['make_mesh((4,), ("data",)\n']),
-    ],
-)
-def test_scanner_returns_only_calls_without_axis_types(text: str, expected: list[str]) -> None:
-    assert unguarded_make_mesh_calls(text) == expected
-
-
 def test_corpus_reaches_docstrings_readme_and_docs_pages() -> None:
-    texts = documented_texts()
+    texts = documented_texts(ROOT, package="substrax")
 
     mesh_docstrings = [
         text for name, text in texts.items() if name.startswith("src/substrax/mesh/device_mesh.py:")
@@ -87,7 +34,7 @@ def test_corpus_reaches_docstrings_readme_and_docs_pages() -> None:
 def test_documented_meshes_name_their_axis_types() -> None:
     violations = {
         name: calls
-        for name, text in documented_texts().items()
+        for name, text in documented_texts(ROOT, package="substrax").items()
         if (calls := unguarded_make_mesh_calls(text))
     }
 
