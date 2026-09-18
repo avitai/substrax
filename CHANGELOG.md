@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-09-18
+
 ### Added
 
 - `substrax.typing.JsonValue`, a value JSON can hold (a scalar, or a list or object of JSON
