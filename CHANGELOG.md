@@ -7,6 +7,17 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.typing.JsonValue`, a value JSON can hold (a scalar, or a list or object of JSON
+  values), in the stdlib-only module other packages can import without loading jax or Orbax.
+  `substrax.checkpoint.metadata` uses it instead of defining its own. The shape follows Orbax's
+  tree types.
+
+### Removed
+
+- `substrax.typing.Metrics`, `dict[str, Any]`, which nothing used.
+
 ## [0.1.12] - 2026-09-18
 
 ### Added

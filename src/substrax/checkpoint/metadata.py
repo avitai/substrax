@@ -16,14 +16,13 @@ from datetime import datetime, UTC
 from typing import Any
 
 from substrax.checkpoint.errors import UnsupportedCheckpointError
+from substrax.typing import JsonValue
 
 
 FORMAT_NAME = "substrax-checkpoint"
 CURRENT_FORMAT_VERSION = 3
 ITEM_NAMES = ("model", "optimizer", "rng", "data_iterator", "extensions")
 LIBRARY_NAMES = ("jax", "flax", "orbax-checkpoint", "optax", "numpy", "substrax")
-
-type JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
