@@ -149,6 +149,29 @@ def test_a_checkpoint_without_recorded_dtypes_is_checked_from_orbax_metadata(
     assert orbax_metadata_reads == [store.directory / "1" / "extensions"]
 
 
+def test_every_item_without_recorded_dtypes_is_read_once(
+    tmp_path: Path, orbax_metadata_reads: list[Path]
+) -> None:
+    store = _saved(
+        tmp_path, {"model": _model_state(), "extensions": {"table": np.ones((2,), np.float64)}}
+    )
+    _drop_recorded_dtypes(store, 1)
+
+    with pytest.raises(CheckpointDtypeMismatchError) as raised:
+        store.restore(
+            1,
+            templates={
+                "model": _model_state(jnp.bfloat16),
+                "extensions": {"table": jnp.zeros((2,), jnp.float32)},
+            },
+        )
+
+    assert {mismatch.item for mismatch in raised.value.mismatches} == {"model", "extensions"}
+    assert sorted(orbax_metadata_reads) == sorted(
+        [store.directory / "1" / "model", store.directory / "1" / "extensions"]
+    )
+
+
 def test_cast_dtypes_reads_no_array_metadata(
     tmp_path: Path, orbax_metadata_reads: list[Path]
 ) -> None:
