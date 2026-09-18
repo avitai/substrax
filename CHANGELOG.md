@@ -7,6 +7,23 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `python -m substrax.runtime.managed_env write|show` writes and inspects the managed
+  environment file a repository's `setup.sh` generates and its `activate.sh` sources, so the
+  backend resolution and JAX settings live in one place instead of a `scripts/setup_env.py`
+  copy per repository. The JAX settings are rendered by `runtime_environment`: the memory
+  fraction is written as `XLA_CLIENT_MEM_FRACTION` and the deprecated
+  `XLA_PYTHON_CLIENT_MEM_FRACTION`, which jaxlib refuses beside it, is always unset;
+  preallocation and the memory fraction are written only for `cuda12` and `metal`. A
+  repository adds its own variables with `--set NAME=VALUE`.
+
+### Removed
+
+- `scripts/setup_env.py`. `setup.sh` runs the module above; inspect the layering with
+  `python -m substrax.runtime.managed_env show --prefix SUBSTRAX --env-file .substrax.env
+  --user-env .env --user-env .env.local`.
+
 ## [0.1.11] - 2026-09-17
 
 ### Changed

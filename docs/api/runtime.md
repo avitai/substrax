@@ -85,4 +85,35 @@ A second call replaces only the handler the first one installed, so it needs no 
 and leaves pytest's log capture in place. Importing `substrax.runtime` imports no jax and
 changes no process state.
 
+## The managed environment file
+
+A repository's `setup.sh` writes the file its `activate.sh` sources once the project environment
+is synced:
+
+```bash
+uv run --no-sync python -m substrax.runtime.managed_env write --prefix DATARAX \
+    --backend auto --output .datarax.env --set TF_CPP_MIN_LOG_LEVEL=1
+python -m substrax.runtime.managed_env show --prefix DATARAX --env-file .datarax.env \
+    --user-env .env --user-env .env.local
+```
+
+`auto` resolves to `cuda12` on Linux when `nvidia-smi` lists a GPU, `metal` on Apple Silicon,
+and `cpu` otherwise. The file names every variable it manages in `<PREFIX>_MANAGED_ENV_VARS`,
+so `activate.sh` unsets them before sourcing a newer file, then exports or unsets each:
+
+| Variable | `cpu` | `cuda12`, `metal` |
+| --- | --- | --- |
+| `<PREFIX>_BACKEND`, `<PREFIX>_ENV_ROOT` | the resolved backend and the project root | the same |
+| `JAX_PLATFORMS` | `cpu` | unset, so jax picks the accelerator |
+| `JAX_ENABLE_X64` | `false` | `false` |
+| `XLA_PYTHON_CLIENT_PREALLOCATE` | unset | `false` |
+| `XLA_CLIENT_MEM_FRACTION` | unset | `0.75` |
+| `XLA_PYTHON_CLIENT_MEM_FRACTION` | unset | unset, because jax refuses it beside the current name |
+
+jaxlib reads preallocation and the memory fraction only when it builds the GPU plugin's options,
+so they are unset on the CPU. Each `--set NAME=VALUE` adds a repository variable to the file; a
+`--set` naming a variable the file manages itself raises.
+
 ::: substrax.runtime
+
+::: substrax.runtime.managed_env
