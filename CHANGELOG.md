@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-09-18
+
 ### Added
 
 - `python -m substrax.runtime.managed_env write|show` writes and inspects the managed
