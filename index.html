@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="api/records/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="api/devices/" class="md-nav__link">
         
   
@@ -817,13 +845,17 @@ and holds the code those packages used to carry separately.</p>
 <td><code>substrax.tracking</code></td>
 <td>Step-wise experiment tracking backends</td>
 </tr>
+<tr>
+<td><code>substrax.typing</code>, <code>substrax.records</code></td>
+<td>The shared type aliases (<code>PyTree</code>, <code>JsonValue</code>) and typed reading of JSON records</td>
+</tr>
 </tbody>
 </table>
 <p>Each subpackage has an <a href="api/devices/">API page</a>.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">¤</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>add<span class="w"> </span>substrax
 </code></pre></div>
-<p>Python 3.12 or later, <code>jax&gt;=0.11.1</code>, <code>flax&gt;=0.12.9</code>, <code>orbax-checkpoint&gt;=0.11.33</code>.</p>
+<p>Python 3.12 or later, <code>jax&gt;=0.11.1</code>, <code>flax&gt;=0.12.9</code>, <code>orbax-checkpoint&gt;=0.11.33</code>, <code>pydantic&gt;=2.10</code>.</p>
 
 
 

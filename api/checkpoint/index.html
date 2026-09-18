@@ -482,6 +482,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../records/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../devices/" class="md-nav__link">
         
   
@@ -2430,7 +2458,7 @@ so a restore onto templates places every array as the templates say.</p>
           <tr class="doc-section-item">
             <td><code><span title="substrax.checkpoint.CheckpointMetadata.extra">extra</span></code></td>
             <td>
-                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="substrax.typing.JsonValue">JsonValue</span>]</code>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="../records/#substrax.typing.JsonValue">JsonValue</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2525,7 +2553,7 @@ so a restore onto templates places every array as the templates say.</p>
                 <code>payload</code>
             </td>
             <td>
-                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="../records/#substrax.typing.JsonValue">JsonValue</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2584,6 +2612,17 @@ so a restore onto templates places every array as the templates say.</p>
               <div class="doc-md-description">
                 <p>If the record is a format-2 sidecar (those go through
 the migration registry), names another format, or a newer version.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="pydantic.ValidationError">ValidationError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a field is missing or holds a value its annotation
+does not admit.</p>
               </div>
             </td>
           </tr>
@@ -2680,6 +2719,87 @@ the migration registry), names another format, or a newer version.</p>
         <p>Read the JSON form.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>payload</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="../records/#substrax.typing.JsonValue">JsonValue</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The producer's JSON object.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              Producer(*, name, version)
+
+  
+      dataclass
+   (substrax.checkpoint.metadata.Producer)" href="#substrax.checkpoint.Producer">Producer</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The producer.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="pydantic.ValidationError">ValidationError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>name</code> or <code>version</code> is missing or not a string.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     </div>
 
 </div>
@@ -2737,7 +2857,7 @@ the migration registry), names another format, or a newer version.</p>
           <tr class="doc-section-item">
             <td><code><span title="substrax.checkpoint.Migration.applies">applies</span></code></td>
             <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]], <span title="bool">bool</span>]</code>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="../records/#substrax.typing.JsonValue">JsonValue</a>]], <span title="bool">bool</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2957,7 +3077,11 @@ or the versions covered are not contiguous up to the current format.</p>
                 <code>payload</code>
             </td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                  <code><a class="autorefs autorefs-internal" title="            PyTree = Any
+
+  
+      module-attribute
+   (substrax.typing.PyTree)" href="../records/#substrax.typing.PyTree">PyTree</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2973,7 +3097,7 @@ or the versions covered are not contiguous up to the current format.</p>
                 <code>raw</code>
             </td>
             <td>
-                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="../records/#substrax.typing.JsonValue">JsonValue</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3019,7 +3143,11 @@ or the versions covered are not contiguous up to the current format.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="tuple">tuple</span>[<span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>], <a class="autorefs autorefs-internal" title="              CheckpointMetadata(*, format=FORMAT_NAME, format_version=CURRENT_FORMAT_VERSION, step, epoch=None, items, libraries=dict(), producer=None, metrics=dict(), extra=dict(), created_at)
+                  <code><span title="tuple">tuple</span>[<span title="dict">dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            PyTree = Any
+
+  
+      module-attribute
+   (substrax.typing.PyTree)" href="../records/#substrax.typing.PyTree">PyTree</a>], <a class="autorefs autorefs-internal" title="              CheckpointMetadata(*, format=FORMAT_NAME, format_version=CURRENT_FORMAT_VERSION, step, epoch=None, items, libraries=dict(), producer=None, metrics=dict(), extra=dict(), created_at)
 
   
       dataclass
@@ -3597,7 +3725,7 @@ a context manager so backend resources are released deterministically::</p>
                 <code>extra</code>
             </td>
             <td>
-                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="substrax.checkpoint.metadata.JsonValue">JsonValue</span>] | None</code>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="../records/#substrax.typing.JsonValue">JsonValue</a>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
