@@ -9,8 +9,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Changed
 
+- Requires `jax>=0.11.1,<0.11.2` and the same for jaxlib and `jax[cuda12]`: jax 0.11.2 renamed
+  `jax.experimental.hijax.HiPrimitive`, which flax 0.12.9 imports at module load, so a fresh
+  environment resolving both fails on `import flax.nnx`. The cap lifts with the flax release
+  that imports jax 0.11.2, which a test detects; the lock holds 0.11.1 and does not move.
 - The format-2 checkpoint fixtures are generated, not committed: `scripts/make_format2_fixtures.py`
-  writes them with substrax 0.1.5 in an isolated environment, CI runs it before the tests, and
+  writes them with substrax 0.1.5 in an isolated environment whose every package is the
+  committed lock `scripts/format2_fixture_requirements.txt`, CI runs it before the tests, and
   the migration tests fail naming that command when the roots are missing.
 
 ## [0.1.10] - 2026-09-17

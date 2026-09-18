@@ -25,8 +25,11 @@ classifiers = [
 ]
 dependencies = [
   "flax>=0.12.9",
-  "jax>=0.11.1",
-  "jaxlib>=0.11.1",
+  # jax 0.11.2 renamed jax.experimental.hijax.HiPrimitive, which flax 0.12.9 imports at
+  # module load (google/flax#5566 fixes it on main, unreleased); the cap lifts with the
+  # flax release that imports 0.11.2, which tests/ci/test_jax_cap.py detects.
+  "jax>=0.11.1,<0.11.2",
+  "jaxlib>=0.11.1,<0.11.2",
   "numpy>=1.24,<2.6.0",
   # substrax.optim builds optimizers over optax; below 0.2.8 optax calls
   # jax.config.update("jax_pmap_shmap_merge"), which jax removed in 0.10.
@@ -65,7 +68,7 @@ cuda12 = [
   # Named for the CUDA major version, as JAX names its own extras. jax[cuda12] resolves
   # jax-cuda12-plugin[with-cuda], which brings the pjrt package and the CUDA wheels in
   # versions matched to jax.
-  "jax[cuda12]>=0.11.1"
+  "jax[cuda12]>=0.11.1,<0.11.2"
 ]
 dev = [
   "bandit[toml]>=1.8.6",
