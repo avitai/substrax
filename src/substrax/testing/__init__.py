@@ -4,9 +4,9 @@
 with everything the parent's shell exported about jax removed, and returns a ``ChildResult``.
 ``cuda_is_visible`` probes the CUDA backend in such a child. ``restored_jax_config`` sets back the
 global jax configuration a block changed. ``TraceCounter`` counts the traces a jitted function
-takes and raises ``RetraceError`` when a block caused an unexpected number. ``discover_examples``
-lists a repository's examples, and ``run_example`` runs one per child interpreter with its
-outputs redirected. The plugin, ``substrax.testing.pytest_plugin``, is
+takes and raises ``RetraceError`` when a block caused an unexpected number. ``run_example`` runs one
+example per child interpreter with its outputs redirected (``substrax.examples.discover_examples``
+lists them). The plugin, ``substrax.testing.pytest_plugin``, is
 enabled from a ``conftest.py``: it adds the ``x64``, ``devices`` and ``accelerator`` markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
 ``substrax.testing.source_scans`` holds the contract checks a repository runs over its own source:
@@ -21,7 +21,6 @@ from substrax.testing.child_process import (
     run_python,
 )
 from substrax.testing.examples import (
-    discover_examples,
     ExampleRun,
     ExampleTimeoutError,
     run_example,
@@ -39,7 +38,6 @@ __all__ = [
     "RetraceError",
     "TraceCounter",
     "cuda_is_visible",
-    "discover_examples",
     "restored_jax_config",
     "run_example",
     "run_python",

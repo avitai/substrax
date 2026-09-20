@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
 from substrax.runtime import (
+    child_environment,
     JaxRuntime,
     resolve_test_runtime,
     runtime_environment,
@@ -158,3 +160,53 @@ class TestResolveTestRuntime:
             "JAX_PLATFORMS": "cpu",
             "JAX_NUM_CPU_DEVICES": "8",
         }
+
+
+PARENT = MappingProxyType(
+    {
+        "PATH": "/usr/bin",
+        "JAX_PLATFORMS": "cuda",
+        "XLA_FLAGS": "--xla_dump_to=/tmp/dump",
+        "JAX_ENABLE_X64": "1",
+    }
+)
+
+
+class TestChildEnvironment:
+    def test_the_parents_jax_and_xla_settings_are_dropped_and_the_rest_kept(self) -> None:
+        assert child_environment(JaxRuntime(), parent=PARENT) == {"PATH": "/usr/bin"}
+
+    def test_env_applies_over_the_parent_and_the_runtime_over_env(self) -> None:
+        runtime = JaxRuntime(platforms=("cuda",), xla_flags=("--xla_gpu_deterministic_ops=true",))
+
+        child = child_environment(
+            runtime,
+            {"XLA_FLAGS": "--xla_gpu_autotune_level=0", "PATH": "/opt/bin"},
+            parent=PARENT,
+        )
+
+        assert child == {
+            "PATH": "/opt/bin",
+            "JAX_PLATFORMS": "cuda",
+            "XLA_FLAGS": "--xla_gpu_autotune_level=0 --xla_gpu_deterministic_ops=true",
+        }
+
+    def test_env_may_set_jax_variables_the_parent_could_not_pass_on(self) -> None:
+        child = child_environment(JaxRuntime(), {"JAX_ENABLE_X64": "0"}, parent=PARENT)
+
+        assert child["JAX_ENABLE_X64"] == "0"
+
+    def test_the_parent_defaults_to_this_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SUBSTRAX_CHILD_ENVIRONMENT_PROBE", "kept")
+        monkeypatch.setenv("JAX_CHILD_ENVIRONMENT_PROBE", "dropped")
+
+        child = child_environment(JaxRuntime())
+
+        assert child["SUBSTRAX_CHILD_ENVIRONMENT_PROBE"] == "kept"
+        assert "JAX_CHILD_ENVIRONMENT_PROBE" not in child
+
+    def test_a_runtime_flag_conflicting_with_env_raises(self) -> None:
+        runtime = JaxRuntime(xla_flags=("--xla_gpu_autotune_level=4",))
+
+        with pytest.raises(XlaFlagConflictError):
+            child_environment(runtime, {"XLA_FLAGS": "--xla_gpu_autotune_level=0"}, parent={})

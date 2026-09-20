@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess  # nosec B404
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -58,28 +58,6 @@ class ExampleTimeoutError(AssertionError):
         self.path = path
         self.timeout = timeout
         self.stderr_tail = tail
-
-
-def discover_examples(root: Path, *, include: Callable[[Path], bool] | None = None) -> list[Path]:
-    """List the example scripts under ``root``, sorted.
-
-    A file or directory whose name starts with ``_`` is private, as ``_common`` helpers,
-    ``_templates`` and ``__init__.py`` are, and so is everything under it. Only the parts below
-    ``root`` count, so ``root`` itself may have such a name.
-
-    Args:
-        root: The examples directory.
-        include: Keeps a path when it returns ``True``, such as a repository's numbering rule.
-
-    Returns:
-        The ``*.py`` files under ``root`` that are not private and that ``include`` keeps.
-    """
-    return [
-        path
-        for path in sorted(root.rglob("*.py"))
-        if not any(part.startswith("_") for part in path.relative_to(root).parts)
-        and (include is None or include(path))
-    ]
 
 
 def run_example(  # noqa: DOC503

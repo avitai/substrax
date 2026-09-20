@@ -3,7 +3,7 @@
 **JAX/Flax NNX training infrastructure: JAX process configuration, device detection and
 placement, device meshes and SPMD sharding (data, FSDP, tensor and pipeline strategies), an
 Orbax checkpoint store that restores onto the current devices, early stopping and callbacks,
-and W&B/MLflow logging.**
+W&B/MLflow logging, and runs of a project's jobs on Modal, SkyPilot's clouds or this machine.**
 It is the shared layer of the Avitai JAX stack.
 
 [![CI](https://github.com/avitai/substrax/actions/workflows/ci.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/ci.yml)
@@ -40,7 +40,8 @@ home and one test suite:
 | `substrax.checkpoint` | One `CheckpointStore` protocol and one Orbax implementation, `OrbaxCheckpointStore`, over `CheckpointManager` |
 | `substrax.callbacks` | The training-callback protocol, `CallbackList`, `BestMetricTracker`, `EarlyStopping` and `EarlyStoppingCallback` |
 | `substrax.tracking` | Step-wise experiment logging with console, file, Weights & Biases and MLflow backends |
-| `substrax.typing`, `substrax.records` | The shared type aliases (`PyTree`, `JsonValue`) and typed reading of JSON records |
+| `substrax.compute` | A project's jobs run on a compute backend: the job spec, the worker every backend runs, the `ComputeBackend` protocol with `local`, `modal` and `skypilot` backends found through entry points, and the `substrax-compute` command |
+| `substrax.typing`, `substrax.records`, `substrax.examples` | The shared type aliases (`PyTree`, `JsonValue`), typed reading and writing of JSON records, and the listing of a repository's example scripts |
 
 Not in Substrax: optimizer algorithms and schedules (optax, which Substrax assembles from a
 config), loss scaling and gradient accumulation
@@ -54,6 +55,7 @@ uv add substrax          # or: pip install substrax
 uv add "substrax[wandb]"  # Weights & Biases backend
 uv add "substrax[mlflow]" # MLflow backend
 uv add "substrax[testing]" # pytest plugin and fresh-interpreter test helpers
+uv add "substrax[modal]"   # the Modal compute backend
 ```
 
 Substrax requires Python 3.12 or 3.13, `jax>=0.11.1`, `flax>=0.12.9`,
@@ -305,6 +307,40 @@ from substrax.tracking import MLFlowLogger, WandbLogger
 wandb_logger = WandbLogger("demo", project="my-project", config={"lr": 1e-3})
 mlflow_logger = MLFlowLogger("demo", experiment_name="my-experiment")
 ```
+
+### Compute
+
+A project declares its jobs in `pyproject.toml`, and `substrax-compute` runs them on a backend:
+this machine (`local`), Modal (`modal`, with `substrax[modal]`), or any cloud SkyPilot reaches
+(`skypilot`, driving the `sky` command of SkyPilot installed as its documentation says). Every
+backend runs the same worker. It runs each task from the project root with the job's JAX
+settings, writes the task's logs beside whatever it saves through `resolve_output_dir`, and
+records a manifest. The outputs come back to this machine, never into the working tree unless
+asked.
+
+```toml
+[tool.substrax.compute]
+backend = "modal"
+
+[tool.substrax.compute.backends.modal]
+outputs_volume = "demo-outputs"
+
+[tool.substrax.compute.jobs.examples]
+examples = ["examples"]
+extras = ["cuda12"]
+accelerator = { kind = "L4" }
+timeout_seconds = 1800
+runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
+```
+
+```bash
+uv run substrax-compute run examples                       # follow, wait, fetch
+uv run substrax-compute run examples --accelerator H100 --detach
+uv run substrax-compute status
+```
+
+A provider is added by registering a factory in the `substrax.compute.backends` entry-point
+group; `substrax.testing.compute.BackendContract` holds the tests every backend must pass.
 
 ## Development setup
 

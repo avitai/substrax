@@ -7,6 +7,39 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.compute` runs a project's jobs on a compute backend.
+  - A `JobSpec` holds the tasks, accelerators, extras, `JaxRuntime`, environment, mounts and
+    budget. It is a versioned record, and the worker refuses a spec version it does not read.
+  - The worker, `python -m substrax.compute.worker`, runs every task from the project root.
+    Each task gets `AVITAI_OUTPUT_DIR` set to its own directory, its own logs, and at most its
+    own budget or what is left of the job's. The worker writes a `manifest.json` after each
+    task.
+  - The `ComputeBackend` protocol has three backends, found through the
+    `substrax.compute.backends` entry-point group:
+    - `local` runs on this machine.
+    - `modal` runs on Modal and needs the new `modal` extra. Its image puts the locked
+      dependencies in their own layer through `Image.uv_sync`.
+    - `skypilot` drives the `sky` command of a separate SkyPilot installation and adds no
+      dependency.
+  - Jobs are declared under `[tool.substrax.compute]` and run with the new `substrax-compute`
+    command: `run`, `status`, `logs`, `fetch`, `cancel`.
+  - `substrax.testing.compute.BackendContract` holds the tests every backend must pass.
+- `substrax.records.dump_record` writes a record as the JSON object `read_record` reads back.
+  A record that sets `__pydantic_config__ = UNKNOWN_FIELDS_REFUSED` refuses fields it does not
+  declare.
+- `substrax.runtime.child_environment(runtime, env)` builds a child process's environment: the
+  parent's, without its `JAX_*` and `XLA_*` variables, then `env`, then the runtime.
+  `substrax.testing.run_python` builds on it.
+
+### Changed
+
+- `discover_examples` moved from `substrax.testing` to `substrax.examples`, since
+  `substrax.compute` lists examples too and only tests import `substrax.testing`. Import it as
+  `from substrax.examples import discover_examples`.
+- The `dev` extra includes `modal`, which type-checking and testing the Modal backend need.
+
 ## [0.1.14] - 2026-09-18
 
 ### Added

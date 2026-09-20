@@ -1,36 +1,29 @@
 # Records
 
-A record is a frozen dataclass written to JSON by its `to_dict` and read back by
-`substrax.records.read_record`, which validates every field against its annotation with
+A record is a frozen dataclass written to JSON by `substrax.records.dump_record` and read back
+by `substrax.records.read_record`, which validates every field against its annotation with
 pydantic's strict JSON mode. `substrax.typing` holds the aliases records are typed with; it
 imports nothing beyond the standard library.
 
 ```python
-from collections.abc import Mapping
 from dataclasses import dataclass
 
-from substrax.records import read_record
-from substrax.typing import JsonValue
+from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Measurement:
+    __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
+
     name: str
     value: float
     samples: tuple[float, ...] | None = None
 
-    def to_dict(self) -> dict[str, JsonValue]:
-        record: dict[str, JsonValue] = {"name": self.name, "value": self.value}
-        if self.samples is not None:
-            record["samples"] = list(self.samples)
-        return record
 
-    @classmethod
-    def from_dict(cls, data: Mapping[str, JsonValue]) -> "Measurement":
-        return read_record(cls, data)
+dump_record(Measurement(name="loss", value=0.25, samples=(0.2, 0.3)))
+# {'name': 'loss', 'value': 0.25, 'samples': [0.2, 0.3]}
 
-
-Measurement.from_dict({"name": "loss", "value": "0.25"})
+read_record(Measurement, {"name": "loss", "value": "0.25"})
 # pydantic.ValidationError: 1 validation error for Measurement
 # value
 #   Input should be a valid number [type=float_type, input_value='0.25', input_type=str]
@@ -48,7 +41,10 @@ Measurement.from_dict({"name": "loss", "value": "0.25"})
 | A dataclass | A nested JSON object, read by the same rules |
 | `JsonValue` | Any JSON value, unchecked below it |
 
-A missing field takes the dataclass default; a missing field without one is refused. Every
+A missing field takes the dataclass default; a missing field without one is refused. A field
+the record does not declare is ignored, unless the record sets `__pydantic_config__ =
+UNKNOWN_FIELDS_REFUSED`, as settings and versioned files do, so a misspelled key is refused
+rather than dropped. Every
 refusal is collected into one `pydantic.ValidationError`, a `ValueError` whose `errors()`
 give each field's path as `loc`, such as `("metrics", "loss", "value")`.
 

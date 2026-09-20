@@ -88,3 +88,4 @@ nav:
       - Checkpoint: api/checkpoint.md
       - Callbacks: api/callbacks.md
       - Tracking: api/tracking.md
+      - Compute: api/compute.md
