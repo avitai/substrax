@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 import subprocess  # nosec B404
 import sys
 import time
@@ -13,11 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from substrax.runtime import JaxRuntime, runtime_environment
+from substrax.runtime import child_environment, JaxRuntime
 
 
 _STDERR_TAIL_LINES = 40
-_DROPPED_PREFIXES = ("JAX_", "XLA_")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -129,11 +127,7 @@ def run_python(  # noqa: DOC502
             the child is not started.
         subprocess.TimeoutExpired: If the child runs longer than ``timeout``.
     """
-    base = {
-        name: value for name, value in os.environ.items() if not name.startswith(_DROPPED_PREFIXES)
-    }
-    base.update(env or {})
-    child_env = {**base, **runtime_environment(_with_safe_defaults(runtime, base), base)}
+    child_env = child_environment(_with_safe_defaults(runtime, env or {}), env)
     command = (
         (sys.executable, "-c", program)
         if isinstance(program, str)
@@ -187,11 +181,11 @@ def tail_lines(stderr: str) -> str:
     return "\n".join(stderr.splitlines()[-_STDERR_TAIL_LINES:])
 
 
-def _with_safe_defaults(runtime: JaxRuntime | None, base: Mapping[str, str]) -> JaxRuntime:
+def _with_safe_defaults(runtime: JaxRuntime | None, env: Mapping[str, str]) -> JaxRuntime:
     """Default the child to the CPU backend without preallocation, unless the caller chose."""
     chosen = runtime or JaxRuntime()
-    platforms_chosen = chosen.platforms is not None or "JAX_PLATFORMS" in base
-    preallocate_chosen = chosen.preallocate is not None or "XLA_PYTHON_CLIENT_PREALLOCATE" in base
+    platforms_chosen = chosen.platforms is not None or "JAX_PLATFORMS" in env
+    preallocate_chosen = chosen.preallocate is not None or "XLA_PYTHON_CLIENT_PREALLOCATE" in env
     return dataclasses.replace(
         chosen,
         platforms=chosen.platforms if platforms_chosen else ("cpu",),

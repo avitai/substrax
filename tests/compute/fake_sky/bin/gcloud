@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""``gcloud storage rsync --recursive gs://BUCKET/PATH DEST`` against the fake sky's buckets."""
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+
+arguments = [argument for argument in sys.argv[1:] if not argument.startswith("--")]
+if arguments[:2] != ["storage", "rsync"] or len(arguments) != 4:
+    sys.exit(f"fake gcloud cannot run {sys.argv[1:]}")
+source = Path(os.environ["FAKE_SKY_ROOT"]) / "buckets" / arguments[2].removeprefix("gs://")
+if not source.is_dir():
+    sys.exit(f"{arguments[2]} does not exist")
+shutil.copytree(source, arguments[3], dirs_exist_ok=True)

@@ -11,7 +11,7 @@ from enum import StrEnum
 import pytest
 from pydantic import ValidationError
 
-from substrax.records import read_record
+from substrax.records import dump_record, read_record
 from substrax.testing import run_python
 from substrax.typing import JsonValue
 
@@ -104,3 +104,19 @@ def test_importing_the_module_loads_no_jax_or_orbax() -> None:
     )
 
     assert result.stdout.strip() == "False"
+
+
+def test_a_dumped_record_is_json_and_reads_back_equal() -> None:
+    series = read_record(Series, RECORD)
+
+    dumped = dump_record(series)
+
+    assert json.loads(json.dumps(dumped)) == dumped
+    assert dumped["direction"] == "lower"
+    assert dumped["samples"] == {"a": {"value": 1.0, "spread": [0.5, 2.0]}}
+    assert read_record(Series, dumped) == series
+
+
+def test_dumping_something_other_than_a_dataclass_is_refused() -> None:
+    with pytest.raises(TypeError, match="dict"):
+        dump_record({"name": "loss"})

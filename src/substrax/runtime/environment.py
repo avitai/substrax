@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -17,6 +18,43 @@ _DEVICE_COUNT_FLAG = "--xla_force_host_platform_device_count"
 # and raises when both are set (jaxlib 0.11 xla_client.py).
 _MEMORY_FRACTION_VARIABLE = "XLA_CLIENT_MEM_FRACTION"
 _DEPRECATED_MEMORY_FRACTION_VARIABLE = "XLA_PYTHON_CLIENT_MEM_FRACTION"
+# A child's JAX settings come from its runtime and env only, never from the shell that started it.
+_INHERITED_PREFIXES_DROPPED = ("JAX_", "XLA_")
+
+
+def child_environment(  # noqa: DOC502
+    runtime: JaxRuntime,
+    env: Mapping[str, str] | None = None,
+    *,
+    parent: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Return the complete environment of a child process whose JAX settings the caller chooses.
+
+    The child gets ``parent`` without any ``JAX_*`` or ``XLA_*`` variable, so settings exported in
+    the shell that started this process cannot change what the child runs, then ``env``, then
+    ``runtime`` as :func:`runtime_environment` renders it on top of the two.
+
+    Args:
+        runtime: The child's JAX settings.
+        env: Variables set in the child before ``runtime`` is applied.
+        parent: The environment the child inherits; this process's when ``None``.
+
+    Returns:
+        Variable names mapped to their values.
+
+    Raises:
+        XlaFlagConflictError: If a flag in ``runtime`` conflicts with ``XLA_FLAGS`` in ``env``.
+        RuntimeConfigurationError: If ``runtime`` sets a memory fraction and ``env`` holds the
+            deprecated ``XLA_PYTHON_CLIENT_MEM_FRACTION``.
+    """
+    inherited = os.environ if parent is None else parent
+    base = {
+        name: value
+        for name, value in inherited.items()
+        if not name.startswith(_INHERITED_PREFIXES_DROPPED)
+    }
+    base.update(env or {})
+    return {**base, **runtime_environment(runtime, base)}
 
 
 def runtime_environment(runtime: JaxRuntime, base: Mapping[str, str]) -> dict[str, str]:  # noqa: DOC502

@@ -56,15 +56,16 @@ for top-level traces, and its name is not documented.
 
 ## Running examples
 
-`discover_examples` lists a repository's example scripts, and `run_example` runs one in a fresh
-interpreter from the repository root:
+`substrax.examples.discover_examples` lists a repository's example scripts, and `run_example` runs
+one in a fresh interpreter from the repository root:
 
 ```python
 from pathlib import Path
 
 import pytest
 
-from substrax.testing import discover_examples, run_example
+from substrax.examples import discover_examples
+from substrax.testing import run_example
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = discover_examples(ROOT / "examples")
@@ -192,3 +193,7 @@ shrinking what it reads.
 ::: substrax.testing
 
 ::: substrax.testing.source_scans
+
+::: substrax.examples
+
+::: substrax.testing.compute

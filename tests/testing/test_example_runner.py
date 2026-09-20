@@ -1,4 +1,4 @@
-"""``run_example`` runs one example per child interpreter, and ``discover_examples`` lists examples.
+"""``run_example`` runs one example per child interpreter.
 
 The examples written here import no jax, so each child starts in well under a second. Every run
 states a generous budget except the timeout test's, whose example sleeps far past its own.
@@ -16,7 +16,6 @@ import substrax.testing.examples
 from substrax.artifacts import OUTPUT_DIR_ENV
 from substrax.testing import (
     ChildFailedError,
-    discover_examples,
     ExampleTimeoutError,
     run_example,
     unavailable_reason,
@@ -435,30 +434,6 @@ def test_a_summary_value_json_cannot_hold_fails_naming_its_key(repo: Path, outpu
     assert run.summary is None
     with pytest.raises(ChildFailedError, match="'weights'"):
         run.result.check()
-
-
-def test_discovery_skips_private_parts_and_package_markers(tmp_path: Path) -> None:
-    root = tmp_path / "_site" / "examples"
-    for relative in (
-        "a/01_first.py",
-        "a/__init__.py",
-        "_templates/template.py",
-        "_private.py",
-        "b/helpers/_shared.py",
-        "b/02_second.py",
-        "b/notes.txt",
-    ):
-        (root / relative).parent.mkdir(parents=True, exist_ok=True)
-        (root / relative).write_text("", encoding="utf-8")
-
-    found = discover_examples(root)
-    narrowed = discover_examples(root, include=lambda path: path.name.startswith("02_"))
-
-    assert [path.relative_to(root).as_posix() for path in found] == [
-        "a/01_first.py",
-        "b/02_second.py",
-    ]
-    assert [path.relative_to(root).as_posix() for path in narrowed] == ["b/02_second.py"]
 
 
 def test_unavailable_reason_matches_only_the_stderr_of_a_failed_run(

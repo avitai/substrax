@@ -24,16 +24,18 @@ forbidden_modules =
     substrax.spmd
 
 [importlinter:contract:process_setup]
-name = runtime, artifacts, rng and optim are leaves that import no other subpackage
+name = runtime, artifacts, examples, rng and optim are leaves that import no other subpackage
 type = forbidden
 source_modules =
     substrax.artifacts
+    substrax.examples
     substrax.optim
     substrax.rng
     substrax.runtime
 forbidden_modules =
     substrax.callbacks
     substrax.checkpoint
+    substrax.compute
     substrax.devices
     substrax.mesh
     substrax.spmd
@@ -46,11 +48,13 @@ source_modules =
     substrax.artifacts
     substrax.callbacks
     substrax.checkpoint
+    substrax.compute
     substrax.devices
     substrax.mesh
     substrax.optim
     substrax.rng
     substrax.runtime
+    substrax.examples
     substrax.spmd
     substrax.tracking
 forbidden_modules =
@@ -111,3 +115,39 @@ forbidden_modules =
     substrax.spmd
     substrax.testing
     substrax.tracking
+
+[importlinter:contract:compute]
+name = compute runs jobs without jax or the training layers
+type = forbidden
+source_modules =
+    substrax.compute
+forbidden_modules =
+    flax
+    jax
+    numpy
+    optax
+    orbax
+    substrax.callbacks
+    substrax.checkpoint
+    substrax.devices
+    substrax.mesh
+    substrax.optim
+    substrax.rng
+    substrax.spmd
+    substrax.tracking
+
+[importlinter:contract:compute_providers]
+name = only the modal backend imports Modal, and nothing imports SkyPilot
+type = forbidden
+source_modules =
+    substrax.compute.backend
+    substrax.compute.cli
+    substrax.compute.config
+    substrax.compute.local
+    substrax.compute.registry
+    substrax.compute.skypilot_backend
+    substrax.compute.spec
+    substrax.compute.worker
+forbidden_modules =
+    modal
+    sky
