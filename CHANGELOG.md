@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-09-20
+
 ### Added
 
 - `substrax.compute` runs a project's jobs on a compute backend.
