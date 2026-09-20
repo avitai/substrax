@@ -497,6 +497,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#substrax.runtime.child_environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;child_environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#substrax.runtime.resolve_test_runtime" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -934,6 +945,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compute/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1056,6 +1095,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;configure_entry_point_logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.runtime.child_environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;child_environment
       
     </span>
   </a>
@@ -1426,7 +1476,7 @@ so they are unset on the CPU. Each <code>--set NAME=VALUE</code> adds a reposito
         <p>JAX process configuration, declared once and applied before or after jax is imported.</p>
 <p><code>JaxRuntime</code> describes the settings. <code>runtime_environment</code> renders them as the environment of a
 process that has not imported jax yet (a child process, or a conftest before its first
-<code>import jax</code>), <code>apply_runtime</code> applies them to the current process, and
+<code>import jax</code>), <code>child_environment</code> builds a child's whole environment from them, <code>apply_runtime</code> applies them to the current process, and
 <code>resolve_test_runtime</code> chooses the backend and emulated CPU devices of a test run.
 <code>configure_entry_point_logging</code> sets up the root logger from an entry point. Importing this
 package imports no jax and changes no process state.</p>
@@ -2046,6 +2096,151 @@ needs no <code>force=True</code>.</p>
             </td>
             <td>
                   <code>&#39;%(message)s&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.runtime.child_environment" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">child_environment</span><span class="p">(</span><span class="n">runtime</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#substrax.runtime.child_environment" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the complete environment of a child process whose JAX settings the caller chooses.</p>
+<p>The child gets <code>parent</code> without any <code>JAX_*</code> or <code>XLA_*</code> variable, so settings exported in
+the shell that started this process cannot change what the child runs, then <code>env</code>, then
+<code>runtime</code> as :func:<code>runtime_environment</code> renders it on top of the two.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>runtime</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              JaxRuntime(*, platforms=None, cpu_devices=None, enable_x64=None, matmul_precision=None, compilation_cache_dir=None, xla_flags=(), preallocate=None, memory_fraction=None)
+
+  
+      dataclass
+   (substrax.runtime.config.JaxRuntime)" href="#substrax.runtime.JaxRuntime">JaxRuntime</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The child's JAX settings.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>env</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Variables set in the child before <code>runtime</code> is applied.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parent</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The environment the child inherits; this process's when <code>None</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Variable names mapped to their values.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="              XlaFlagConflictError(flag, existing, requested) (substrax.runtime.errors.XlaFlagConflictError)" href="#substrax.runtime.XlaFlagConflictError">XlaFlagConflictError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a flag in <code>runtime</code> conflicts with <code>XLA_FLAGS</code> in <code>env</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            RuntimeConfigurationError (substrax.runtime.errors.RuntimeConfigurationError)" href="#substrax.runtime.RuntimeConfigurationError">RuntimeConfigurationError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>runtime</code> sets a memory fraction and <code>env</code> holds the
+deprecated <code>XLA_PYTHON_CLIENT_MEM_FRACTION</code>.</p>
+              </div>
             </td>
           </tr>
       </tbody>

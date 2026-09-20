@@ -554,10 +554,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#substrax.records.UNKNOWN_FIELDS_REFUSED" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;UNKNOWN_FIELDS_REFUSED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#substrax.records.read_record" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;read_record
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.records.dump_record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;dump_record
       
     </span>
   </a>
@@ -785,6 +807,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compute/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compute
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -831,10 +881,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#substrax.records.UNKNOWN_FIELDS_REFUSED" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;UNKNOWN_FIELDS_REFUSED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#substrax.records.read_record" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;read_record
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.records.dump_record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;dump_record
       
     </span>
   </a>
@@ -954,38 +1026,31 @@
 
 
 <h1 id="records">Records<a class="headerlink" href="#records" title="Permanent link">¤</a></h1>
-<p>A record is a frozen dataclass written to JSON by its <code>to_dict</code> and read back by
-<code>substrax.records.read_record</code>, which validates every field against its annotation with
+<p>A record is a frozen dataclass written to JSON by <code>substrax.records.dump_record</code> and read back
+by <code>substrax.records.read_record</code>, which validates every field against its annotation with
 pydantic's strict JSON mode. <code>substrax.typing</code> holds the aliases records are typed with; it
 imports nothing beyond the standard library.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.records</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_record</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">JsonValue</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">Measurement</span><span class="p">:</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">substrax.records</span><span class="w"> </span><span class="kn">import</span> <span class="n">dump_record</span><span class="p">,</span> <span class="n">read_record</span><span class="p">,</span> <span class="n">UNKNOWN_FIELDS_REFUSED</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">Measurement</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">__pydantic_config__</span> <span class="o">=</span> <span class="n">UNKNOWN_FIELDS_REFUSED</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">samples</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JsonValue</span><span class="p">]:</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="n">record</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JsonValue</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">}</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>            <span class="n">record</span><span class="p">[</span><span class="s2">"samples"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="k">return</span> <span class="n">record</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="nd">@classmethod</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JsonValue</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">"Measurement"</span><span class="p">:</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="k">return</span> <span class="n">read_record</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">Measurement</span><span class="o">.</span><span class="n">from_dict</span><span class="p">({</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"loss"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="s2">"0.25"</span><span class="p">})</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># pydantic.ValidationError: 1 validation error for Measurement</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="c1"># value</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="c1">#   Input should be a valid number [type=float_type, input_value='0.25', input_type=str]</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">dump_record</span><span class="p">(</span><span class="n">Measurement</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"loss"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)))</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># {'name': 'loss', 'value': 0.25, 'samples': [0.2, 0.3]}</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">read_record</span><span class="p">(</span><span class="n">Measurement</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"loss"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="s2">"0.25"</span><span class="p">})</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># pydantic.ValidationError: 1 validation error for Measurement</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># value</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1">#   Input should be a valid number [type=float_type, input_value='0.25', input_type=str]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -1033,7 +1098,10 @@ imports nothing beyond the standard library.</p>
 </tr>
 </tbody>
 </table>
-<p>A missing field takes the dataclass default; a missing field without one is refused. Every
+<p>A missing field takes the dataclass default; a missing field without one is refused. A field
+the record does not declare is ignored, unless the record sets <code>__pydantic_config__ =
+UNKNOWN_FIELDS_REFUSED</code>, as settings and versioned files do, so a misspelled key is refused
+rather than dropped. Every
 refusal is collected into one <code>pydantic.ValidationError</code>, a <code>ValueError</code> whose <code>errors()</code>
 give each field's path as <code>loc</code>, such as <code>("metrics", "loss", "value")</code>.</p>
 <p>The object is written back to JSON text and validated in pydantic's JSON mode, because strict
@@ -1055,8 +1123,8 @@ function JAX traces.</p>
     <div class="doc doc-contents first">
 
         <p>Records read from JSON: frozen dataclasses validated by pydantic's strict JSON mode.</p>
-<p>A record is a frozen dataclass whose <code>to_dict</code> writes JSON values; <code>read_record</code> reads
-one back from the parsed JSON object. Each field is checked against its annotation as JSON
+<p>A record is a frozen dataclass; <code>dump_record</code> writes it as JSON values and <code>read_record</code>
+reads one back from the parsed JSON object. Each field is checked against its annotation as JSON
 defines the types: a number is never read from a string, a <code>bool</code> is not a number, an
 integer is accepted where a float is expected (JSON has one number type), nested dataclasses,
 <code>datetime</code> (ISO 8601 text), enums (by value) and tuples (from arrays) are read by their
@@ -1082,6 +1150,29 @@ at the edge of a program, never inside a traced function.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="substrax.records.UNKNOWN_FIELDS_REFUSED" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">UNKNOWN_FIELDS_REFUSED</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s1">'forbid'</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#substrax.records.UNKNOWN_FIELDS_REFUSED" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Set as a record's <code>__pydantic_config__</code> to refuse fields it does not declare, such as a
+misspelled setting; without it <code>read_record</code> ignores them.</p>
+
+    </div>
+
+</div>
 
 
 
@@ -1198,6 +1289,103 @@ admit; <code>errors()</code> gives each field's path as <code>loc</code>.</p>
               <div class="doc-md-description">
                 <p>If the validator returns something other than the record type, which
 pydantic does not do for a dataclass.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.records.dump_record" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">dump_record</span><span class="p">(</span><span class="n">record</span><span class="p">)</span></code>
+
+<a href="#substrax.records.dump_record" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Write a record as the JSON object <code>read_record</code> reads back into an equal record.</p>
+<p>Nested records become objects, tuples arrays, enums their values, paths and <code>datetime</code>
+their text.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>record</code>
+            </td>
+            <td>
+                  <code><span title="object">object</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A dataclass instance.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="            JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None (substrax.typing.JsonValue)" href="#substrax.typing.JsonValue">JsonValue</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The JSON object, ready for <code>json.dumps</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>record</code> is not a dataclass instance.</p>
               </div>
             </td>
           </tr>
