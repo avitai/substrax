@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-09-20
+
 ### Removed
 
 - The checkpoint format written by substrax 0.1.5 to 0.1.9, and everything that read it:
