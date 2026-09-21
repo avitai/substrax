@@ -1,4 +1,4 @@
-"""Shared helpers for the checkpoint tests: a small model and the format-2 fixtures on disk."""
+"""Shared helpers for the checkpoint tests: a small model and the metadata file on disk."""
 
 from __future__ import annotations
 
@@ -8,37 +8,6 @@ from typing import Any
 
 import jax.numpy as jnp
 from flax import nnx
-
-
-FORMAT2_FIXTURES = Path(__file__).with_name("fixtures") / "format2"
-FIXTURE_STEP = 7
-FORMAT2_LAYOUTS = (
-    "substrax_module",
-    "opifex_module",
-    "artifex_trainer",
-    "pertrax_phase",
-    "diffav_model",
-    "diffav_model_optimizer",
-    "datarax_iterator",
-)
-_MAKE_FIXTURES = (
-    "uv run --no-project --with-requirements scripts/format2_fixture_requirements.txt "
-    "python scripts/make_format2_fixtures.py tests/checkpoint/fixtures/format2"
-)
-
-
-def require_format2_fixtures() -> None:
-    """Fail loudly when the generated format-2 roots are missing, naming the command that writes them.
-
-    The roots are written by the release that produced the format, never committed, and
-    CI writes them before the tests run; a developer runs the same command once.
-    """
-    missing = [layout for layout in FORMAT2_LAYOUTS if not (FORMAT2_FIXTURES / layout).is_dir()]
-    if missing:
-        raise RuntimeError(
-            f"format-2 checkpoint fixtures are missing under {FORMAT2_FIXTURES}: {missing}. "
-            f"Write them first: {_MAKE_FIXTURES}"
-        )
 
 
 class SimpleModel(nnx.Module):

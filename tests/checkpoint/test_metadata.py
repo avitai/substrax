@@ -40,8 +40,8 @@ class TestContract:
     def test_item_names_are_the_five_training_items(self) -> None:
         assert ITEM_NAMES == ("model", "optimizer", "rng", "data_iterator", "extensions")
 
-    def test_the_current_format_is_three(self) -> None:
-        assert CURRENT_FORMAT_VERSION == 3
+    def test_the_current_format_is_one(self) -> None:
+        assert CURRENT_FORMAT_VERSION == 1
         assert FORMAT_NAME == "substrax-checkpoint"
         assert _metadata().format == FORMAT_NAME
         assert _metadata().format_version == CURRENT_FORMAT_VERSION
@@ -87,7 +87,7 @@ class TestRoundTrip:
         metadata = _metadata(producer=None, epoch=None)
         assert CheckpointMetadata.from_dict(metadata.to_dict()) == metadata
 
-    def test_a_newer_format_is_refused(self) -> None:
+    def test_another_version_number_is_refused(self) -> None:
         payload = _metadata().to_dict()
         payload["format_version"] = CURRENT_FORMAT_VERSION + 1
         with pytest.raises(UnsupportedCheckpointError, match=str(CURRENT_FORMAT_VERSION + 1)):
@@ -98,10 +98,6 @@ class TestRoundTrip:
         payload["format"] = "something-else"
         with pytest.raises(UnsupportedCheckpointError, match="something-else"):
             CheckpointMetadata.from_dict(payload)
-
-    def test_a_format_2_record_is_not_a_format_3_record(self) -> None:
-        with pytest.raises(UnsupportedCheckpointError, match=r"2\.0"):
-            CheckpointMetadata.from_dict({"checkpoint_version": "2.0", "step": 7})
 
     @pytest.mark.parametrize(
         ("key", "value", "location"),

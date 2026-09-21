@@ -1,4 +1,4 @@
-"""The format-3 metadata record written beside every checkpoint's items.
+"""The metadata record written beside every checkpoint's items.
 
 A checkpoint is a step holding named items, each an Orbax pytree item, and one JSON
 record describing them: the format and its version, the step and epoch, the item names,
@@ -20,7 +20,7 @@ from substrax.typing import JsonValue, PyTree
 
 
 FORMAT_NAME = "substrax-checkpoint"
-CURRENT_FORMAT_VERSION = 3
+CURRENT_FORMAT_VERSION = 1
 ITEM_NAMES = ("model", "optimizer", "rng", "data_iterator", "extensions")
 LIBRARY_NAMES = ("jax", "flax", "orbax-checkpoint", "optax", "numpy", "substrax")
 
@@ -108,24 +108,20 @@ class CheckpointMetadata:
             The metadata record.
 
         Raises:
-            UnsupportedCheckpointError: If the record is a format-2 sidecar (those go through
-                the migration registry), names another format, or a newer version.
+            UnsupportedCheckpointError: If the record names another format or another
+                version of it.
             pydantic.ValidationError: If a field is missing or holds a value its annotation
                 does not admit.
         """
-        if "checkpoint_version" in payload:
-            raise UnsupportedCheckpointError(
-                f"a format 2 checkpoint (checkpoint_version {payload['checkpoint_version']!r}) "
-                "is read through the migration registry, not as a format 3 record"
-            )
         name = payload.get("format")
         if name != FORMAT_NAME:
             raise UnsupportedCheckpointError(f"not a {FORMAT_NAME} record: format {name!r}")
         version = payload.get("format_version")
-        if isinstance(version, int) and version > CURRENT_FORMAT_VERSION:
+        # A value of another type is left to the record's own validation, which names its path.
+        if isinstance(version, int) and version != CURRENT_FORMAT_VERSION:
             raise UnsupportedCheckpointError(
-                f"checkpoint format {version} is newer than the format {CURRENT_FORMAT_VERSION} "
-                "this substrax reads; upgrade substrax"
+                f"checkpoint format {version!r} is not the format {CURRENT_FORMAT_VERSION} this "
+                "substrax reads"
             )
         return read_record(cls, payload)
 

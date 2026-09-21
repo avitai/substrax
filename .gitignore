@@ -265,6 +265,3 @@ CLAUDE.md
 
 # Private working notes and per-editor assistant configuration. Local only.
 AGENTS.md
-
-# Format-2 checkpoint roots the migration tests read; scripts/make_format2_fixtures.py writes them.
-tests/checkpoint/fixtures/format2/

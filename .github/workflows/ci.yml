@@ -76,7 +76,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev --extra test
 
-      - uses: ./.github/actions/format2-fixtures
 
       - name: Run tests
         run: |
@@ -115,7 +114,6 @@ jobs:
         run: |
           uv run --no-sync python -c "import importlib.metadata as m; v = m.version('orbax-checkpoint'); assert v == '0.11.33', v; print(v)"
 
-      - uses: ./.github/actions/format2-fixtures
 
       - name: Run the checkpoint tests
         run: uv run --no-sync pytest tests/checkpoint --no-cov -p no:randomly

@@ -18,8 +18,7 @@ array to its template's dtype. ``save`` writes every array's dtype as a ``dtypes
 beside the metadata record, so the comparison reads one small file; a checkpoint written without
 it is compared against Orbax's per-array metadata. An item restored without a template is
 compared after it is read, which catches a 64-bit array jax creates at 32 bits while its x64
-mode is off. A format-2 checkpoint (substrax 0.1.5 to 0.1.9) is upgraded in memory through
-the migration registry, split by the producer's :class:`~substrax.checkpoint.legacy.LegacyLayout`.
+mode is off.
 """
 
 from __future__ import annotations
@@ -43,7 +42,6 @@ from substrax.checkpoint.errors import (
     CheckpointNotWrittenError,
     DtypeMismatch,
 )
-from substrax.checkpoint.legacy import LegacyLayout, MODULE_ONLY_FORMAT2
 from substrax.checkpoint.metadata import (
     check_extra,
     check_item_names,
@@ -52,7 +50,6 @@ from substrax.checkpoint.metadata import (
     now_iso,
     Producer,
 )
-from substrax.checkpoint.migration import DEFAULT_REGISTRY, Migration, MigrationRegistry
 from substrax.typing import JsonValue
 
 
@@ -63,7 +60,6 @@ METADATA_ITEM = "metadata"
 # record that best_step reads for every step stays small.
 DTYPES_ITEM = "dtypes"
 ITEM_NODE = "tree"
-_LEGACY_PAYLOAD_ITEM = "model"
 # The two JSON items as Orbax's JsonRestore returns them, checked before they are read.
 _JSON_OBJECT: TypeAdapter[dict[str, JsonValue]] = TypeAdapter(dict[str, JsonValue])
 _RECORDED_DTYPES: TypeAdapter[dict[str, dict[str, str]]] = TypeAdapter(dict[str, dict[str, str]])
@@ -108,15 +104,12 @@ class CheckpointStore(Protocol):
         step: int,
         *,
         templates: Mapping[str, Any] | None = None,
-        legacy_layout: LegacyLayout | None = None,
         cast_dtypes: bool = False,
     ) -> Checkpoint:
         """Read the checkpoint at ``step``, onto ``templates`` where given."""
         ...
 
-    def read_metadata(
-        self, step: int, *, legacy_layout: LegacyLayout | None = None
-    ) -> CheckpointMetadata:
+    def read_metadata(self, step: int) -> CheckpointMetadata:
         """Read only the metadata record of ``step``."""
         ...
 
@@ -223,14 +216,12 @@ class OrbaxCheckpointStore:
         directory: str | Path,
         *,
         max_to_keep: int | None = 5,
-        registry: MigrationRegistry = DEFAULT_REGISTRY,
     ) -> None:
         """Remember where the checkpoints live and how many to keep.
 
         Args:
             directory: Directory the checkpoints are stored under; created on the first save.
             max_to_keep: How many of the newest steps Orbax retains; ``None`` keeps every one.
-            registry: The migrations applied to checkpoints of earlier formats.
 
         Raises:
             ValueError: If ``directory`` is empty or whitespace-only.
@@ -239,7 +230,6 @@ class OrbaxCheckpointStore:
             raise ValueError("Checkpoint directory cannot be empty")
         self.directory = Path(directory).resolve()
         self.max_to_keep = max_to_keep
-        self._registry = registry
         self._manager: Any = None
 
     def __enter__(self) -> Self:
@@ -334,7 +324,7 @@ class OrbaxCheckpointStore:
         extra: Mapping[str, JsonValue] | None = None,
         overwrite: bool = False,
     ) -> Path:
-        """Write ``items`` at ``step`` with a format-3 metadata record and every array's dtype.
+        """Write ``items`` at ``step`` with a metadata record and every array's dtype.
 
         Args:
             step: Non-negative step the checkpoint is addressed by.
@@ -429,39 +419,10 @@ class OrbaxCheckpointStore:
                 x64_disabled=restored and not jax.config.jax_enable_x64,
             )
 
-    def _restore_format2(
-        self,
-        step: int,
-        raw: Mapping[str, JsonValue],
-        migration: Migration,
-        *,
-        templates: Mapping[str, Any] | None,
-        legacy_layout: LegacyLayout | None,
-        cast_dtypes: bool,
-    ) -> Checkpoint:
-        """Read a format-2 payload, compare its dtypes and split it into items."""
-        layout = MODULE_ONLY_FORMAT2 if legacy_layout is None else legacy_layout
-        template = None if templates is None else layout.template_of(templates)
-        if template is not None and not cast_dtypes:
-            self._refuse_dtype_changes(
-                step, {_LEGACY_PAYLOAD_ITEM: (template, 0)}, {}, restored=False
-            )
-        restored = self._open().restore(
-            step,
-            args=ocp.args.Composite(**{_LEGACY_PAYLOAD_ITEM: _restore_arg(template)}),  # type: ignore[reportCallIssue]
-        )
-        payload = restored[_LEGACY_PAYLOAD_ITEM]
-        if template is None and not cast_dtypes:
-            self._refuse_dtype_changes(
-                step, {_LEGACY_PAYLOAD_ITEM: (payload, 0)}, {}, restored=True
-            )
-        items, metadata = migration.upgrade(payload, raw, layout)
-        return Checkpoint(step=step, items=items, metadata=metadata)
-
     def _read_items(
         self, manager: Any, step: int, metadata: CheckpointMetadata, templates: dict[str, Any]
     ) -> Checkpoint:
-        """Read every item of a format-3 checkpoint, each onto its template where given."""
+        """Read every item of the checkpoint, each onto its template where given."""
         restored = manager.restore(
             step,
             args=ocp.args.Composite(  # type: ignore[reportCallIssue]
@@ -471,7 +432,7 @@ class OrbaxCheckpointStore:
         items = {name: restored[name][ITEM_NODE] for name in metadata.items}
         return Checkpoint(step=step, items=items, metadata=metadata)
 
-    def _restore_format3(
+    def _restore_items(
         self,
         manager: Any,
         step: int,
@@ -480,7 +441,7 @@ class OrbaxCheckpointStore:
         templates: dict[str, Any],
         cast_dtypes: bool,
     ) -> Checkpoint:
-        """Read a format-3 checkpoint, comparing every item's dtypes with the saved ones.
+        """Read the checkpoint, comparing every item's dtypes with the saved ones.
 
         Templates are compared before any array is read; items without one after.
         """
@@ -505,12 +466,11 @@ class OrbaxCheckpointStore:
         self._refuse_dtype_changes(step, untemplated, recorded, restored=True)
         return checkpoint
 
-    def restore(  # noqa: DOC502  # raised by _require_step, the format readers and Orbax
+    def restore(  # noqa: DOC502  # raised by _require_step, the format reader and Orbax
         self,
         step: int,
         *,
         templates: Mapping[str, Any] | None = None,
-        legacy_layout: LegacyLayout | None = None,
         cast_dtypes: bool = False,
     ) -> Checkpoint:
         """Read the checkpoint at ``step``.
@@ -520,19 +480,17 @@ class OrbaxCheckpointStore:
             templates: Pytrees by item name; each named item is restored onto its template's
                 leaves (device placement included), and an item without a template comes back
                 as stored. Leaves may be arrays or ``jax.ShapeDtypeStruct``.
-            legacy_layout: How a format-2 payload splits into items; the module-only layout
-                when not given. Read only for a format-2 checkpoint.
             cast_dtypes: Accept an array coming back with another dtype than it was saved with:
                 cast to its template leaf's, or, without a template, a 64-bit array at 32 bits
                 while jax's x64 mode is off. Without it, either is refused.
 
         Returns:
-            The restored items and the checkpoint's metadata, upgraded to the current format.
+            The restored items and the checkpoint's metadata.
 
         Raises:
             CheckpointNotFoundError: If the store holds no checkpoint at ``step``.
-            UnsupportedCheckpointError: If the checkpoint's format is newer than this substrax
-                reads, or is not a substrax checkpoint.
+            UnsupportedCheckpointError: If the checkpoint is in another format than the one
+                this substrax reads, or is not a substrax checkpoint.
             CheckpointDtypeMismatchError: If an array would come back with another dtype than
                 it was saved with and ``cast_dtypes`` is false.
             ValueError: If ``templates`` names an item the checkpoint lacks, or a template's
@@ -540,46 +498,28 @@ class OrbaxCheckpointStore:
         """
         manager = self._require_step(step)
         raw = self._raw_metadata(manager, step)
-        migration = self._registry.for_metadata(raw)
-        if migration is not None:
-            return self._restore_format2(
-                step,
-                raw,
-                migration,
-                templates=templates,
-                legacy_layout=legacy_layout,
-                cast_dtypes=cast_dtypes,
-            )
-
-        return self._restore_format3(
+        return self._restore_items(
             manager, step, raw, templates=dict(templates or {}), cast_dtypes=cast_dtypes
         )
 
     def read_metadata(  # noqa: DOC502  # raised by _require_step and from_dict
-        self, step: int, *, legacy_layout: LegacyLayout | None = None
+        self, step: int
     ) -> CheckpointMetadata:
         """Read the metadata record of ``step`` without its items.
 
-        A format-2 checkpoint has no record of its items, so its payload is read as stored
-        and split by ``legacy_layout`` (the module-only layout when not given) to name them.
-
         Args:
             step: The step to read.
-            legacy_layout: How a format-2 payload splits into items.
 
         Returns:
-            The metadata record, upgraded to the current format.
+            The metadata record.
 
         Raises:
             CheckpointNotFoundError: If the store holds no checkpoint at ``step``.
-            UnsupportedCheckpointError: If the checkpoint's format is newer than this substrax
-                reads, or is not a substrax checkpoint.
+            UnsupportedCheckpointError: If the checkpoint is in another format than the one
+                this substrax reads, or is not a substrax checkpoint.
         """
         manager = self._require_step(step)
-        raw = self._raw_metadata(manager, step)
-        if self._registry.for_metadata(raw) is not None:
-            return self.restore(step, legacy_layout=legacy_layout).metadata
-        return CheckpointMetadata.from_dict(raw)
+        return CheckpointMetadata.from_dict(self._raw_metadata(manager, step))
 
     def list_steps(self) -> list[int]:
         """Every step held, ascending."""

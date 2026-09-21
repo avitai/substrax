@@ -37,10 +37,8 @@ while jax's x64 mode is off, jax creates a 64-bit array at 32 bits, and the erro
 enable x64. `restore(..., cast_dtypes=True)` accepts the cast in either case. Template leaves
 may be arrays or `jax.ShapeDtypeStruct`; a typed PRNG key compares by its `uint32` data, as
 Orbax stores it, and strings and Python numbers are not compared. A checkpoint written without
-the `dtypes` item (format 2, or format 3 from substrax 0.1.10 and 0.1.11) is compared against
-Orbax's per-array metadata instead, which opens every array's store on each restore;
-`upgrade_checkpoints` rewrites such a root with the item, and refuses a step it cannot restore at
-its saved dtypes rather than writing it narrowed.
+the `dtypes` item is compared against Orbax's per-array metadata instead, which opens every
+array's store on each restore.
 
 Writes are strict: an existing step is refused unless `overwrite=True`, a step below the
 latest is refused, and a step Orbax declines raises. Every refusal is a
@@ -48,10 +46,7 @@ latest is refused, and a step Orbax declines raises. Every refusal is a
 created before the first save, and `resolve_checkpoint_dir` picks a run's directory without
 creating it.
 
-A format-2 checkpoint (substrax 0.1.5 to 0.1.9, one `model` payload with a
-`checkpoint_version` sidecar) restores through the migration registry, split into items by a
-`LegacyLayout`: the module-only layout by default, or the producer's own. `upgrade_checkpoints`
-and `python -m substrax.checkpoint upgrade SOURCE DESTINATION` rewrite a root in the current
-format into a new root, never in place.
+A checkpoint whose metadata names another format, another producer or another version number is
+refused with `UnsupportedCheckpointError` naming what it holds, rather than read as this one.
 
 ::: substrax.checkpoint

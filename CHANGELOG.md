@@ -7,6 +7,23 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Removed
+
+- The checkpoint format written by substrax 0.1.5 to 0.1.9, and everything that read it:
+  `LegacyLayout`, `MODULE_ONLY_FORMAT2`, `Migration`, `MigrationRegistry`,
+  `upgrade_checkpoints`, `python -m substrax.checkpoint upgrade`, the `legacy_layout` argument
+  of `CheckpointStore.restore` and `read_metadata`, and the `registry` argument of
+  `OrbaxCheckpointStore`. A checkpoint whose metadata does not name this format is refused with
+  `UnsupportedCheckpointError` naming what it holds.
+- The fixtures that format needed: the generator, the pinned environment that installed an old
+  substrax to write them, and the CI step that ran it before the tests.
+
+### Changed
+
+- `CURRENT_FORMAT_VERSION` is 1. One format is read and written, so it carries the first
+  number; a record naming any other version is refused. A record whose `format_version` is not
+  an integer is left to the record's own validation, which names the field.
+
 ## [0.1.15] - 2026-09-20
 
 ### Added
