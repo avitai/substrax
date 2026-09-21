@@ -1,4 +1,4 @@
-"""The format-3 checkpoint store: named items, one metadata record, strict writes.
+"""The checkpoint store: named items, one metadata record, strict writes.
 
 A checkpoint is a step holding named items (``model``, ``optimizer``, ``rng``,
 ``data_iterator``, ``extensions``), each an Orbax ``PyTreeSave`` item, beside one

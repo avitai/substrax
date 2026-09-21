@@ -1,4 +1,4 @@
-"""The format-3 metadata record: fixed item names, reserved keys, a version the reader checks."""
+"""The metadata record: fixed item names, reserved keys, a version the reader checks."""
 
 from __future__ import annotations
 
