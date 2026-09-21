@@ -21,26 +21,16 @@ import jax.numpy as jnp
 import numpy as np
 import orbax.checkpoint as ocp
 import pytest
-from _helpers import (
-    FIXTURE_STEP,
-    FORMAT2_FIXTURES,
-    raw_metadata,
-    require_format2_fixtures,
-    SimpleModel,
-)
+from _helpers import raw_metadata, SimpleModel
 from flax import nnx
 
 from substrax.checkpoint import (
     CheckpointDtypeMismatchError,
     DtypeMismatch,
     OrbaxCheckpointStore,
-    upgrade_checkpoints,
 )
 from substrax.runtime import JaxRuntime
 from substrax.testing import run_python
-
-
-require_format2_fixtures()
 
 
 def _saved(tmp_path: Path, items: dict[str, Any]) -> OrbaxCheckpointStore:
@@ -304,31 +294,6 @@ def test_an_item_without_a_template_is_not_compared(tmp_path: Path) -> None:
     assert set(checkpoint.items) == {"model", "extensions"}
 
 
-class TestFormat2:
-    """The format-2 payload is one Orbax item; its template is the producer layout's."""
-
-    def test_a_mismatched_template_is_refused(self) -> None:
-        store = OrbaxCheckpointStore(FORMAT2_FIXTURES / "substrax_module")
-        template = nnx.state(nnx.Linear(4, 2, rngs=nnx.Rngs(0), param_dtype=jnp.bfloat16))
-
-        with pytest.raises(CheckpointDtypeMismatchError) as raised:
-            store.restore(FIXTURE_STEP, templates={"model": template})
-
-        assert {mismatch.leaf for mismatch in raised.value.mismatches} == {
-            "bias/value",
-            "kernel/value",
-        }
-        assert {mismatch.item for mismatch in raised.value.mismatches} == {"model"}
-
-    def test_cast_dtypes_casts_the_payload(self) -> None:
-        store = OrbaxCheckpointStore(FORMAT2_FIXTURES / "substrax_module")
-        template = nnx.state(nnx.Linear(4, 2, rngs=nnx.Rngs(0), param_dtype=jnp.bfloat16))
-
-        checkpoint = store.restore(FIXTURE_STEP, templates={"model": template}, cast_dtypes=True)
-
-        assert checkpoint.items["model"]["kernel"][...].dtype == jnp.bfloat16
-
-
 _WRITE_WITH_X64 = """
 import sys
 import jax.numpy as jnp
@@ -391,20 +356,3 @@ class TestWithoutTemplates:
 
         with pytest.raises(CheckpointDtypeMismatchError, match="table"):
             store.restore(1)
-
-    def test_an_upgrade_never_writes_the_32_bit_copy(self, tmp_path: Path, x64_root: Path) -> None:
-        destination = tmp_path / "upgraded"
-
-        with pytest.raises(CheckpointDtypeMismatchError):
-            upgrade_checkpoints(x64_root, destination)
-
-        assert OrbaxCheckpointStore(destination).list_steps() == []
-
-    @pytest.mark.x64
-    def test_an_upgrade_with_x64_keeps_64_bits(self, tmp_path: Path, x64_root: Path) -> None:
-        destination = tmp_path / "upgraded"
-
-        upgrade_checkpoints(x64_root, destination)
-
-        recorded = _recorded_dtypes(OrbaxCheckpointStore(destination), 1)
-        assert recorded["extensions"] == {"host": "float64", "table": "float64"}

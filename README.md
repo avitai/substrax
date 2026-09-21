@@ -256,10 +256,9 @@ with OrbaxCheckpointStore("checkpoints/demo", max_to_keep=3) as store:
 Writes are strict: an existing step is refused unless `overwrite=True`, a step below the
 latest is refused, and each refusal is a `CheckpointNotWrittenError` naming the reason. A
 template that does not fit the checkpoint's arrays raises `ValueError`, which is how a store
-written for another architecture is refused rather than loaded. Checkpoints written by
-substrax 0.1.5 to 0.1.9 restore through the migration registry, and
-`python -m substrax.checkpoint upgrade SOURCE DESTINATION` rewrites such a root in the current
-format.
+written for another architecture is refused rather than loaded. A checkpoint whose metadata
+names another format is refused with `UnsupportedCheckpointError` rather than read as this
+one.
 
 ### Callbacks
 
