@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+import pytest
 
 from substrax.optim import with_strong_state_types
 from substrax.testing import TraceCounter
@@ -58,23 +59,31 @@ def test_the_adapted_state_holds_the_same_values_and_dtypes() -> None:
         np.testing.assert_array_equal(strong, original)
 
 
-def test_a_jitted_update_compiles_once() -> None:
-    solver = with_strong_state_types(optax.lbfgs())
-    counter = TraceCounter()
+@pytest.mark.parametrize(
+    ("param_dtype", "x64"),
+    [(jnp.float32, False), (jnp.float32, True), (jnp.float64, True)],
+)
+def test_a_jitted_update_compiles_once(param_dtype: jnp.dtype, x64: bool) -> None:
+    # x64 changes the default dtypes optax's weakly typed counters take; the state must keep
+    # its types in every precision configuration, not only the default one.
+    with jax.enable_x64(x64):
+        solver = with_strong_state_types(optax.lbfgs())
+        counter = TraceCounter()
 
-    def step(params: jax.Array, state: optax.OptState) -> tuple[jax.Array, optax.OptState]:
-        grad = jax.grad(_value)(params)
-        updates, state = solver.update(
-            grad, state, params, value=_value(params), grad=grad, value_fn=_value
-        )
-        return params + _array(updates), state
+        def step(params: jax.Array, state: optax.OptState) -> tuple[jax.Array, optax.OptState]:
+            grad = jax.grad(_value)(params)
+            updates, state = solver.update(
+                grad, state, params, value=_value(params), grad=grad, value_fn=_value
+            )
+            return params + _array(updates), state
 
-    update = jax.jit(counter.wrap(step))
-    params, state = PARAMS, solver.init(PARAMS)
+        update = jax.jit(counter.wrap(step))
+        params = jnp.asarray([1.0, -2.0, 0.5], dtype=param_dtype)
+        state = solver.init(params)
 
-    with counter.expect(new_traces=1):
-        for _ in range(3):
-            params, state = update(params, state)
+        with counter.expect(new_traces=1):
+            for _ in range(3):
+                params, state = update(params, state)
 
 
 def test_the_updates_are_the_wrapped_transformations() -> None:
