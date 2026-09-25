@@ -602,6 +602,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#substrax.optim.switch_at" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;switch_at
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.update_with_line_search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;update_with_line_search
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.with_strong_state_types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;with_strong_state_types
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1018,6 +1051,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#substrax.optim.switch_at" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;switch_at
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.update_with_line_search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;update_with_line_search
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.optim.with_strong_state_types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;with_strong_state_types
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1172,7 +1238,10 @@ with one filter restores into an optimizer built with another.</p>
 <code>create_optimizer</code> build it, passing a schedule as the base optimizer's learning rate and
 the weight-decay filter as a static mask; <code>current_learning_rate</code> reads the rate the last
 update applied. <code>EXCLUDE_BIAS_AND_NORM_SCALE</code> is the filter that decays neither biases nor
-normalisation scales.</p>
+normalisation scales. <code>update_with_line_search</code> steps an optimizer that searches along its
+direction (<code>optax.lbfgs</code>); <code>switch_at</code> hands over from one transformation to another after a
+fixed number of updates; <code>with_strong_state_types</code> keeps a transformation's state types fixed
+across updates, so a jitted step compiles once.</p>
 
 
 
@@ -2084,6 +2153,372 @@ leaves it unchanged, because optax's count does not advance.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the optimizer's state holds no injected learning rate.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.switch_at" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">switch_at</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">step</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.switch_at" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The <code>first</code> transformation for <code>step</code> updates, then <code>second</code>.</p>
+<p>Each runs under <code>optax.conditionally_transform</code> on the update count, so the switch is a
+branch of the traced step rather than a Python decision, and each keeps its own state from
+initialisation. Extra arguments reach a transformation that takes them (<code>optax.lbfgs</code>'s
+<code>value</code>, <code>grad</code> and <code>value_fn</code>).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>first</code>
+            </td>
+            <td>
+                  <code><span title="optax.GradientTransformation">GradientTransformation</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The transformation for the first <code>step</code> updates, such as <code>optax.adam</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>second</code>
+            </td>
+            <td>
+                  <code><span title="optax.GradientTransformation">GradientTransformation</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The transformation from update <code>step</code> on, such as <code>optax.lbfgs()</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>step</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of updates <code>first</code> makes.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="optax.GradientTransformationExtraArgs">GradientTransformationExtraArgs</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The combined transformation, its initial state strongly typed.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>step</code> is not positive.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.update_with_line_search" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">update_with_line_search</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">objective_changed</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.update_with_line_search" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Update <code>model</code> with an optimizer that evaluates the loss along its search direction.</p>
+<p>The loss, its gradient and the loss as a function of the <code>optimizer.wrt</code> parameters are
+passed to <code>optimizer.update</code> as <code>value</code>, <code>grad</code> and <code>value_fn</code>, the extra arguments
+<code>optax.lbfgs</code> and any transformation built on it read. When <code>objective_changed</code> is false
+and the state holds the value and gradient the previous line search computed at the current
+parameters, those are used; otherwise they are evaluated. <code>objective_changed</code> is traced,
+so either answer runs the same compiled step. Under <code>vmap</code> (an ensemble of models) the
+choice depends on each member's stored value, and a <code>lax.cond</code> over a batched predicate
+runs both branches, so each step evaluates the loss as it would with <code>objective_changed</code>
+true: the result is the same and the saving is lost. The loss is taken in the parameters' dtype:
+optax's line search keeps its values in that dtype, and a wider loss (a float32 model's
+loss computed in float64 under x64) would make the branches of its <code>lax.cond</code> disagree.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><span title="substrax.optim.line_search.update_with_line_search[M]">M</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model; updated in place.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>optimizer</code>
+            </td>
+            <td>
+                  <code><span title="flax.nnx.Optimizer">Optimizer</span>[<span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An <code>nnx.Optimizer</code> over <code>model</code> whose transformation takes the extra
+arguments and whose state is strongly typed, such as
+<code>with_strong_state_types(optax.lbfgs())</code> or a <code>switch_at</code> ending in it.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>loss_fn</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="substrax.optim.line_search.update_with_line_search[M]">M</span>], <span title="jax.Array">Array</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The scalar loss of the model.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>objective_changed</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | <span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether <code>loss_fn</code> is a different objective from the previous
+call's (a new batch, resampled points), or the parameters moved outside the line
+search since it; <code>False</code> only for the same objective at the point it accepted.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="jax.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The loss before the update, in the parameters' dtype.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the parameters are of more than one floating dtype, which leaves the
+line search no single dtype to work in, or if the optimizer state has weakly typed
+leaves, which would compile the step again once its first update types them.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="substrax.optim.with_strong_state_types" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">with_strong_state_types</span><span class="p">(</span><span class="n">transformation</span><span class="p">)</span></code>
+
+<a href="#substrax.optim.with_strong_state_types" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p><code>transformation</code> with every weakly typed leaf of its initial state strongly typed.</p>
+<p>The values and dtypes are unchanged; only the weak type goes, so the state a jitted step
+receives has the types its update returns. Updates are <code>transformation</code>'s own, extra
+arguments included.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>transformation</code>
+            </td>
+            <td>
+                  <code><span title="optax.GradientTransformation">GradientTransformation</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The optax transformation, such as <code>optax.lbfgs()</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="optax.GradientTransformationExtraArgs">GradientTransformationExtraArgs</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The transformation with a strongly typed initial state.</p>
               </div>
             </td>
           </tr>

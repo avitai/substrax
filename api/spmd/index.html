@@ -770,17 +770,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#substrax.spmd.reduce_gradient_tree" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;reduce_gradient_tree
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#substrax.spmd.spmd_train_step" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1095,17 +1084,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#substrax.spmd.reduce_gradient_tree" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;reduce_gradient_tree
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#substrax.spmd.spmd_train_step" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1228,7 +1206,16 @@ under <code>jax.set_mesh</code>. The collectives (<code>reduce_mean</code>, <cod
 
     <div class="doc doc-contents first">
 
-        <p>Data-parallel placement, training steps, gradient reduction and collectives.</p>
+        <p>Data-parallel placement, the SPMD training step and collectives.</p>
+<p>A data-parallel gradient needs no reduction after differentiating. Under <code>jax.jit</code> with the
+batch sharded over a mesh axis, the gradient of the batch's loss is already the full gradient:
+the compiler inserts the all-reduce (<code>spmd_train_step</code> relies on this). Inside
+<code>jax.shard_map</code> each device sees its shard, and the loss is averaged over the axis before
+differentiating, <code>jax.grad(lambda w: jax.lax.pmean(loss(w, shard), axis))</code>; the gradient of a
+replicated parameter then comes back as the full one. Averaging the gradient afterwards is wrong
+by the axis size, because the gradient of a replicated parameter already arrives summed over
+the axis. <code>reduce_mean_collective</code> and <code>reduce_sum_collective</code> average or sum per-device
+metrics inside <code>shard_map</code>.</p>
 
 
 
@@ -2177,119 +2164,6 @@ such as a string, is returned as it is. Call it on the host batches a loader yie
     <div class="doc doc-contents ">
 
         <p>Shard a Flax NNX state tree using current NNX sharding helpers.</p>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="substrax.spmd.reduce_gradient_tree" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">reduce_gradient_tree</span><span class="p">(</span><span class="n">gradients</span><span class="p">,</span> <span class="n">reduce_type</span><span class="o">=</span><span class="s1">'mean'</span><span class="p">)</span></code>
-
-<a href="#substrax.spmd.reduce_gradient_tree" class="headerlink" title="Permanent link">¤</a></h3>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Reduce gradients using standard JAX operations on global arrays.</p>
-<p>Works in SPMD contexts (inside nnx.jit with mesh). The XLA compiler
-handles cross-device communication automatically.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>gradients</code>
-            </td>
-            <td>
-                  <code><span title="typing.Any">Any</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The gradients to reduce (global sharded arrays).</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>reduce_type</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The type of reduction ("mean" or "sum").</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;mean&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Any">Any</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The reduced gradients.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If reduce_type is not "mean" or "sum".</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
 
     </div>
