@@ -17,7 +17,6 @@ from substrax.mesh import DeviceMeshManager
 from substrax.spmd import (
     create_data_parallel_sharding,
     place_batch_on_shards,
-    reduce_gradient_tree,
     spmd_train_step,
 )
 
@@ -163,26 +162,87 @@ class TestShardBatch:
         assert result["targets"].shape == (4,)
 
 
-class TestReduceGradients:
-    """Tests for reduce_gradient_tree (SPMD-compatible)."""
+class TestDataParallelGradients:
+    """Where a data-parallel gradient is reduced: by the compiler under jit, on the loss in shard_map.
 
-    def test_mean_reduction(self) -> None:
-        """Test mean reduction on a gradient pytree."""
-        grads = {"w": jnp.array([1.0, 2.0, 3.0]), "b": jnp.array([4.0, 6.0])}
-        result = reduce_gradient_tree(grads, "mean")
-        assert float(result["w"]) == 2.0
-        assert float(result["b"]) == 5.0
+    There is no gradient to reduce after differentiating: under ``jax.jit`` the gradient of a
+    sharded batch's loss is already the full one, and inside ``jax.shard_map`` the gradient of a
+    replicated parameter comes back summed over the axis, so averaging it afterwards leaves it
+    wrong by the axis size. The loss is averaged before differentiating instead.
+    """
 
-    def test_sum_reduction(self) -> None:
-        """Test sum reduction on a gradient pytree."""
-        grads = {"w": jnp.array([1.0, 2.0, 3.0])}
-        result = reduce_gradient_tree(grads, "sum")
-        assert float(result["w"]) == 6.0
+    @staticmethod
+    def _problem() -> tuple[jax.Array, dict[str, jax.Array]]:
+        weights = jnp.arange(12.0).reshape(3, 4) / 10
+        batch = {
+            "x": jax.random.normal(jax.random.key(0), (64, 3)),
+            "y": jax.random.normal(jax.random.key(1), (64, 4)),
+        }
+        return weights, batch
 
-    def test_unsupported_reduction_raises(self) -> None:
-        """Test that unsupported reduce_type raises ValueError."""
-        with pytest.raises(ValueError, match="Unsupported reduce_type"):
-            reduce_gradient_tree({"w": jnp.array([1.0])}, "invalid")
+    @staticmethod
+    def _loss(weights: jax.Array, batch: dict[str, jax.Array]) -> jax.Array:
+        return jnp.mean((batch["x"] @ weights - batch["y"]) ** 2)
+
+    @staticmethod
+    def _assert_gradients_match(actual: jax.Array, expected: jax.Array) -> None:
+        # A sharded gradient sums its terms in another order, so it differs from the
+        # single-device one by round-off at the array's scale: measured 0.74, 0.74 and 1.49 ULP
+        # of the largest entry on 2, 4 and 8 devices (jit and shard_map alike). A relative check
+        # fails on entries near zero; four ULP of the largest entry bounds it.
+        atol = 4 * float(jnp.finfo(expected.dtype).eps) * float(jnp.max(jnp.abs(expected)))
+        np.testing.assert_allclose(actual, expected, rtol=0, atol=atol)
+
+    @pytest.mark.devices(2)
+    def test_under_jit_the_gradient_of_a_sharded_batch_is_already_the_full_one(self) -> None:
+        weights, batch = self._problem()
+        mesh = DeviceMeshManager.create_data_parallel_mesh()
+        sharded = place_batch_on_shards(batch, create_data_parallel_sharding(mesh))  # type: ignore[reportArgumentType]
+
+        gradient = jax.jit(jax.grad(self._loss))(weights, sharded)
+
+        self._assert_gradients_match(gradient, jax.grad(self._loss)(weights, batch))
+
+    @pytest.mark.devices(2)
+    def test_in_shard_map_the_loss_is_averaged_before_differentiating(self) -> None:
+        weights, batch = self._problem()
+        mesh = DeviceMeshManager.create_data_parallel_mesh()
+        spec = jax.sharding.PartitionSpec("data")
+
+        def per_shard(w: jax.Array, shard: dict[str, jax.Array]) -> jax.Array:
+            return jax.grad(lambda w: jax.lax.pmean(self._loss(w, shard), "data"))(w)
+
+        gradient = jax.jit(
+            jax.shard_map(
+                per_shard,
+                mesh=mesh,
+                in_specs=(jax.sharding.PartitionSpec(), {"x": spec, "y": spec}),
+                out_specs=jax.sharding.PartitionSpec(),
+            )
+        )(weights, batch)
+
+        self._assert_gradients_match(gradient, jax.grad(self._loss)(weights, batch))
+
+    @pytest.mark.devices(2)
+    def test_in_shard_map_a_gradient_averaged_afterwards_is_off_by_the_axis_size(self) -> None:
+        weights, batch = self._problem()
+        mesh = DeviceMeshManager.create_data_parallel_mesh()
+        spec = jax.sharding.PartitionSpec("data")
+
+        def per_shard(w: jax.Array, shard: dict[str, jax.Array]) -> jax.Array:
+            return jax.lax.pmean(jax.grad(self._loss)(w, shard), "data")
+
+        gradient = jax.jit(
+            jax.shard_map(
+                per_shard,
+                mesh=mesh,
+                in_specs=(jax.sharding.PartitionSpec(), {"x": spec, "y": spec}),
+                out_specs=jax.sharding.PartitionSpec(),
+            )
+        )(weights, batch)
+
+        full = jax.grad(self._loss)(weights, batch)
+        self._assert_gradients_match(gradient, mesh.shape["data"] * full)
 
 
 class TestSpmdTrainStep:
