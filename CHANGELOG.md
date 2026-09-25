@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-09-25
+
 ### Added
 
 - `update_with_line_search(model, optimizer, loss_fn, *, objective_changed)` steps an
