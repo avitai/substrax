@@ -223,8 +223,10 @@ rules = data_parallel_rules()                              # MeshRules for nnx.s
 
 The strategies in `substrax.mesh.strategies` (`DataParallelStrategy`, `FSDPStrategy`,
 `TensorParallelStrategy`, `PipelineParallelStrategy`, `MultiDimensionalStrategy`) build
-partition specs for a `ParallelismConfig`; `substrax.spmd` adds `reduce_gradient_tree`,
-`all_gather` and the `reduce_*` collectives.
+partition specs for a `ParallelismConfig`; `substrax.spmd` adds `spmd_train_step`, `all_gather`
+and the `reduce_*` collectives. A data-parallel gradient is reduced by the compiler under
+`jax.jit`, and inside `jax.shard_map` by averaging the loss before differentiating; averaging the
+gradient afterwards is wrong by the axis size (see `substrax.spmd`).
 
 ### Checkpoint
 

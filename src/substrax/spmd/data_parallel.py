@@ -9,7 +9,6 @@ from collections.abc import Callable
 from typing import Any
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 from flax import nnx
 from jax.sharding import Mesh, NamedSharding, PartitionSpec, Sharding
@@ -129,26 +128,3 @@ def place_nnx_state_on_shards(
             value = jax.device_put(value, sharding)
         sharded_flat.append((path, variable.replace(value=value)))
     return nnx.from_flat_state(sharded_flat)
-
-
-def reduce_gradient_tree(gradients: Any, reduce_type: str = "mean") -> Any:
-    """Reduce gradients using standard JAX operations on global arrays.
-
-    Works in SPMD contexts (inside nnx.jit with mesh). The XLA compiler
-    handles cross-device communication automatically.
-
-    Args:
-        gradients: The gradients to reduce (global sharded arrays).
-        reduce_type: The type of reduction ("mean" or "sum").
-
-    Returns:
-        The reduced gradients.
-
-    Raises:
-        ValueError: If reduce_type is not "mean" or "sum".
-    """
-    if reduce_type.lower() == "mean":
-        return jax.tree.map(jnp.mean, gradients)
-    if reduce_type.lower() == "sum":
-        return jax.tree.map(jnp.sum, gradients)
-    raise ValueError(f"Unsupported reduce_type: {reduce_type}")

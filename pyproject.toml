@@ -299,6 +299,10 @@ minversion = "9.0"
 testpaths = ["tests"]
 
 [tool.pytest_env]
+# Eight emulated CPU devices (jax's `jax_num_cpu_devices`, as its sharding guides set it), so the
+# multi-device tests (@pytest.mark.devices) run everywhere instead of skipping on a one-device
+# machine; jax reads it at its first operation.
+JAX_NUM_CPU_DEVICES = {skip_if_set = true, value = "8"}
 JAX_PLATFORMS = {skip_if_set = true, value = "cpu"}
 MPLBACKEND = {skip_if_set = true, value = "Agg"}
 TF_CPP_MIN_LOG_LEVEL = {skip_if_set = true, value = "1"}

@@ -7,6 +7,39 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `update_with_line_search(model, optimizer, loss_fn, *, objective_changed)` steps an
+  `nnx.Optimizer` whose transformation searches along its direction (`optax.lbfgs`), passing the
+  `value`, `grad` and `value_fn` it reads. When `objective_changed` is false it uses the value and
+  gradient the previous line search computed at the accepted point, saving one loss evaluation
+  per step; when true (a new batch, resampled points) it evaluates them. The flag is required,
+  so a changed objective can never silently reuse the previous one's values, and it is traced,
+  so both answers run one compiled step. It runs under `nnx.jit`, `nnx.fori_loop` and
+  `nnx.vmap`; under `vmap` the reuse predicate is batched, a batched `lax.cond` runs both
+  branches, and the saving is lost (the result is unchanged).
+- `switch_at(first, second, *, step)`: one transformation for `step` updates, then another, as a
+  branch of the traced step (the Adam-then-L-BFGS schedule of Rathore et al., ICML 2024).
+- `with_strong_state_types(transformation)` gives every weakly typed leaf of a transformation's
+  initial state its own dtype explicitly. `optax.lbfgs` initialises three line-search counters
+  weakly typed and its first update types them, so a step jitted per call compiled twice
+  (optax PR #1108, closed unmerged). `switch_at` applies it; `update_with_line_search` refuses a
+  weakly typed state and names the adapter.
+
+### Removed
+
+- `substrax.spmd.reduce_gradient_tree`. It averaged each gradient array to a scalar. No
+  reduction is right after differentiating: under `jax.jit` the gradient of a sharded batch's
+  loss is already the full one, and inside `jax.shard_map` the loss is averaged before
+  differentiating, since a replicated parameter's gradient arrives summed over the axis and
+  averaging it afterwards is wrong by the axis size. `substrax.spmd` documents both.
+
+### Fixed
+
+- The multi-device tests run: the test environment emulates eight CPU devices
+  (`JAX_NUM_CPU_DEVICES`), so the `@pytest.mark.devices(2)` data-parallel tests no longer skip on
+  a one-device machine and in CI.
+
 ## [0.1.16] - 2026-09-20
 
 ### Removed
