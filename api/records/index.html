@@ -625,6 +625,45 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#substrax.typing.Checkpointable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Checkpointable
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Checkpointable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.typing.Checkpointable.get_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.typing.Checkpointable.set_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -949,6 +988,45 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.typing.Checkpointable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Checkpointable
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Checkpointable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#substrax.typing.Checkpointable.get_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#substrax.typing.Checkpointable.set_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1476,6 +1554,94 @@ their text.</p>
 
 </div>
 
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="substrax.typing.Checkpointable" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>Checkpointable</code>
+
+
+<a href="#substrax.typing.Checkpointable" class="headerlink" title="Permanent link">¤</a></h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="typing.Protocol">Protocol</span></code></p>
+
+
+
+        <p>An object a checkpoint restores: it hands over its state and takes it back.</p>
+<p>The state is a dictionary a checkpoint store can write (arrays and plain-Python leaves),
+and <code>set_state</code> on an object built the same way continues exactly where the saved one
+stood. A training loop checkpoints its data iterator, callbacks and extensions through
+this protocol without importing their packages.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.typing.Checkpointable.get_state" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_state</span><span class="p">()</span></code>
+
+<a href="#substrax.typing.Checkpointable.get_state" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The state to checkpoint.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="substrax.typing.Checkpointable.set_state" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">set_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span></code>
+
+<a href="#substrax.typing.Checkpointable.set_state" class="headerlink" title="Permanent link">¤</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Take back a state <code>get_state</code> returned.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
 
 
 
