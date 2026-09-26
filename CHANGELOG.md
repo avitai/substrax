@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-09-25
+
 ### Added
 
 - `substrax.typing.Checkpointable`, the protocol of an object a checkpoint restores: `get_state()`
