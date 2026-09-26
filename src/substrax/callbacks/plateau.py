@@ -11,6 +11,9 @@ improvement). Learning-rate plateau decay is ``optax.contrib.reduce_on_plateau``
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
+
+from substrax.callbacks._state import check_state_keys
 
 
 class PlateauMode(StrEnum):
@@ -77,6 +80,24 @@ class BestMetricTracker:
     def num_bad_epochs(self) -> int:
         """Consecutive updates without a ``min_delta`` improvement."""
         return self._num_bad_epochs
+
+    def get_state(self) -> dict[str, Any]:
+        """The best value and the stagnation count, for a checkpoint.
+
+        Returns:
+            ``best`` (infinite before the first value) and ``num_bad_epochs``.
+        """
+        return {"best": self._best, "num_bad_epochs": self._num_bad_epochs}
+
+    def set_state(self, state: dict[str, Any]) -> None:
+        """Take back a state :meth:`get_state` returned.
+
+        Args:
+            state: The saved best value and stagnation count.
+        """
+        check_state_keys(state, ("best", "num_bad_epochs"), owner=type(self).__name__)
+        self._best = float(state["best"])
+        self._num_bad_epochs = int(state["num_bad_epochs"])
 
     def _reset_stagnation(self) -> None:
         """Clear the stagnation counter (e.g. after an LR reduction)."""

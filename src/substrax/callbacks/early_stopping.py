@@ -1,8 +1,8 @@
 """Early stopping callback driven by epoch logs.
 
 Monitors a metric in the epoch logs and stops training when it stops improving, reaches a
-goal, diverges, or becomes non-finite. The best-so-far and stagnation bookkeeping is
-``BestMetricTracker``; this class adds the log lookup, the thresholds and the epoch record.
+goal, diverges, or becomes non-finite. The patience rule is ``EarlyStopping``'s; this class adds
+the log lookup, the thresholds, the non-finite check and the epoch record.
 """
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ import math
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from substrax.callbacks._state import check_state_keys
 from substrax.callbacks.base import BaseCallback, TrainerLike
-from substrax.callbacks.plateau import BestMetricTracker, PlateauMode
+from substrax.callbacks.plateau import EarlyStopping, PlateauMode
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -37,11 +38,20 @@ class EarlyStoppingConfig:
     stopping_threshold: float | None = None
     divergence_threshold: float | None = None
 
+    def __post_init__(self) -> None:
+        """Refuse a patience below one, which would stop on an improving epoch.
+
+        Raises:
+            ValueError: If ``patience`` is below one.
+        """
+        if self.patience < 1:
+            raise ValueError(f"patience must be >= 1, got {self.patience}.")
+
 
 class EarlyStoppingCallback(BaseCallback):
     """Stop training when a monitored metric stops improving."""
 
-    __slots__ = ("_stopped_epoch", "_tracker", "config")
+    __slots__ = ("_stopped_epoch", "_stopper", "config")
 
     def __init__(self, config: EarlyStoppingConfig) -> None:
         """Initialize early stopping callback.
@@ -50,18 +60,20 @@ class EarlyStoppingCallback(BaseCallback):
             config: Early stopping configuration.
         """
         self.config = config
-        self._tracker = BestMetricTracker(mode=config.mode, min_delta=config.min_delta)
+        self._stopper = EarlyStopping(
+            patience=config.patience, min_delta=config.min_delta, mode=config.mode
+        )
         self._stopped_epoch: int | None = None
 
     @property
     def wait_count(self) -> int:
         """Epochs since the last improvement."""
-        return self._tracker.num_bad_epochs
+        return self._stopper.num_bad_epochs
 
     @property
     def best_score(self) -> float | None:
         """The best monitored value so far, or ``None`` before the metric first appears."""
-        best = self._tracker.best
+        best = self._stopper.best
         return None if math.isinf(best) else best
 
     @property
@@ -89,9 +101,29 @@ class EarlyStoppingCallback(BaseCallback):
         if self._stops_immediately(current):
             self._stopped_epoch = epoch
             return
-        self._tracker.register(current)
-        if self._tracker.num_bad_epochs >= self.config.patience:
+        self._stopper.update(current)
+        if self._stopper.should_stop:
             self._stopped_epoch = epoch
+
+    def get_state(self) -> dict[str, Any]:
+        """The stopper's state and the stopping epoch, for a checkpoint.
+
+        Returns:
+            ``stopper`` (see :meth:`BestMetricTracker.get_state`) and ``stopped_epoch``
+            (``None`` while training continues).
+        """
+        return {"stopper": self._stopper.get_state(), "stopped_epoch": self._stopped_epoch}
+
+    def set_state(self, state: dict[str, Any]) -> None:
+        """Take back a state :meth:`get_state` returned.
+
+        Args:
+            state: The saved stopper state and stopping epoch.
+        """
+        check_state_keys(state, ("stopper", "stopped_epoch"), owner=type(self).__name__)
+        self._stopper.set_state(state["stopper"])
+        stopped = state["stopped_epoch"]
+        self._stopped_epoch = None if stopped is None else int(stopped)
 
     def _stops_immediately(self, current: float) -> bool:
         """Whether ``current`` ends training before patience is considered."""
@@ -104,7 +136,7 @@ class EarlyStoppingCallback(BaseCallback):
         threshold = self.config.stopping_threshold
         if threshold is None:
             return False
-        if self._tracker.mode is PlateauMode.MIN:
+        if self._stopper.mode is PlateauMode.MIN:
             return current <= threshold
         return current >= threshold
 
@@ -112,5 +144,5 @@ class EarlyStoppingCallback(BaseCallback):
         """Whether ``current`` exceeds the divergence threshold in min mode."""
         threshold = self.config.divergence_threshold
         return (
-            threshold is not None and self._tracker.mode is PlateauMode.MIN and current > threshold
+            threshold is not None and self._stopper.mode is PlateauMode.MIN and current > threshold
         )

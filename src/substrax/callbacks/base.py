@@ -7,6 +7,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from flax import nnx
 
+from substrax.typing import Checkpointable
+
 
 @runtime_checkable
 class TrainerLike(Protocol):
@@ -116,6 +118,43 @@ class CallbackList:
     def __iter__(self) -> Iterator[TrainingCallback]:
         """Iterate over the callbacks in dispatch order."""
         return iter(self._callbacks)
+
+    def _checkpointable(self) -> dict[str, Checkpointable]:
+        """The stateful callbacks, by their position in dispatch order."""
+        return {
+            str(index): callback
+            for index, callback in enumerate(self._callbacks)
+            if isinstance(callback, Checkpointable)
+        }
+
+    def get_state(self) -> dict[str, Any]:
+        """Every stateful callback's state, for a checkpoint.
+
+        Returns:
+            Each :class:`~substrax.typing.Checkpointable` callback's state under its position
+            in dispatch order; callbacks without state are skipped.
+        """
+        checkpointable = self._checkpointable()
+        return {position: callback.get_state() for position, callback in checkpointable.items()}
+
+    def set_state(self, state: dict[str, Any]) -> None:
+        """Take back a state :meth:`get_state` returned, into a list built the same way.
+
+        Args:
+            state: Each stateful callback's saved state, by position.
+
+        Raises:
+            ValueError: If the stateful callbacks do not stand at the saved positions.
+        """
+        checkpointable = self._checkpointable()
+        if set(state) != set(checkpointable):
+            msg = (
+                f"the saved state holds stateful callbacks at positions {sorted(state)}, "
+                f"this list has them at {sorted(checkpointable)}"
+            )
+            raise ValueError(msg)
+        for position, callback in checkpointable.items():
+            callback.set_state(state[position])
 
     def on_train_begin(self, trainer: TrainerLike) -> None:
         """Dispatch ``on_train_begin``."""

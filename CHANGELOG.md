@@ -7,6 +7,27 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.typing.Checkpointable`, the protocol of an object a checkpoint restores: `get_state()`
+  returns a dictionary a checkpoint store writes and `set_state(state)` takes it back. A training
+  loop checkpoints its data iterator (datarax's `Pipeline` already satisfies it), callbacks and
+  extensions through it without importing their packages.
+- `BestMetricTracker`, `EarlyStopping`, `EarlyStoppingCallback` and `CallbackList` are
+  `Checkpointable`, so a resumed run stops at the epoch the uninterrupted run would have: the best
+  value, the epochs without improvement and the stopping epoch survive a checkpoint.
+  `CallbackList` keeps each stateful callback's state under its position and refuses a state
+  saved from a list whose stateful callbacks stood elsewhere; a state with missing or unknown
+  keys is refused.
+
+### Changed
+
+- `EarlyStoppingConfig` refuses a `patience` below 1, as `EarlyStopping` already did. With
+  `patience=0` the callback stopped at the first epoch that reported the metric, improving or
+  not.
+- `EarlyStoppingCallback` applies an `EarlyStopping` to the logged metric instead of repeating
+  its patience rule over a bare `BestMetricTracker`; the two share one stopping rule.
+
 ## [0.1.17] - 2026-09-25
 
 ### Added

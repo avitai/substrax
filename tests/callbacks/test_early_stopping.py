@@ -53,6 +53,21 @@ class TestEarlyStoppingConfig:
         assert config.stopping_threshold == 0.99
         assert config.divergence_threshold == 10.0
 
+    @pytest.mark.parametrize("patience", [0, -1])
+    def test_config_refuses_patience_below_one(self, patience: int) -> None:
+        """A patience below one would stop on an improving epoch; it is refused."""
+
+        with pytest.raises(ValueError, match=r"patience"):
+            EarlyStoppingConfig(patience=patience)
+
+    def test_an_improving_first_epoch_never_stops_training(self) -> None:
+        """Patience counts epochs without improvement; an improvement is never one of them."""
+
+        callback = EarlyStoppingCallback(EarlyStoppingConfig(patience=1))
+        callback.on_epoch_end(None, 0, {"val_loss": 1.0})  # type: ignore[arg-type]
+
+        assert not callback.should_stop
+
 
 class TestEarlyStoppingBasic:
     """Test basic EarlyStoppingCallback functionality."""
