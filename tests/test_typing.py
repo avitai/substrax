@@ -21,6 +21,24 @@ def test_importing_the_aliases_loads_no_jax_or_orbax() -> None:
     assert result.stdout.strip() == "False"
 
 
+class _Checkpointable:
+    def get_state(self) -> dict[str, object]:
+        return {}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        del state
+
+
+class _ReadOnly:
+    def get_state(self) -> dict[str, object]:
+        return {}
+
+
+def test_checkpointable_is_whatever_can_hand_over_and_take_back_its_state() -> None:
+    assert isinstance(_Checkpointable(), substrax.typing.Checkpointable)
+    assert not isinstance(_ReadOnly(), substrax.typing.Checkpointable)
+
+
 def test_json_value_names_the_json_types() -> None:
     assert str(substrax.typing.JsonValue.__value__) == (
         "str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None"
