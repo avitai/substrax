@@ -4,13 +4,20 @@ Following TDD principles - these tests define the expected behavior
 for the EarlyStoppingCallback callback.
 """
 
+import statistics
 import time
+from collections.abc import Callable
 from unittest.mock import MagicMock
 
 import jax.numpy as jnp
 import pytest
 
-from substrax.callbacks import BaseCallback, EarlyStoppingCallback, EarlyStoppingConfig
+from substrax.callbacks import (
+    BaseCallback,
+    EarlyStopping,
+    EarlyStoppingCallback,
+    EarlyStoppingConfig,
+)
 
 
 class TestEarlyStoppingConfig:
@@ -331,29 +338,41 @@ class TestEarlyStoppingJaxArrays:
         assert callback.wait_count == 0
 
 
+# The callback does a fixed amount of work around one ``EarlyStopping.update`` (a dict lookup, a
+# float conversion, the finiteness and threshold checks): measured 2.5-2.9 times the bare update,
+# with and without coverage tracing. Five times admits that and still catches per-call work that
+# grows with the history or a hidden synchronisation.
+_MAX_OVERHEAD_RATIO = 5.0
+
+
+def _seconds_per_call(step: Callable[[int], object], calls: int = 10_000) -> float:
+    start = time.perf_counter()
+    for i in range(calls):
+        step(i)
+    return (time.perf_counter() - start) / calls
+
+
 class TestEarlyStoppingOverhead:
-    """Test that EarlyStoppingCallback has minimal overhead."""
+    """The callback costs a constant factor over the stopping rule it wraps."""
 
-    def test_overhead_is_minimal(self) -> None:
-        """EarlyStoppingCallback overhead should be minimal."""
-        callback = EarlyStoppingCallback(EarlyStoppingConfig(monitor="loss"))
-        trainer_mock = MagicMock()
-        logs = {"loss": 0.5}
+    def test_the_callback_costs_a_small_constant_factor_over_the_rule_it_wraps(self) -> None:
+        """Timed against the bare rule in the same process, so the ratio does not depend on the
+        machine or on coverage tracing, which slows both sides alike (an absolute bound measured
+        the tracer: 0.23 us per call untraced, 2.9 us traced, 11 us on a CI runner)."""
+        config = EarlyStoppingConfig(monitor="loss")
+        trainer = MagicMock()
+        ratios = []
+        for _ in range(7):
+            callback = EarlyStoppingCallback(config)
+            rule = EarlyStopping(
+                patience=config.patience, min_delta=config.min_delta, mode=config.mode
+            )
+            through_callback = _seconds_per_call(
+                lambda i, callback=callback: callback.on_epoch_end(
+                    trainer, i, {"loss": 0.5 - i * 1e-5}
+                )
+            )
+            bare = _seconds_per_call(lambda i, rule=rule: rule.update(0.5 - i * 1e-5))
+            ratios.append(through_callback / bare)
 
-        # Warmup
-        for i in range(100):
-            callback.on_epoch_end(trainer_mock, i, logs)
-
-        # Reset state
-        callback = EarlyStoppingCallback(EarlyStoppingConfig(monitor="loss"))
-
-        # Benchmark
-        iterations = 10_000
-        start = time.perf_counter()
-        for i in range(iterations):
-            callback.on_epoch_end(trainer_mock, i, {"loss": 0.5 - i * 0.00001})
-        elapsed = time.perf_counter() - start
-
-        # Should be < 10 microseconds per call
-        avg_time_us = (elapsed / iterations) * 1_000_000
-        assert avg_time_us < 10.0, f"EarlyStoppingCallback overhead too high: {avg_time_us:.3f}us"
+        assert statistics.median(ratios) < _MAX_OVERHEAD_RATIO, sorted(ratios)
