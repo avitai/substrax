@@ -16,7 +16,7 @@ from types import ModuleType
 
 import pytest
 
-from substrax.compute import Accelerator, JobSpec, Mount, MountAccess, Task
+from substrax.compute import Accelerator, JobSpec, Mount, MountAccess, Resources, Task
 from substrax.compute.backend import ComputeBackend
 from substrax.testing.compute import BackendContract
 from substrax.typing import JsonValue
@@ -105,13 +105,28 @@ def test_the_function_requests_the_accelerator_and_the_timeout(
     (tmp_path / "project").mkdir()
 
     _backend(tmp_path / "state").submit(
-        _spec(accelerator=accelerator), project=tmp_path / "project"
+        _spec(resources=Resources(accelerator=accelerator)), project=tmp_path / "project"
     )
 
     options = fake_modal.LAST["function"].options
     assert options["gpu"] == gpu
     assert options["timeout"] == 91
     assert options["serialized"] is True
+
+
+@pytest.mark.parametrize(("cpu", "memory_mib"), [(None, None), (8.0, 65536), (0.5, None)])
+def test_the_function_requests_the_cpu_and_memory_the_job_asks_for(
+    fake_modal: ModuleType, tmp_path: Path, cpu: float | None, memory_mib: int | None
+) -> None:
+    """Modal's ``cpu`` is fractional cores and ``memory`` MiB, both requests."""
+    (tmp_path / "project").mkdir()
+
+    _backend(tmp_path / "state").submit(
+        _spec(resources=Resources(cpu=cpu, memory_mib=memory_mib)), project=tmp_path / "project"
+    )
+
+    options = fake_modal.LAST["function"].options
+    assert (options["cpu"], options["memory"]) == (cpu, memory_mib)
 
 
 def test_each_mount_is_its_configured_volume_and_read_only_when_asked(

@@ -24,6 +24,7 @@ import importlib
 import os
 import sys
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -32,9 +33,9 @@ from substrax.artifacts import OUTPUT_DIR_ENV
 from substrax.testing.jax_config import restored_jax_config
 
 
+# jax, flax and substrax.devices load when a test runs, not when the plugin is imported
+# (test_importing_the_testing_package_imports_no_jax).
 if TYPE_CHECKING:
-    from pathlib import Path
-
     import jax
     from flax import nnx
 

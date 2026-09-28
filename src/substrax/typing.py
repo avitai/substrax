@@ -11,6 +11,12 @@ PyTree = Any
 type JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None
 """A value JSON can hold: a scalar, or a list or object of JSON values (as Orbax's tree types)."""
 
+type CheckpointState = dict[str, Any]
+"""The state a :class:`Checkpointable` hands a checkpoint: arrays, plain-Python leaves and nested
+dictionaries, laid out by each implementer. Its values stay ``Any``, the type Grain's
+``DatasetIterator.get_state``, PyTorch's ``Stateful.state_dict`` and flax's ``nnx.to_pure_dict``
+give the same object: each implementer reads its own layout back."""
+
 
 @runtime_checkable
 class Checkpointable(Protocol):
@@ -22,10 +28,10 @@ class Checkpointable(Protocol):
     this protocol without importing their packages.
     """
 
-    def get_state(self) -> dict[str, Any]:
+    def get_state(self) -> CheckpointState:
         """The state to checkpoint."""
         ...
 
-    def set_state(self, state: dict[str, Any], /) -> None:
+    def set_state(self, state: CheckpointState, /) -> None:
         """Take back a state ``get_state`` returned."""
         ...

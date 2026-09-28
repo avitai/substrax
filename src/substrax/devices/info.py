@@ -73,8 +73,7 @@ def detect_devices() -> DeviceInfo:
     Returns:
         The device snapshot.
     """
-    # jaxlib ships no stubs for Device; _DeviceLike names the one attribute this module reads.
-    devices = cast(Sequence[_DeviceLike], jax.devices())
+    devices = visible_devices()
     platform: str = jax.default_backend()
     return DeviceInfo(
         platform=platform,
@@ -84,13 +83,39 @@ def detect_devices() -> DeviceInfo:
     )
 
 
-class _DeviceLike(Protocol):
-    """The part of ``jax.Device`` this module reads; jaxlib ships no stubs for it."""
+class DeviceLike(Protocol):
+    """The part of a ``jax.Device`` substrax reads.
+
+    jaxlib ships no type stubs for ``Device`` (``jax.Device`` is a runtime alias of an extension
+    type), so ``jax.Device`` cannot annotate a parameter; this protocol types one instead, and a
+    ``jax.Device`` satisfies it.
+    """
 
     @property
-    def device_kind(self) -> str: ...
+    def id(self) -> int:
+        """The device's index among its backend's devices."""
+        ...
+
+    @property
+    def platform(self) -> str:
+        """The backend the device belongs to, such as ``"cpu"`` or ``"gpu"``."""
+        ...
+
+    @property
+    def device_kind(self) -> str:
+        """The runtime's name for the hardware, such as ``"NVIDIA H200"``."""
+        ...
 
 
-def _device_kind(device: _DeviceLike) -> str:
+def visible_devices() -> Sequence[DeviceLike]:
+    """The devices ``jax.devices()`` reports, typed as :class:`DeviceLike`.
+
+    Returns:
+        Every device of the default backend, in JAX's order.
+    """
+    return cast(Sequence[DeviceLike], jax.devices())
+
+
+def _device_kind(device: DeviceLike) -> str:
     """Return the runtime's ``device_kind`` string for one device."""
     return str(device.device_kind)

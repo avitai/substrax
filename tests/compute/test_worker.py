@@ -5,6 +5,7 @@ Each task here is a few lines of Python without jax, so a child starts in well u
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 import textwrap
@@ -14,9 +15,11 @@ import pytest
 
 from substrax.compute import JobSpec, Task
 from substrax.compute.worker import (
+    DEVICES_LOG,
     JobManifest,
     main,
     MANIFEST_NAME,
+    MANIFEST_VERSION,
     read_manifest,
     run_job,
     STDERR_LOG,
@@ -226,3 +229,50 @@ def test_main_runs_a_spec_file_and_its_exit_code_says_whether_every_task_succeed
         read_manifest(json.loads((outputs / "a" / MANIFEST_NAME).read_text(encoding="utf-8"))),
         JobManifest,
     )
+
+
+def test_the_manifest_records_the_devices_the_job_saw(project: Path, outputs: Path) -> None:
+    manifest = run_job(_job(_script(project, "ok", "pass")), project=project, outputs=outputs)
+
+    assert manifest.devices is not None
+    assert manifest.devices.platform == "cpu"
+    assert manifest.devices.kinds
+    assert (
+        read_manifest(json.loads((outputs / MANIFEST_NAME).read_text(encoding="utf-8"))).devices
+        == manifest.devices
+    )
+
+
+def test_a_device_probe_that_fails_is_logged_and_the_tasks_still_run(
+    project: Path, outputs: Path
+) -> None:
+    """A platform the machine lacks makes the probe fail; the job is not stopped by it."""
+    job = _job(_script(project, "ok", "pass"), runtime=JaxRuntime(platforms=("tpu",)))
+
+    manifest = run_job(job, project=project, outputs=outputs)
+
+    assert manifest.devices is None
+    assert (outputs / DEVICES_LOG).read_text(encoding="utf-8")
+    assert [task.status for task in manifest.tasks] == [TaskStatus.SUCCEEDED]
+
+
+def test_a_device_probe_past_the_job_budget_is_logged_and_the_job_goes_on(
+    project: Path, outputs: Path
+) -> None:
+    """The probe takes its time from the job's budget; a jax import cannot fit in 10 ms."""
+    job = dataclasses.replace(_job(_script(project, "ok", "pass")), timeout_seconds=0.01)
+
+    manifest = run_job(job, project=project, outputs=outputs)
+
+    assert manifest.devices is None
+    assert "ran past 0.01 s" in (outputs / DEVICES_LOG).read_text(encoding="utf-8")
+    assert manifest.finished
+    assert [task.status for task in manifest.tasks] == [TaskStatus.TIMED_OUT]
+
+
+def test_an_earlier_manifest_version_is_refused_naming_both_versions() -> None:
+    payload = dump_record(JobManifest(job="job"))
+    payload["schema_version"] = MANIFEST_VERSION - 1
+
+    with pytest.raises(ValueError, match=rf"{MANIFEST_VERSION - 1}.*{MANIFEST_VERSION}"):
+        read_manifest(payload)

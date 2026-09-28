@@ -299,31 +299,6 @@ class TestValidateBatchSize:
             assert is_valid is True
 
 
-class TestDeviceInfo:
-    """Tests for device information methods."""
-
-    def test_get_device_info(self, placement: DevicePlacement) -> None:
-        """Test getting device information."""
-        info = placement.get_device_info()
-
-        assert isinstance(info, dict)
-        assert "num_devices" in info
-        assert "hardware_type" in info
-        assert "platforms" in info
-        assert "devices" in info
-
-        assert info["num_devices"] >= 1
-        assert isinstance(info["devices"], list)
-
-    def test_device_info_contents(self, placement: DevicePlacement) -> None:
-        """Test device info contains expected fields."""
-        info = placement.get_device_info()
-
-        for device_info in info["devices"]:
-            assert "id" in device_info
-            assert "platform" in device_info
-
-
 class TestConvenienceFunctions:
     """Tests for convenience functions."""
 

@@ -32,14 +32,15 @@ Example:
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 import jax
 import numpy as np
 from jax.sharding import Mesh, NamedSharding, PartitionSpec, SingleDeviceSharding
 
+from substrax.devices.info import DeviceLike, visible_devices
 from substrax.typing import PyTree
 
 
@@ -148,21 +149,21 @@ class DevicePlacement:
         ```
     """
 
-    def __init__(self, default_device: jax.Device | None = None) -> None:  # type: ignore[name-defined]
+    def __init__(self, default_device: DeviceLike | None = None) -> None:
         """Initialize DevicePlacement.
 
         Args:
             default_device: Default device to use when none is specified.
                 If None, lazily resolves to jax.devices()[0] on first access.
         """
-        self._default_device: jax.Device | None = default_device  # type: ignore[name-defined]
+        self._default_device: DeviceLike | None = default_device
         self._hardware_type_cache: HardwareType | None = None
 
     @property
-    def default_device(self) -> jax.Device:  # type: ignore[name-defined]
+    def default_device(self) -> DeviceLike:
         """Get the default device, lazily resolving on first access."""
         if self._default_device is None:
-            self._default_device = jax.devices()[0]
+            self._default_device = visible_devices()[0]
         return self._default_device
 
     def _detect_hardware_type(self) -> HardwareType:
@@ -171,7 +172,7 @@ class DevicePlacement:
         Returns:
             HardwareType enum value.
         """
-        devices = jax.devices()
+        devices = visible_devices()
         if not devices:
             return HardwareType.UNKNOWN
 
@@ -213,7 +214,7 @@ class DevicePlacement:
     def place_on_device(
         self,
         data: PyTree,
-        device: jax.Device | None = None,  # type: ignore[name-defined]
+        device: DeviceLike | None = None,
     ) -> PyTree:
         """Place data on a specific device.
 
@@ -240,7 +241,7 @@ class DevicePlacement:
     def replicate_across_devices(
         self,
         data: PyTree,
-        devices: list[jax.Device] | None = None,  # type: ignore[name-defined]
+        devices: Sequence[DeviceLike] | None = None,
     ) -> PyTree:
         """Replicate data across all specified devices.
 
@@ -255,7 +256,7 @@ class DevicePlacement:
             PyTree with arrays replicated across devices.
         """
         if devices is None:
-            devices = jax.devices()
+            devices = visible_devices()
 
         # Create a mesh with a single replicated dimension
         mesh = Mesh(np.array(devices), axis_names=("replica",))
@@ -284,7 +285,7 @@ class DevicePlacement:
             PyTree with arrays sharded along the batch dimension.
         """
 
-        def create_pspec(leaf: Any) -> PartitionSpec | None:
+        def create_pspec(leaf: object) -> PartitionSpec | None:
             """Create appropriate PartitionSpec for a leaf."""
             if not isinstance(leaf, jax.Array):
                 return None
@@ -374,30 +375,8 @@ class DevicePlacement:
         """Get the number of available devices."""
         return len(jax.devices())
 
-    def get_device_info(self) -> dict[str, Any]:
-        """Get information about available devices.
 
-        Returns:
-            Dictionary containing device information.
-        """
-        devices = jax.devices()
-        return {
-            "num_devices": len(devices),
-            "hardware_type": self.hardware_type.value,
-            "platforms": list({d.platform for d in devices}),
-            "device_kinds": list({str(d.device_kind) for d in devices if d.device_kind}),
-            "devices": [
-                {
-                    "id": d.id,
-                    "platform": d.platform,
-                    "device_kind": str(d.device_kind) if d.device_kind else None,
-                }
-                for d in devices
-            ],
-        }
-
-
-def place_on_device(data: PyTree, device: jax.Device | None = None) -> PyTree:  # type: ignore[name-defined]
+def place_on_device(data: PyTree, device: DeviceLike | None = None) -> PyTree:
     """Convenience function for placing data on a device.
 
     Args:

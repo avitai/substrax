@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from substrax.compute import Accelerator, Mount, MountAccess, Task
+from substrax.compute import Accelerator, Mount, MountAccess, Resources, Task
 from substrax.compute.config import (
     parse_accelerator,
     read_compute_config,
@@ -36,7 +36,7 @@ outputs_volume = "demo-outputs"
 [tool.substrax.compute.jobs.examples]
 examples = ["examples"]
 extras = ["cuda12"]
-accelerator = { kind = "L4" }
+resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
@@ -73,7 +73,9 @@ def test_a_job_resolves_to_a_spec_with_examples_first_then_commands(tmp_path: Pa
             timeout_seconds=300,
         ),
     )
-    assert spec.accelerator == Accelerator(kind="L4")
+    assert spec.resources == Resources(
+        accelerator=Accelerator(kind="L4"), cpu=8.0, memory_mib=32768
+    )
     assert spec.extras == ("cuda12",)
     assert spec.timeout_seconds == 1800
     assert spec.runtime == JaxRuntime(
@@ -96,7 +98,7 @@ def test_a_task_without_its_own_budget_gets_the_jobs(tmp_path: Path) -> None:
     spec = resolve_job(read_compute_config(project), "probe", project=project)
 
     assert spec.tasks[0].timeout_seconds == 120
-    assert spec.accelerator is None
+    assert spec.resources == Resources()
 
 
 def test_the_accelerator_can_be_overridden_per_run(tmp_path: Path) -> None:
@@ -111,7 +113,8 @@ def test_the_accelerator_can_be_overridden_per_run(tmp_path: Path) -> None:
         accelerator=Accelerator(kind="H100", count=2),
     )
 
-    assert spec.accelerator == Accelerator(kind="H100", count=2)
+    assert spec.resources.accelerator == Accelerator(kind="H100", count=2)
+    assert (spec.resources.cpu, spec.resources.memory_mib) == (8.0, 32768)
 
 
 def test_an_unknown_job_is_refused_with_the_configured_names(tmp_path: Path) -> None:
@@ -200,6 +203,28 @@ def test_the_project_must_lock_substrax_for_the_worker_to_run(tmp_path: Path) ->
 def test_a_project_without_a_lock_is_refused(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match=r"uv\.lock"):
         require_locked_substrax(_project(tmp_path, ""))
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('{ editable = "." }', "editable"),
+        ('{ directory = "../substrax" }', "editable"),
+        ('{ path = "../substrax" }', "editable"),
+        ('{ registry = "https://pypi.org/simple" }', "0.1.18"),
+        ('{ git = "https://github.com/avitai/substrax?rev=main#50055ae" }', "0.1.18"),
+    ],
+)
+def test_a_locked_substrax_is_named_by_its_source(
+    tmp_path: Path, source: str, expected: str
+) -> None:
+    """A local source counts as editable even when the lock records its version."""
+    project = _project(tmp_path, "")
+    (project / "uv.lock").write_text(
+        f'[[package]]\nname = "substrax"\nversion = "0.1.18"\nsource = {source}\n', "utf-8"
+    )
+
+    assert require_locked_substrax(project) == expected
 
 
 def test_substrax_itself_counts_as_locking_substrax() -> None:

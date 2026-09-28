@@ -127,7 +127,11 @@ def _probe(tmp_path: Path, action: str) -> dict[str, list[str]]:
     temp.mkdir()
     cwd.mkdir()
     program = textwrap.dedent(_IMPORT_PROBE.format(cwd=str(cwd), temp=str(temp), action=action))
-    return run_python(program, env={"TMPDIR": str(temp)}, timeout=180.0).check().last_json()
+    return (
+        run_python(program, env={"TMPDIR": str(temp)}, timeout=180.0)
+        .check()
+        .last_json_as(dict[str, list[str]])
+    )
 
 
 def test_importing_the_package_creates_nothing(tmp_path: Path) -> None:

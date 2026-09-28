@@ -18,6 +18,7 @@ from substrax.optim import (
     current_learning_rate,
     EXCLUDE_BIAS_AND_NORM_SCALE,
     OptimizerConfig,
+    OptimizerType,
     weight_decay_mask,
 )
 
@@ -372,6 +373,29 @@ class TestCurrentLearningRate:
         optimizer.update(model, _grads_like(model, lambda p: jnp.full_like(p, jnp.nan)))
 
         assert float(current_learning_rate(optimizer)) == pytest.approx(_at(schedule, 1))
+
+    @pytest.mark.parametrize("optimizer_type", ["adamw", "sgd"])
+    def test_reads_the_same_rate_under_nnx_jit(
+        self, model: KnobModel, optimizer_type: OptimizerType
+    ) -> None:
+        schedule = optax.linear_schedule(1e-3, 2e-3, transition_steps=4)
+        optimizer = create_optimizer(
+            model, OptimizerConfig(optimizer_type=optimizer_type, learning_rate=schedule)
+        )
+        optimizer.update(model, _unit_grads(model))
+
+        @nnx.jit
+        def read(optimizer: nnx.Optimizer[KnobModel]) -> jax.Array:
+            return current_learning_rate(optimizer)
+
+        assert float(read(optimizer)) == pytest.approx(_at(schedule, 0))
+        assert float(read(optimizer)) == float(current_learning_rate(optimizer))
+
+    def test_an_optimizer_without_an_injected_rate_is_refused(self, model: KnobModel) -> None:
+        optimizer = nnx.Optimizer(model, optax.adam(1e-3), wrt=nnx.Param)
+
+        with pytest.raises(ValueError, match="no injected learning rate"):
+            current_learning_rate(optimizer)
 
     def test_create_optimizer_uses_the_configured_wrt(self, model: KnobModel) -> None:
         optimizer = create_optimizer(model, OptimizerConfig(learning_rate=1e-3))

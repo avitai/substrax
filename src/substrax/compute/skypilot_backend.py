@@ -201,8 +201,15 @@ class SkyPilotBackend:
         self, spec: JobSpec, project: Path, run_id: str, run_dir: Path
     ) -> dict[str, JsonValue]:
         resources: dict[str, JsonValue] = {"use_spot": self._settings.use_spot}
-        if spec.accelerator is not None:
-            resources["accelerators"] = _accelerators(spec.accelerator)
+        requested = spec.resources
+        if requested.accelerator is not None:
+            resources["accelerators"] = _accelerators(requested.accelerator)
+        # SkyPilot reads "<n>+" as at least n and the unit "MB" as 2**20 bytes
+        # (sky/resources.py, sky/utils/resources_utils.py parse_memory_resource).
+        if requested.cpu is not None:
+            resources["cpus"] = f"{requested.cpu:g}+"
+        if requested.memory_mib is not None:
+            resources["memory"] = f"{requested.memory_mib}MB+"
         if self._settings.infra is not None:
             resources["infra"] = self._settings.infra
         mounts: dict[str, JsonValue] = {

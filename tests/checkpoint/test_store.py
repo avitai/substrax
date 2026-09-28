@@ -14,7 +14,7 @@ import inspect
 import pkgutil
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import jax
 import jax.numpy as jnp
@@ -37,11 +37,64 @@ from substrax.checkpoint import (
 )
 from substrax.runtime import JaxRuntime
 from substrax.testing import ChildResult, cuda_is_visible, run_python
+from substrax.typing import JsonValue
 
 
 _CROSS_TOPOLOGY_PROGRAM = Path(__file__).with_name("cross_topology_program.py")
 _SHARDING_FILE_WARNING = "Sharding info not provided"
 _CPU_0 = {"platform": "cpu", "id": 0}
+
+
+class _Device(TypedDict):
+    platform: str
+    id: int
+
+
+class _Saved(TypedDict):
+    """What ``cross_topology_program.py save`` prints."""
+
+    devices: list[_Device]
+    saved_on: list[_Device]
+    state: dict[str, JsonValue]
+
+
+class _Metadata(TypedDict):
+    metrics: dict[str, float]
+    extra: dict[str, JsonValue]
+    items: list[str]
+
+
+class _Array(TypedDict):
+    kind: str
+    dtype: str
+    values: JsonValue
+    devices: list[_Device]
+
+
+class _Key(TypedDict):
+    dtype: str
+    data: list[int]
+    devices: list[_Device]
+
+
+class _Payload(TypedDict):
+    half: _Array
+    counts: _Array
+    key: _Key
+    position: int
+    name: str
+    shuffle: bool
+    history: list[float]
+
+
+class _Restored(TypedDict):
+    """What ``cross_topology_program.py restore`` prints."""
+
+    devices: list[_Device]
+    restored_on: list[_Device]
+    state: dict[str, JsonValue]
+    metadata: _Metadata
+    payload: _Payload
 
 
 def _items(model: nnx.Module) -> dict[str, Any]:
@@ -368,10 +421,12 @@ class TestCrossTopologyRestore:
     """
 
     def test_a_two_device_save_restores_onto_one_device_templates(self, tmp_path: Path) -> None:
-        saved = _run_child("save", tmp_path, runtime=_cpu_devices(2)).check().last_json()
+        saved = _run_child("save", tmp_path, runtime=_cpu_devices(2)).check().last_json_as(_Saved)
         assert saved["saved_on"] == [{"platform": "cpu", "id": 1}]
 
-        restored = _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().last_json()
+        restored = (
+            _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().last_json_as(_Restored)
+        )
 
         assert restored["devices"] == [_CPU_0]
         assert restored["restored_on"] == [_CPU_0]
@@ -430,10 +485,12 @@ class TestCrossTopologyRestore:
             pytest.skip("no CUDA device visible to jax")
 
         cuda = JaxRuntime(platforms=("cuda",))
-        saved = _run_child("save", tmp_path, runtime=cuda).check().last_json()
+        saved = _run_child("save", tmp_path, runtime=cuda).check().last_json_as(_Saved)
         assert [d["platform"] for d in saved["saved_on"]] == ["gpu"]
 
-        restored = _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().last_json()
+        restored = (
+            _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().last_json_as(_Restored)
+        )
 
         assert restored["restored_on"] == [_CPU_0]
         assert restored["state"] == saved["state"]

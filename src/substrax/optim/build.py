@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import optax
 from flax import nnx
 
@@ -41,7 +39,7 @@ def create_transformation(  # noqa: DOC502
     return base
 
 
-def create_optimizer(model: nnx.Module, config: OptimizerConfig) -> nnx.Optimizer[Any]:
+def create_optimizer[M: nnx.Module](model: M, config: OptimizerConfig) -> nnx.Optimizer[M]:
     """Build an ``nnx.Optimizer`` over ``create_transformation`` for ``config.wrt``.
 
     Args:

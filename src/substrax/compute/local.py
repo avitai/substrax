@@ -118,6 +118,10 @@ class LocalBackend:
     def status(self, handle: RunHandle) -> RunState:
         """Where the run is: from its manifest when it finished, else from its process.
 
+        The worker's liveness is observed before the manifest is read: a worker that was gone
+        wrote its last manifest before exiting, so the read that follows sees it. Read the other
+        way round, a run finishing between the two checks would look unfinished and gone.
+
         Args:
             handle: The run.
 
@@ -125,14 +129,13 @@ class LocalBackend:
             Its state.
         """
         run_dir = Path(handle.details["run_dir"])
+        alive = _is_worker(int(handle.details["pid"]), handle.run_id)
         manifest = _manifest(run_dir)
         if manifest is not None and manifest.finished:
             return RunState.SUCCEEDED if manifest.succeeded else RunState.FAILED
         if (run_dir / _CANCELLED).exists():
             return RunState.CANCELLED
-        if _is_worker(int(handle.details["pid"]), handle.run_id):
-            return RunState.RUNNING
-        return RunState.FAILED
+        return RunState.RUNNING if alive else RunState.FAILED
 
     def logs(self, handle: RunHandle, *, follow: bool) -> Iterator[str]:
         """The worker's output lines, including every task's, prefixed with the task's name.

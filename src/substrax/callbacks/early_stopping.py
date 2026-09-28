@@ -14,6 +14,7 @@ from typing import Any, Literal
 from substrax.callbacks._state import check_state_keys
 from substrax.callbacks.base import BaseCallback, TrainerLike
 from substrax.callbacks.plateau import EarlyStopping, PlateauMode
+from substrax.typing import CheckpointState
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -105,7 +106,7 @@ class EarlyStoppingCallback(BaseCallback):
         if self._stopper.should_stop:
             self._stopped_epoch = epoch
 
-    def get_state(self) -> dict[str, Any]:
+    def get_state(self) -> CheckpointState:
         """The stopper's state and the stopping epoch, for a checkpoint.
 
         Returns:
@@ -114,7 +115,7 @@ class EarlyStoppingCallback(BaseCallback):
         """
         return {"stopper": self._stopper.get_state(), "stopped_epoch": self._stopped_epoch}
 
-    def set_state(self, state: dict[str, Any]) -> None:
+    def set_state(self, state: CheckpointState) -> None:
         """Take back a state :meth:`get_state` returned.
 
         Args:

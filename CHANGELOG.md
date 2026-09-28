@@ -7,6 +7,83 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `place_batch_on_shards(batch, sharding)` takes a pytree prefix of the batch whose leaves are
+  shardings, one per subtree, besides a single sharding: rows split on the data axis and a
+  batch-level value replicated, on one process or several.
+- `substrax.testing.compiles`: `compiled_programs()` records the XLA programs jax compiles inside a
+  block, by name, and `expect_compiles(count)` fails a block that compiled a different number
+  (`CompileCountError`). The listener lives for the block only.
+- `substrax.nnx_typing.NnxState`, the state a module's `nnx.split` returns (nested states and
+  `Variable`s holding arrays), for annotations that need flax; `substrax.typing` stays importable
+  without jax.
+- `substrax.testing.gradients`: `check_parameter_gradients` and `check_input_gradients` compare a
+  module's gradient, in its `nnx.Param`s or its input, with finite differences in float64 (forward
+  and reverse, or reverse only for a `custom_vjp`), return it, and refuse an all-zero gradient
+  unless allowed.
+
+- A compute job requests CPU cores and memory besides its accelerator, in one `Resources` record
+  (`resources = { accelerator = ..., cpu = 8, memory_mib = 32768 }` in its table): Modal's `gpu`,
+  `cpu` and `memory`, SkyPilot's `accelerators`, `cpus` and `memory` as minimums.
+- The run manifest records the devices the run's JAX saw (`RunDevices`: the platform and each
+  device's kind), from a child probe with the job's runtime before the first task; a failed probe
+  leaves `devices.log` and does not stop the job.
+- `ChildResult.last_json_as(shape)` reads a child's last line as JSON of `shape` (a `TypedDict`
+  or a type such as `dict[str, list[str]]`), validated by pydantic in strict JSON mode.
+- `substrax.devices.DeviceLike`, the protocol a `jax.Device` satisfies (jaxlib ships no stubs for
+  it), and `visible_devices()`, `jax.devices()` typed as it.
+- `substrax.typing.CheckpointState`, the state a `Checkpointable` hands a checkpoint, and
+  `substrax.nnx_typing.PathEntry`, an entry of a jax key path.
+
+### Changed
+
+- A job's `accelerator` moves into its `resources` (`JobSpec.resources.accelerator`, and
+  `resources = { accelerator = ... }` in the job table).
+- The job spec (`JOB_SPEC_VERSION` 2) and the run manifest (`MANIFEST_VERSION` 2) change layout; a
+  spec or manifest of another version is refused naming both, so a run is submitted, run and read
+  by one substrax release.
+- `place_nnx_state_on_shards`, `update_with_line_search` and `spmd_train_step` annotate states,
+  filters and optimizers with their types (`NnxState`, flax's `Filter`, `nnx.Optimizer[M]`) instead
+  of `Any`.
+- CI requires 80% coverage of the lines a pull request changes (`diff-cover` against `main`, on
+  the ubuntu/3.12 test leg), besides the package-wide 80%; `diff-cover` joins the `test` extra.
+- `Any` is replaced by the type each value has: the checkpoint store's Orbax manager, handler,
+  item trees and dtypes; `create_optimizer[M]` returns `nnx.Optimizer[M]` and
+  `current_learning_rate` takes any `nnx.Optimizer[M]` (the type parameter is invariant, so an
+  `nnx.Optimizer[nnx.Module]` parameter refused every concretely typed optimizer); the weight-decay
+  masks, key paths and optimizer-state leaves; images as `NDArray[np.generic]`; hyperparameters,
+  W&B config and artifact metadata as `Mapping[str, object]`; devices as `DeviceLike`. `Any`
+  stays, named where it stays: checkpoint state (`CheckpointState`, as Grain, PyTorch and flax
+  type it), pytrees (`PyTree`), callback logs, and the W&B and MLflow run objects, whose SDKs are
+  optional extras. ruff's `ANN401` now refuses a new bare `Any` parameter or return.
+- The SPMD collectives take a flat mapping from metric name to value, `Mapping[str, V]`, and
+  return `dict[str, V | jax.Array]`; a nested dictionary is a value that passes through.
+- `substrax.tracking` accepts NumPy's `ArrayLike` (it converts with `np.asarray`) and imports
+  neither jax nor an optional backend, which a fresh-interpreter test pins.
+- `etils[epath]` is a declared dependency: the store hands Orbax's per-array metadata reader the
+  `epath.Path` it declares.
+
+### Removed
+
+- `DevicePlacement.get_device_info()`: `detect_devices()` and `DevicePlacement.hardware_type`
+  hold the same facts.
+- `ShardingStrategy.get_sharding_constraints()`, which returned the strategy's `axis_name` and
+  `mesh_axis` attributes as a dictionary.
+
+### Fixed
+
+- The local compute backend observes whether its worker is alive before reading the run's
+  manifest; read the other way round, a run finishing between the two checks was reported failed.
+- `place_batch_on_shards` places a NumPy scalar leaf (it came back unplaced) and refuses a leaf
+  with fewer dimensions than its sharding splits, naming the leaf's path.
+- The version has one source, `pyproject.toml`; `substrax.__version__` reads it from the installed
+  package. It was read from `src/substrax/__init__.py`, which uv does not watch, so an editable
+  install could report, and checkpoint metadata record, an earlier version.
+- `substrax-compute` recognises a project that installs substrax from a local path by the lock's
+  `source` (editable, directory or path); it inferred that from a missing version, which a static
+  version now records.
+
 ## [0.1.18] - 2026-09-25
 
 ### Added

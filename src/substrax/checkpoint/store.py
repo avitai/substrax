@@ -28,12 +28,14 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Protocol, runtime_checkable, Self
+from typing import Literal, Protocol, runtime_checkable, Self
 
 import jax
 import jax.numpy as jnp
 import numpy as np
-import orbax.checkpoint as ocp  # type: ignore[import-untyped]
+import orbax.checkpoint as ocp
+from etils import epath
+from jax.typing import DTypeLike
 from pydantic import TypeAdapter
 
 from substrax.checkpoint.errors import (
@@ -50,7 +52,7 @@ from substrax.checkpoint.metadata import (
     now_iso,
     Producer,
 )
-from substrax.typing import JsonValue
+from substrax.typing import JsonValue, PyTree
 
 
 logger = logging.getLogger(__name__)
@@ -72,7 +74,7 @@ class Checkpoint:
     """A restored checkpoint: its step, its items by name and its metadata."""
 
     step: int
-    items: dict[str, Any]
+    items: dict[str, PyTree]
     metadata: CheckpointMetadata
 
 
@@ -88,7 +90,7 @@ class CheckpointStore(Protocol):
     def save(
         self,
         step: int,
-        items: Mapping[str, Any],
+        items: Mapping[str, PyTree],
         *,
         epoch: int | None = None,
         metrics: Mapping[str, float] | None = None,
@@ -103,7 +105,7 @@ class CheckpointStore(Protocol):
         self,
         step: int,
         *,
-        templates: Mapping[str, Any] | None = None,
+        templates: Mapping[str, PyTree] | None = None,
         cast_dtypes: bool = False,
     ) -> Checkpoint:
         """Read the checkpoint at ``step``, onto ``templates`` where given."""
@@ -134,7 +136,7 @@ class CheckpointStore(Protocol):
         ...
 
 
-def _restore_arg(template: Any) -> Any:
+def _restore_arg(template: PyTree) -> ocp.args.PyTreeRestore:
     """Orbax restore arguments for one item.
 
     Without a template the item is restored as it was stored: the checkpoint describes
@@ -148,13 +150,13 @@ def _restore_arg(template: Any) -> Any:
     restoring process may not have.
     """
     if template is None:
-        return ocp.args.PyTreeRestore()  # type: ignore[reportCallIssue]
-    return ocp.args.PyTreeRestore(  # type: ignore[arg-type, reportCallIssue]
+        return ocp.args.PyTreeRestore()
+    return ocp.args.PyTreeRestore(
         template, restore_args=ocp.checkpoint_utils.construct_restore_args(template)
     )
 
 
-def _wrapped(template: Any) -> Any:
+def _wrapped(template: PyTree) -> dict[str, PyTree] | None:
     """The on-disk form of an item's template: the pytree under the ``tree`` node."""
     return None if template is None else {ITEM_NODE: template}
 
@@ -163,14 +165,14 @@ def _wrapped(template: Any) -> Any:
 _KEY_DATA_DTYPE = "uint32"
 
 
-def _dtype_name(dtype: Any) -> str:
+def _dtype_name(dtype: DTypeLike) -> str:
     """The name a dtype is recorded and compared by; a typed PRNG key by its data's dtype."""
     if jnp.issubdtype(dtype, jax.dtypes.prng_key):
         return _KEY_DATA_DTYPE
     return str(np.dtype(dtype))
 
 
-def _leaf_dtypes(tree: Any, *, node_depth: int) -> dict[str, str]:
+def _leaf_dtypes(tree: PyTree, *, node_depth: int) -> dict[str, str]:
     """The dtype name of every leaf of ``tree`` that has one, keyed by its path joined with ``/``.
 
     The path is Orbax's flat key for the leaf with its first ``node_depth`` keys dropped (1 for
@@ -185,7 +187,7 @@ def _leaf_dtypes(tree: Any, *, node_depth: int) -> dict[str, str]:
 
 
 def _dtype_mismatches(
-    item: str, saved: Mapping[str, str], tree: Any, *, node_depth: int
+    item: str, saved: Mapping[str, str], tree: PyTree, *, node_depth: int
 ) -> list[DtypeMismatch]:
     """The leaves of one item's ``tree`` whose dtype differs from the saved array's.
 
@@ -230,7 +232,7 @@ class OrbaxCheckpointStore:
             raise ValueError("Checkpoint directory cannot be empty")
         self.directory = Path(directory).resolve()
         self.max_to_keep = max_to_keep
-        self._manager: Any = None
+        self._manager: ocp.CheckpointManager | None = None
 
     def __enter__(self) -> Self:
         """Enter the context manager."""
@@ -240,7 +242,7 @@ class OrbaxCheckpointStore:
         """Close the backend on context exit."""
         self.close()
 
-    def _open(self) -> Any:
+    def _open(self) -> ocp.CheckpointManager:
         """The Orbax manager, opened on first use."""
         if self._manager is None:
             options = ocp.CheckpointManagerOptions(max_to_keep=self.max_to_keep, create=True)
@@ -253,7 +255,7 @@ class OrbaxCheckpointStore:
             return []
         return sorted(int(step) for step in self._open().all_steps())
 
-    def _require_step(self, step: int) -> Any:
+    def _require_step(self, step: int) -> ocp.CheckpointManager:
         """The manager, once ``step`` is known to exist.
 
         Args:
@@ -296,27 +298,29 @@ class OrbaxCheckpointStore:
             raise CheckpointNotWrittenError(step=step, latest_step=latest, reason="below_latest")
         return latest
 
-    def _raw_metadata(self, manager: Any, step: int) -> dict[str, JsonValue]:
+    def _raw_metadata(self, manager: ocp.CheckpointManager, step: int) -> dict[str, JsonValue]:
         restored = manager.restore(
             step,
-            args=ocp.args.Composite(**{METADATA_ITEM: ocp.args.JsonRestore()}),  # type: ignore[reportCallIssue]
+            args=ocp.args.Composite(**{METADATA_ITEM: ocp.args.JsonRestore()}),
         )
         return _JSON_OBJECT.validate_python(restored[METADATA_ITEM], strict=True)
 
-    def _recorded_dtypes(self, manager: Any, step: int) -> dict[str, dict[str, str]]:
+    def _recorded_dtypes(
+        self, manager: ocp.CheckpointManager, step: int
+    ) -> dict[str, dict[str, str]]:
         """The ``dtypes`` item of ``step``; empty for a checkpoint written without one."""
         if not (self.directory / str(step) / DTYPES_ITEM).is_dir():
             return {}
         restored = manager.restore(
             step,
-            args=ocp.args.Composite(**{DTYPES_ITEM: ocp.args.JsonRestore()}),  # type: ignore[reportCallIssue]
+            args=ocp.args.Composite(**{DTYPES_ITEM: ocp.args.JsonRestore()}),
         )
         return _RECORDED_DTYPES.validate_python(restored[DTYPES_ITEM], strict=True)
 
     def save(
         self,
         step: int,
-        items: Mapping[str, Any],
+        items: Mapping[str, PyTree],
         *,
         epoch: int | None = None,
         metrics: Mapping[str, float] | None = None,
@@ -362,13 +366,13 @@ class OrbaxCheckpointStore:
             created_at=now_iso(),
         )
         dtypes = {name: _leaf_dtypes(_wrapped(items[name]), node_depth=1) for name in names}
-        args = ocp.args.Composite(  # type: ignore[reportCallIssue]
-            **{name: ocp.args.PyTreeSave({ITEM_NODE: items[name]}) for name in names},  # type: ignore[reportCallIssue]
-            **{METADATA_ITEM: ocp.args.JsonSave(metadata.to_dict())},  # type: ignore[reportCallIssue]
-            **{DTYPES_ITEM: ocp.args.JsonSave(dtypes)},  # type: ignore[reportCallIssue]
+        args = ocp.args.Composite(
+            **{name: ocp.args.PyTreeSave({ITEM_NODE: items[name]}) for name in names},
+            **{METADATA_ITEM: ocp.args.JsonSave(metadata.to_dict())},
+            **{DTYPES_ITEM: ocp.args.JsonSave(dtypes)},
         )
         manager = self._open()
-        written = manager.save(step, args=args, force=True)  # type: ignore[reportCallIssue]
+        written = manager.save(step, args=args, force=True)
         manager.wait_until_finished()
         if not written:
             raise CheckpointNotWrittenError(step=step, latest_step=latest, reason="rejected")
@@ -378,7 +382,7 @@ class OrbaxCheckpointStore:
     def _refuse_dtype_changes(
         self,
         step: int,
-        trees: Mapping[str, tuple[Any, int]],
+        trees: Mapping[str, tuple[PyTree, int]],
         recorded: Mapping[str, Mapping[str, str]],
         *,
         restored: bool,
@@ -401,7 +405,7 @@ class OrbaxCheckpointStore:
         """
         mismatches: list[DtypeMismatch] = []
         with contextlib.ExitStack() as stack:
-            handler: Any = None
+            handler: ocp.PyTreeCheckpointHandler | None = None
             for item, (tree, node_depth) in trees.items():
                 saved = recorded.get(item)
                 if saved is None:
@@ -409,7 +413,7 @@ class OrbaxCheckpointStore:
                         handler = stack.enter_context(
                             contextlib.closing(ocp.PyTreeCheckpointHandler())
                         )
-                    metadata = handler.metadata(self.directory / str(step) / item)
+                    metadata = handler.metadata(epath.Path(self.directory / str(step) / item))
                     saved = _leaf_dtypes(getattr(metadata, "tree", metadata), node_depth=node_depth)
                 mismatches += _dtype_mismatches(item, saved, tree, node_depth=node_depth)
         if mismatches:
@@ -420,12 +424,16 @@ class OrbaxCheckpointStore:
             )
 
     def _read_items(
-        self, manager: Any, step: int, metadata: CheckpointMetadata, templates: dict[str, Any]
+        self,
+        manager: ocp.CheckpointManager,
+        step: int,
+        metadata: CheckpointMetadata,
+        templates: dict[str, PyTree],
     ) -> Checkpoint:
         """Read every item of the checkpoint, each onto its template where given."""
         restored = manager.restore(
             step,
-            args=ocp.args.Composite(  # type: ignore[reportCallIssue]
+            args=ocp.args.Composite(
                 **{name: _restore_arg(_wrapped(templates.get(name))) for name in metadata.items}
             ),
         )
@@ -434,11 +442,11 @@ class OrbaxCheckpointStore:
 
     def _restore_items(
         self,
-        manager: Any,
+        manager: ocp.CheckpointManager,
         step: int,
         raw: Mapping[str, JsonValue],
         *,
-        templates: dict[str, Any],
+        templates: dict[str, PyTree],
         cast_dtypes: bool,
     ) -> Checkpoint:
         """Read the checkpoint, comparing every item's dtypes with the saved ones.
@@ -470,7 +478,7 @@ class OrbaxCheckpointStore:
         self,
         step: int,
         *,
-        templates: Mapping[str, Any] | None = None,
+        templates: Mapping[str, PyTree] | None = None,
         cast_dtypes: bool = False,
     ) -> Checkpoint:
         """Read the checkpoint at ``step``.

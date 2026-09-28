@@ -24,6 +24,9 @@ classifiers = [
   "Topic :: Scientific/Engineering"
 ]
 dependencies = [
+  # The checkpoint store passes Orbax's per-array metadata reader the epath.Path it declares;
+  # Orbax itself requires etils[epath].
+  "etils[epath]>=1.14.0",
   "flax>=0.12.9",
   # jax 0.11.2 renamed jax.experimental.hijax.HiPrimitive, which flax 0.12.9 imports at
   # module load (google/flax#5566 fixes it on main, unreleased); the cap lifts with the
@@ -40,7 +43,6 @@ dependencies = [
   "pydantic>=2.10"
 ]
 description = "JAX/Flax NNX training infrastructure: device meshes and SPMD sharding, an Orbax checkpoint store, early stopping and callbacks, W&B and MLflow logging, and job runs on Modal, SkyPilot or locally"
-dynamic = ["version"]
 keywords = [
   "checkpointing",
   "distributed",
@@ -53,6 +55,7 @@ license = {file = "LICENSE"}
 name = "substrax"
 readme = "README.md"
 requires-python = ">=3.12"
+version = "0.1.18"
 
 [project.entry-points."substrax.compute.backends"]
 local = "substrax.compute.local:LocalBackend"
@@ -126,6 +129,8 @@ plots = [
 ]
 test = [
   "coverage>=7",
+  # The changed-line coverage gate in CI (ci.yml, the ubuntu/3.12 test leg on a pull request).
+  "diff-cover>=10.6.0",
   "hypothesis>=6.100",
   "pytest-cov>=6.1.1",
   "pytest-env>=1.0.1",
@@ -230,9 +235,6 @@ include = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/substrax"]
 
-[tool.hatch.version]
-path = "src/substrax/__init__.py"
-
 [tool.interrogate]
 exclude = ["scripts", "tests"]
 fail-under = 80
@@ -323,8 +325,6 @@ skip-magic-trailing-comma = false
 # pydoclint's DOC codes appear in `# noqa` comments on def lines.
 external = ["DOC"]
 ignore = [
-  # Any is the honest type of a pytree leaf container.
-  "ANN401",
   # Google-style docstrings: D203 and D213 conflict with D211 and D212.
   "D203",
   "D213",

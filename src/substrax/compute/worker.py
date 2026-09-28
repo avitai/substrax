@@ -4,8 +4,9 @@ Run as ``python -m substrax.compute.worker --spec spec.json --project . --output
 the project's environment. Each task runs from the project root with ``AVITAI_OUTPUT_DIR`` set to
 ``<outputs>/<task>``, so whatever it writes through
 :func:`~substrax.artifacts.resolve_output_dir` lands beside its ``stdout.log`` and ``stderr.log``.
-The worker writes ``<outputs>/manifest.json`` after every task, so a run cut short still says what
-finished. Its exit code is 0 when every task succeeded and 1 otherwise.
+Before the first task a child with the job's JAX runtime reports the devices the run got, which the
+manifest records. The worker writes ``<outputs>/manifest.json`` after every task, so a run cut
+short still says what finished. Its exit code is 0 when every task succeeded and 1 otherwise.
 """
 
 from __future__ import annotations
@@ -30,12 +31,19 @@ from substrax.runtime import child_environment
 from substrax.typing import JsonValue
 
 
-MANIFEST_VERSION = 1
+MANIFEST_VERSION = 2
 MANIFEST_NAME = "manifest.json"
+DEVICES_LOG = "devices.log"
+"""The device probe's output when it fails, under the run's outputs."""
 STDOUT_LOG = "stdout.log"
 STDERR_LOG = "stderr.log"
 _LOGS = frozenset({STDOUT_LOG, STDERR_LOG})
 _PYTHON = "python"
+_DEVICE_PROBE = (
+    "import json; from substrax.devices import detect_devices; info = detect_devices(); "
+    "print(json.dumps({'platform': info.platform, 'kinds': list(info.device_kinds)}))"
+)
+_DEVICE_PROBE_SECONDS = 300.0
 
 
 class TaskStatus(StrEnum):
@@ -70,6 +78,21 @@ class TaskOutcome:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class RunDevices:
+    """The devices a run's JAX saw, which the provider allocated for the requested ones.
+
+    Attributes:
+        platform: The default backend, as JAX names it (``"gpu"``, ``"cpu"``, ``"tpu"``).
+        kinds: One ``device_kind`` per device, in JAX's order, such as ``"NVIDIA H200"``.
+    """
+
+    __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
+
+    platform: str
+    kinds: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class JobManifest:
     """What a run of a job did, task by task.
 
@@ -78,6 +101,8 @@ class JobManifest:
         job: The job's name.
         tasks: The tasks that ran, in order.
         finished: Whether the worker ran every task; a run cut short leaves it ``False``.
+        devices: The devices the run's JAX saw; ``None`` when the probe failed, with its output
+            in ``devices.log``.
     """
 
     __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
@@ -86,6 +111,7 @@ class JobManifest:
     job: str
     tasks: tuple[TaskOutcome, ...] = ()
     finished: bool = False
+    devices: RunDevices | None = None
 
     @property
     def succeeded(self) -> bool:
@@ -136,7 +162,14 @@ def run_job(
     """
     outputs.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + spec.timeout_seconds
-    manifest = JobManifest(job=spec.name)
+    devices = _probe_devices(
+        spec,
+        project=project,
+        outputs=outputs,
+        python=python,
+        seconds=min(_DEVICE_PROBE_SECONDS, spec.timeout_seconds),
+    )
+    manifest = JobManifest(job=spec.name, devices=devices)
     for index, task in enumerate(spec.tasks, start=1):
         budget = min(task.timeout_seconds, deadline - time.monotonic())
         outcome = (
@@ -155,6 +188,7 @@ def run_job(
             job=spec.name,
             tasks=(*manifest.tasks, outcome),
             finished=index == len(spec.tasks),
+            devices=devices,
         )
         _write_json(outputs / MANIFEST_NAME, dump_record(manifest))
     return manifest
@@ -177,6 +211,45 @@ def main(argv: Sequence[str] | None = None) -> int:
     spec = read_job_spec(json.loads(arguments.spec.read_text(encoding="utf-8")))
     manifest = run_job(spec, project=arguments.project, outputs=arguments.outputs)
     return 0 if manifest.succeeded else 1
+
+
+def _probe_devices(
+    spec: JobSpec, *, project: Path, outputs: Path, python: str, seconds: float
+) -> RunDevices | None:
+    """Ask a child with the job's JAX runtime which devices it sees.
+
+    The worker never starts a JAX backend itself, so the tasks do not share one with it. A probe
+    that fails or runs out of time is recorded in ``devices.log`` and does not stop the job.
+
+    Args:
+        spec: The job, whose runtime and environment the child takes.
+        project: The project root the child runs from.
+        outputs: The run's outputs, where ``devices.log`` goes on failure.
+        python: The project environment's interpreter.
+        seconds: How long the probe may take.
+
+    Returns:
+        The devices, or ``None`` when the probe failed.
+    """
+    env = child_environment(spec.runtime, dict(spec.env))
+    try:
+        probe = subprocess.run(  # noqa: S603  # nosec B603 - this interpreter and a fixed program
+            (python, "-c", _DEVICE_PROBE),
+            cwd=project,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        (outputs / DEVICES_LOG).write_text(f"the device probe ran past {seconds} s\n", "utf-8")
+        return None
+    lines = probe.stdout.strip().splitlines()
+    if probe.returncode != 0 or not lines:
+        (outputs / DEVICES_LOG).write_text(probe.stdout + probe.stderr, "utf-8")
+        return None
+    return read_record(RunDevices, json.loads(lines[-1]))
 
 
 def _run_task(

@@ -22,19 +22,19 @@ the objective changed.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
 
 import jax
 import jax.numpy as jnp
 import optax
 from flax import nnx
 
+from substrax.nnx_typing import NnxState
 from substrax.optim.state_types import with_strong_state_types
 
 
 def update_with_line_search[M: nnx.Module](
     model: M,
-    optimizer: nnx.Optimizer[Any],
+    optimizer: nnx.Optimizer[M],
     loss_fn: Callable[[M], jax.Array],
     *,
     objective_changed: bool | jax.Array,
@@ -87,7 +87,7 @@ def update_with_line_search[M: nnx.Module](
         raise ValueError(msg)
     (dtype,) = dtypes
 
-    def value_fn(candidate: nnx.State[Any, Any]) -> jax.Array:
+    def value_fn(candidate: NnxState) -> jax.Array:
         return loss_fn(nnx.merge(graphdef, candidate, rest)).astype(dtype)
 
     pure_params = nnx.as_pure(params)
@@ -151,7 +151,7 @@ def _conditionally(
 ) -> optax.GradientTransformationExtraArgs:
     """``inner`` on the updates ``condition`` admits, with extra arguments if it takes them."""
 
-    def should_transform(step: jax.typing.ArrayLike, **_extra_args: Any) -> jax.Array:
+    def should_transform(step: jax.typing.ArrayLike, **_extra_args: object) -> jax.Array:
         return condition(jnp.asarray(step))
 
     return optax.conditionally_transform(
@@ -161,7 +161,7 @@ def _conditionally(
     )
 
 
-def _floating_dtypes(params: nnx.State[Any, Any]) -> set[jnp.dtype]:
+def _floating_dtypes(params: NnxState) -> set[jnp.dtype]:
     """The floating dtypes among the parameters.
 
     Args:
@@ -177,7 +177,7 @@ def _floating_dtypes(params: nnx.State[Any, Any]) -> set[jnp.dtype]:
     }
 
 
-def _weakly_typed_paths(opt_state: Any) -> list[str]:
+def _weakly_typed_paths(opt_state: optax.OptState) -> list[str]:
     """The paths of the weakly typed leaves of an optimizer state.
 
     Args:

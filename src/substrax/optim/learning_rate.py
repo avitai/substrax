@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import jax
+import jax.numpy as jnp
+import optax
 from flax import nnx
 
 
-def current_learning_rate(optimizer: nnx.Optimizer[Any]) -> jax.Array:
+def current_learning_rate[M](optimizer: nnx.Optimizer[M]) -> jax.Array:
     """Return the learning rate the last ``update`` applied, as an array on device.
 
     ``create_transformation`` wraps the base alias in ``optax.inject_hyperparams``, which
@@ -31,24 +31,33 @@ def current_learning_rate(optimizer: nnx.Optimizer[Any]) -> jax.Array:
             "the optimizer state holds no injected learning rate; build the transformation with "
             "substrax.optim.create_transformation"
         )
-    return state.hyperparams["learning_rate"][...]
+    rate = state.hyperparams["learning_rate"]
+    # nnx.Optimizer holds each state leaf in a Variable; optax types the leaf ArrayLike.
+    return jnp.asarray(rate[...] if isinstance(rate, nnx.Variable) else rate)
 
 
-def _injected_state(state: Any) -> Any | None:
+def _injected_state(state: object) -> optax.InjectStatefulHyperparamsState | None:
     """Find the ``inject_hyperparams`` state holding ``learning_rate``, through any wrapper."""
-    hyperparams = getattr(state, "hyperparams", None)
-    if hyperparams is not None and "learning_rate" in hyperparams:
+    if (
+        isinstance(state, optax.InjectStatefulHyperparamsState)
+        and "learning_rate" in state.hyperparams
+    ):
         return state
-    children: list[Any] = []
-    if isinstance(state, tuple):
-        children.extend(state)
-    elif isinstance(state, dict):
-        children.extend(state.values())
-    inner = getattr(state, "inner_state", None)
-    if inner is not None:
-        children.append(inner)
-    for child in children:
+    for child in _children(state):
         found = _injected_state(child)
         if found is not None:
             return found
     return None
+
+
+def _children(state: object) -> list[object]:
+    """The states a wrapper holds: a tuple's or a dict's entries, and an ``inner_state``."""
+    children: list[object] = []
+    if isinstance(state, tuple):
+        children.extend(state)
+    elif isinstance(state, dict):
+        children.extend(state.values())
+    inner: object = getattr(state, "inner_state", None)
+    if inner is not None:
+        children.append(inner)
+    return children

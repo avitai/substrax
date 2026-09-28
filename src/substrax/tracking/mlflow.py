@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from substrax.tracking._optional import import_optional
 from substrax.tracking._plots import save_histogram, save_image_grid
@@ -26,12 +28,6 @@ from substrax.tracking.logger import (
     step_prefix,
     summarize,
 )
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Mapping, Sequence
-
-    from jax.typing import ArrayLike
 
 
 class MLFlowLogger(Logger):
@@ -85,13 +81,15 @@ class MLFlowLogger(Logger):
         if self.artifact_dir is not None:
             self.artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    def _resume_run(self, run_id: str) -> Any:
+    # Any: mlflow.ActiveRun, an optional extra; its type is not importable in the gate.
+    def _resume_run(self, run_id: str) -> Any:  # noqa: ANN401
         """Continue an existing run."""
         run = self._mlflow.start_run(run_id=run_id)
         self.info(f"Resumed MLflow run: {run_id}")
         return run
 
-    def _start_run(self, run_name: str | None) -> Any:
+    # Any: mlflow.ActiveRun, an optional extra; its type is not importable in the gate.
+    def _start_run(self, run_name: str | None) -> Any:  # noqa: ANN401
         """Start a new run in the experiment, creating the experiment if needed."""
         experiment = self._mlflow.get_experiment_by_name(self.experiment_name)
         if experiment is None:
@@ -145,7 +143,7 @@ class MLFlowLogger(Logger):
             self._mlflow.log_artifact(str(path), "texts")
         self.info(f"{step_prefix(step)}Logged text for {name}")
 
-    def log_hyperparams(self, params: Mapping[str, Any]) -> None:
+    def log_hyperparams(self, params: Mapping[str, object]) -> None:
         """Log the hyperparameters as run parameters.
 
         MLflow accepts strings, numbers and booleans; anything else is logged as its

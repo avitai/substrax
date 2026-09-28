@@ -12,11 +12,10 @@ applied to its backtracking line search (PR #1175) and ``reduce_on_plateau`` (#1
 
 from __future__ import annotations
 
-from typing import Any
-
 import jax
 import jax.numpy as jnp
 import optax
+from jax.typing import ArrayLike
 
 
 def with_strong_state_types(
@@ -42,7 +41,7 @@ def with_strong_state_types(
     return optax.GradientTransformationExtraArgs(init, inner.update)
 
 
-def _strongly_typed(leaf: Any) -> Any:
+def _strongly_typed(leaf: ArrayLike) -> ArrayLike:
     """``leaf`` as a strongly typed array of its own dtype, if it is a weakly typed one."""
     if isinstance(leaf, jax.Array) and jax.typeof(leaf).weak_type:
         return jnp.asarray(leaf, dtype=leaf.dtype)

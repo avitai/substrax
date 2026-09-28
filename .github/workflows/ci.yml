@@ -61,6 +61,9 @@ jobs:
       TF_CPP_MIN_LOG_LEVEL: "1"
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The changed-line coverage gate diffs against origin/main.
+          fetch-depth: 0
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -80,7 +83,13 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest tests/ \
-            -p randomly -v
+            -p randomly -v --cov-report=xml
+
+      # The package-wide floor lets a pull request add an untested module; this gates the lines
+      # the pull request changes, from the coverage the run above measured.
+      - name: Coverage on changed lines (at least 80%)
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: uv run --no-sync diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --show-uncovered
 
   checkpoint-orbax-floor:
     name: Checkpoint tests on the Orbax floor

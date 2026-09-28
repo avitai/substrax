@@ -11,7 +11,7 @@ outputs_volume = "demo-outputs"
 examples = ["examples/metrics"]          # one task per script, as discover_examples lists them
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
-accelerator = { kind = "L4", count = 1 }
+resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300               # each task's budget; the job's when unset
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
@@ -145,7 +145,11 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
     spec = read_record(
         JobSpec, {**table, "name": name, "tasks": [dump_record(task) for task in tasks]}
     )
-    return spec if accelerator is None else dataclasses.replace(spec, accelerator=accelerator)
+    if accelerator is None:
+        return spec
+    return dataclasses.replace(
+        spec, resources=dataclasses.replace(spec.resources, accelerator=accelerator)
+    )
 
 
 def _example_tasks(sources: TaskSources, job: str, project: Path, budget: float) -> list[Task]:
@@ -179,6 +183,11 @@ def parse_accelerator(text: str) -> Accelerator:
     return Accelerator(kind=matched["kind"], count=int(count) if count else 1)
 
 
+_LOCAL_SOURCES = frozenset({"editable", "directory", "path"})
+"""The keys of a uv.lock ``source`` table that install a package from a local path (uv's lock
+``Source``: ``Editable``, ``Directory``, ``Path``); ``registry``, ``git`` and ``url`` are remote."""
+
+
 def require_locked_substrax(project: Path) -> str:
     """Return the substrax the project locks, which the worker runs from.
 
@@ -199,6 +208,7 @@ def require_locked_substrax(project: Path) -> str:
         raise FileNotFoundError(msg)
     for package in tomllib.loads(lock.read_text(encoding="utf-8")).get("package", []):
         if package.get("name") == "substrax":
-            return package.get("version") or "editable"
+            local = _LOCAL_SOURCES.intersection(package.get("source", {}))
+            return "editable" if local else package.get("version", "editable")
     msg = f"substrax is not in {lock}; add it to the project's dependencies to run the worker"
     raise LookupError(msg)

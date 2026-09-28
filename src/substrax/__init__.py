@@ -8,6 +8,9 @@ experiment tracking (``tracking``). Import from the subpackages; this module exp
 the version.
 """
 
-__version__ = "0.1.18"
+from importlib.metadata import version as _installed_version
+
+
+__version__ = _installed_version("substrax")
 
 __all__ = ["__version__"]

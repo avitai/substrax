@@ -6,11 +6,12 @@ for coordinating distributed computations across multiple devices.
 
 import logging
 from collections.abc import Sequence
-from typing import Any
 
 import jax
 import numpy as np
 from jax.sharding import AxisType, Mesh
+
+from substrax.devices import DeviceLike, visible_devices
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class DeviceMeshManager:
     @staticmethod
     def create_device_mesh(
         mesh_shape: dict[str, int] | list[tuple[str, int]],
-        devices: list[Any] | None = None,
+        devices: Sequence[DeviceLike] | None = None,
         *,
         axis_types: Sequence[AxisType] | None = None,
     ) -> Mesh:
@@ -43,8 +44,8 @@ class DeviceMeshManager:
         Args:
             mesh_shape: The shape of the mesh, specified either as a dictionary
                 mapping axis names to sizes, or as a list of (name, size) tuples.
-            devices: Optional list of devices to use. If None, uses all available
-                devices.
+            devices: The devices to use, such as a slice of ``jax.devices()``. If None,
+                uses all available devices.
             axis_types: One ``AxisType`` per axis; ``Auto`` for every axis when None.
 
         Returns:
@@ -100,7 +101,7 @@ class DeviceMeshManager:
         Returns:
             A JAX device mesh configured for data-parallel training.
         """
-        devices = jax.devices()
+        devices = visible_devices()
         if num_devices is not None:
             devices = devices[:num_devices]
 
@@ -119,7 +120,7 @@ class DeviceMeshManager:
         Raises:
             ValueError: If there aren't enough devices available.
         """
-        devices = jax.devices()
+        devices = visible_devices()
         if len(devices) < num_devices:
             raise ValueError(
                 f"Not enough devices. Model parallelism requires {num_devices} "
@@ -143,7 +144,7 @@ class DeviceMeshManager:
             ValueError: If there aren't enough devices available.
         """
         total_devices = data_parallel_size * model_parallel_size
-        devices = jax.devices()
+        devices = visible_devices()
 
         if len(devices) < total_devices:
             raise ValueError(

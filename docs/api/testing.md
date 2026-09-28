@@ -21,6 +21,9 @@ assert result.check().last_json() == 8
 either of them chooses otherwise, the child runs on the CPU backend without preallocation, so a
 test never starts an accelerator it did not ask for. `check()` raises `ChildFailedError` with
 the end of the child's standard error, and `last_json()` parses the last line the child printed.
+`last_json_as(shape)` parses it as a value of `shape`, a `TypedDict` or a type such as
+`dict[str, list[str]]`, validated by pydantic in strict JSON mode, so a test reads a structured
+report with its fields typed and a report of another shape fails naming the field.
 `cuda_is_visible()` asks a child on the CUDA backend whether jax sees a GPU.
 
 ## Counting traces
@@ -53,6 +56,56 @@ counts, and an error raised inside the block propagates unchanged. Each counter 
 count, so there is no global registry to clear. Wrap the Python function, then jit the wrapper.
 The counter does not listen to jax's `jax.monitoring` trace event: jax records that event only
 for top-level traces, and its name is not documented.
+
+## Counting compiles
+
+A trace and a compile are different events: a trace builds a jaxpr, a compile builds an XLA
+executable, and a call that hits the executable cache does neither. `substrax.testing.compiles`
+records the executables jax builds inside a block, by name:
+
+```python
+import jax
+import jax.numpy as jnp
+
+from substrax.testing.compiles import compiled_programs, expect_compiles
+
+step, x = jax.jit(lambda v: v * 2.0), jnp.ones(3)  # jnp.ones compiles too: make inputs first
+
+with compiled_programs() as names:
+    step(x)
+assert names == ["jit(<lambda>)"]
+with expect_compiles(0):  # same shape and dtype: the cached executable
+    step(x)
+```
+
+It listens to `/jax/core/compile/backend_compile_duration`, which jax records around
+`compile_or_get_cached` when its in-process executable cache misses, so an executable the
+persistent compilation cache supplies counts as well. The event name is jax's own constant
+(`jax._src.dispatch.BACKEND_COMPILE_EVENT`), not a documented name; the package's tests fail if
+jax stops recording it. The listener lives for the block only, and it sees every compile in the
+process, including another thread's. `expect_compiles` raises `CompileCountError`, an
+`AssertionError` with the expected count and the compiled names. The module imports jax, so
+`substrax.testing` does not import it.
+
+## Checking gradients
+
+A test that only checks that a gradient exists, is finite or is non-zero passes on a wrong one.
+`substrax.testing.gradients` compares a module's gradient with finite differences, through
+`jax.test_util.check_grads` (forward and reverse mode along one random direction), and returns it:
+
+```python
+from substrax.testing.gradients import check_input_gradients, check_parameter_gradients
+
+gradient = check_parameter_gradients(module, lambda m: loss(m(x), y))  # in its nnx.Param leaves
+input_gradient = check_input_gradients(module, lambda m, v: loss(m(v), y), x)
+```
+
+The check runs on a float64 copy of the module, split in tree mode: a derivative summed over many
+output elements is below a float32 finite difference's resolution (`check_grads`'s default
+tolerance is 1e-5 in float64 against 2e-3 in float32). The caller's module keeps its dtype and
+values. A gradient that is zero everywhere is refused unless `allow_zero=True`, since a loss that
+ignores what is differentiated passes a finite-difference check. A function with a
+`jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
 
 ## Running examples
 
@@ -191,6 +244,10 @@ that does not exist raises `FileNotFoundError`, so a mistyped directory fails th
 shrinking what it reads.
 
 ::: substrax.testing
+
+::: substrax.testing.compiles
+
+::: substrax.testing.gradients
 
 ::: substrax.testing.source_scans
 
