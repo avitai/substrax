@@ -40,6 +40,8 @@ and uses semantic versioning while the public API stabilizes.
 - `place_nnx_state_on_shards`, `update_with_line_search` and `spmd_train_step` annotate states,
   filters and optimizers with their types (`NnxState`, flax's `Filter`, `nnx.Optimizer[M]`) instead
   of `Any`.
+- CI requires 80% coverage of the lines a pull request changes (`diff-cover` against `main`, on
+  the ubuntu/3.12 test leg), besides the package-wide 80%; `diff-cover` joins the `test` extra.
 
 ### Fixed
 

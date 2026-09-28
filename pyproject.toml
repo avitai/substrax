@@ -126,6 +126,8 @@ plots = [
 ]
 test = [
   "coverage>=7",
+  # The changed-line coverage gate in CI (ci.yml, the ubuntu/3.12 test leg on a pull request).
+  "diff-cover>=10.6.0",
   "hypothesis>=6.100",
   "pytest-cov>=6.1.1",
   "pytest-env>=1.0.1",

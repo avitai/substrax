@@ -22,6 +22,14 @@ uv run --locked pre-commit run --all-files
 uv run --locked mkdocs build --strict --clean
 ```
 
+The suite requires 80% coverage of the whole package. CI also requires 80% of the lines a pull
+request changes, measured against `main`; check it locally after the suite has run:
+
+```bash
+uv run --locked pytest --cov-report=xml
+uv run --locked diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --show-uncovered
+```
+
 ## Contribution Workflow
 
 1. Create a focused branch from `main`.
