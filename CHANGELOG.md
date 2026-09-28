@@ -29,6 +29,12 @@ and uses semantic versioning while the public API stabilizes.
 - The run manifest records the devices the run's JAX saw (`RunDevices`: the platform and each
   device's kind), from a child probe with the job's runtime before the first task; a failed probe
   leaves `devices.log` and does not stop the job.
+- `ChildResult.last_json_as(shape)` reads a child's last line as JSON of `shape` (a `TypedDict`
+  or a type such as `dict[str, list[str]]`), validated by pydantic in strict JSON mode.
+- `substrax.devices.DeviceLike`, the protocol a `jax.Device` satisfies (jaxlib ships no stubs for
+  it), and `visible_devices()`, `jax.devices()` typed as it.
+- `substrax.typing.CheckpointState`, the state a `Checkpointable` hands a checkpoint, and
+  `substrax.nnx_typing.PathEntry`, an entry of a jax key path.
 
 ### Changed
 
@@ -42,6 +48,28 @@ and uses semantic versioning while the public API stabilizes.
   of `Any`.
 - CI requires 80% coverage of the lines a pull request changes (`diff-cover` against `main`, on
   the ubuntu/3.12 test leg), besides the package-wide 80%; `diff-cover` joins the `test` extra.
+- `Any` is replaced by the type each value has: the checkpoint store's Orbax manager, handler,
+  item trees and dtypes; `create_optimizer[M]` returns `nnx.Optimizer[M]` and
+  `current_learning_rate` takes any `nnx.Optimizer[M]` (the type parameter is invariant, so an
+  `nnx.Optimizer[nnx.Module]` parameter refused every concretely typed optimizer); the weight-decay
+  masks, key paths and optimizer-state leaves; images as `NDArray[np.generic]`; hyperparameters,
+  W&B config and artifact metadata as `Mapping[str, object]`; devices as `DeviceLike`. `Any`
+  stays, named where it stays: checkpoint state (`CheckpointState`, as Grain, PyTorch and flax
+  type it), pytrees (`PyTree`), callback logs, and the W&B and MLflow run objects, whose SDKs are
+  optional extras. ruff's `ANN401` now refuses a new bare `Any` parameter or return.
+- The SPMD collectives take a flat mapping from metric name to value, `Mapping[str, V]`, and
+  return `dict[str, V | jax.Array]`; a nested dictionary is a value that passes through.
+- `substrax.tracking` accepts NumPy's `ArrayLike` (it converts with `np.asarray`) and imports
+  neither jax nor an optional backend, which a fresh-interpreter test pins.
+- `etils[epath]` is a declared dependency: the store hands Orbax's per-array metadata reader the
+  `epath.Path` it declares.
+
+### Removed
+
+- `DevicePlacement.get_device_info()`: `detect_devices()` and `DevicePlacement.hardware_type`
+  hold the same facts.
+- `ShardingStrategy.get_sharding_constraints()`, which returned the strategy's `axis_name` and
+  `mesh_axis` attributes as a dictionary.
 
 ### Fixed
 

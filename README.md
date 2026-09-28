@@ -41,7 +41,7 @@ home and one test suite:
 | `substrax.callbacks` | The training-callback protocol, `CallbackList`, `BestMetricTracker`, `EarlyStopping` and `EarlyStoppingCallback` |
 | `substrax.tracking` | Step-wise experiment logging with console, file, Weights & Biases and MLflow backends |
 | `substrax.compute` | A project's jobs run on a compute backend: the job spec, the worker every backend runs, the `ComputeBackend` protocol with `local`, `modal` and `skypilot` backends found through entry points, and the `substrax-compute` command |
-| `substrax.typing`, `substrax.nnx_typing`, `substrax.records`, `substrax.examples` | The shared type aliases (`PyTree`, `JsonValue`; `NnxState` over flax), typed reading and writing of JSON records, and the listing of a repository's example scripts |
+| `substrax.typing`, `substrax.nnx_typing`, `substrax.records`, `substrax.examples` | The shared type aliases (`PyTree`, `JsonValue`, `CheckpointState`; `NnxState` and `PathEntry` over jax and flax), typed reading and writing of JSON records, and the listing of a repository's example scripts |
 
 Not in Substrax: optimizer algorithms and schedules (optax, which Substrax assembles from a
 config), loss scaling and gradient accumulation

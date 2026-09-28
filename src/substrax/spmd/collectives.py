@@ -14,7 +14,7 @@ Two API variants are provided:
 """
 
 import logging
-from typing import Any
+from collections.abc import Callable, Mapping
 
 import jax
 import jax.numpy as jnp
@@ -24,15 +24,34 @@ from jax import lax
 logger = logging.getLogger(__name__)
 
 
+def _reduce_arrays[V](
+    metrics: Mapping[str, V],
+    reduce: Callable[[jax.Array], jax.Array],
+    *,
+    skip_scalars: bool,
+) -> dict[str, V | jax.Array]:
+    """Apply ``reduce`` to each array value of ``metrics``.
+
+    Every other value, and a 0-d array when ``skip_scalars``, passes through unchanged.
+    """
+    return {
+        name: reduce(value)
+        if isinstance(value, jax.Array) and not (skip_scalars and value.ndim == 0)
+        else value
+        for name, value in metrics.items()
+    }
+
+
 # ---------------------------------------------------------------------------
 # SPMD-compatible reductions (work with global arrays in nnx.jit)
 # ---------------------------------------------------------------------------
 
 
-def reduce_mean(metrics: dict[str, Any]) -> dict[str, Any]:
+def reduce_mean[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
     """Compute the mean of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh).
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
+    with at least one dimension passes through unchanged.
 
     Args:
         metrics: The metrics to reduce.
@@ -40,19 +59,14 @@ def reduce_mean(metrics: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A dictionary of mean-reduced metrics.
     """
-
-    def maybe_mean(x: Any) -> Any:
-        if isinstance(x, jax.Array) and x.ndim > 0:
-            return jnp.mean(x)
-        return x
-
-    return jax.tree.map(maybe_mean, metrics)
+    return _reduce_arrays(metrics, jnp.mean, skip_scalars=True)
 
 
-def reduce_sum(metrics: dict[str, Any]) -> dict[str, Any]:
+def reduce_sum[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
     """Compute the sum of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh).
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
+    with at least one dimension passes through unchanged.
 
     Args:
         metrics: The metrics to reduce.
@@ -60,19 +74,14 @@ def reduce_sum(metrics: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A dictionary of summed metrics.
     """
-
-    def maybe_sum(x: Any) -> Any:
-        if isinstance(x, jax.Array) and x.ndim > 0:
-            return jnp.sum(x)
-        return x
-
-    return jax.tree.map(maybe_sum, metrics)
+    return _reduce_arrays(metrics, jnp.sum, skip_scalars=True)
 
 
-def reduce_max(metrics: dict[str, Any]) -> dict[str, Any]:
+def reduce_max[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
     """Compute the maximum of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh).
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
+    with at least one dimension passes through unchanged.
 
     Args:
         metrics: The metrics to reduce.
@@ -80,19 +89,14 @@ def reduce_max(metrics: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A dictionary of maximum metrics.
     """
-
-    def maybe_max(x: Any) -> Any:
-        if isinstance(x, jax.Array) and x.ndim > 0:
-            return jnp.max(x)
-        return x
-
-    return jax.tree.map(maybe_max, metrics)
+    return _reduce_arrays(metrics, jnp.max, skip_scalars=True)
 
 
-def reduce_min(metrics: dict[str, Any]) -> dict[str, Any]:
+def reduce_min[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
     """Compute the minimum of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh).
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
+    with at least one dimension passes through unchanged.
 
     Args:
         metrics: The metrics to reduce.
@@ -100,16 +104,10 @@ def reduce_min(metrics: dict[str, Any]) -> dict[str, Any]:
     Returns:
         A dictionary of minimum metrics.
     """
-
-    def maybe_min(x: Any) -> Any:
-        if isinstance(x, jax.Array) and x.ndim > 0:
-            return jnp.min(x)
-        return x
-
-    return jax.tree.map(maybe_min, metrics)
+    return _reduce_arrays(metrics, jnp.min, skip_scalars=True)
 
 
-_SPMD_REDUCTION_OPS: dict[str, Any] = {
+_SPMD_REDUCTION_OPS: dict[str, Callable[[jax.Array], jax.Array]] = {
     "mean": jnp.mean,
     "sum": jnp.sum,
     "max": jnp.max,
@@ -117,10 +115,10 @@ _SPMD_REDUCTION_OPS: dict[str, Any] = {
 }
 
 
-def reduce_custom(
-    metrics: dict[str, Any],
-    reduce_fn: dict[str, str | None] | None = None,
-) -> dict[str, Any]:
+def reduce_custom[V](
+    metrics: Mapping[str, V],
+    reduce_fn: Mapping[str, str | None] | None = None,
+) -> dict[str, V | jax.Array]:
     """Apply custom reduction operations to metrics.
 
     Uses standard JAX operations. Works in SPMD contexts.
@@ -137,16 +135,14 @@ def reduce_custom(
     if reduce_fn is None:
         return reduce_mean(metrics)
 
-    result = {}
+    result: dict[str, V | jax.Array] = {}
     for key, value in metrics.items():
         operation = reduce_fn.get(key, "mean")
         op_fn = _SPMD_REDUCTION_OPS.get(operation) if operation else None
-
         if op_fn is not None and isinstance(value, jax.Array) and value.ndim > 0:
             result[key] = op_fn(value)
         else:
             result[key] = value
-
     return result
 
 
@@ -155,10 +151,10 @@ def reduce_custom(
 # ---------------------------------------------------------------------------
 
 
-def reduce_mean_collective(
-    metrics: dict[str, Any],
+def reduce_mean_collective[V](
+    metrics: Mapping[str, V],
     axis_name: str = "batch",
-) -> dict[str, Any]:
+) -> dict[str, V | jax.Array]:
     """Compute the mean of metrics using collective operations.
 
     Only valid inside a pmap or shard_map context.
@@ -170,19 +166,13 @@ def reduce_mean_collective(
     Returns:
         A dictionary of mean metrics.
     """
-
-    def maybe_mean(x: Any) -> Any:
-        if isinstance(x, jax.Array):
-            return lax.pmean(x, axis_name=axis_name)
-        return x
-
-    return jax.tree.map(maybe_mean, metrics)
+    return _reduce_arrays(metrics, lambda x: lax.pmean(x, axis_name=axis_name), skip_scalars=False)
 
 
-def reduce_sum_collective(
-    metrics: dict[str, Any],
+def reduce_sum_collective[V](
+    metrics: Mapping[str, V],
     axis_name: str = "batch",
-) -> dict[str, Any]:
+) -> dict[str, V | jax.Array]:
     """Compute the sum of metrics using collective operations.
 
     Only valid inside a pmap or shard_map context.
@@ -194,19 +184,13 @@ def reduce_sum_collective(
     Returns:
         A dictionary of summed metrics.
     """
-
-    def maybe_sum(x: Any) -> Any:
-        if isinstance(x, jax.Array):
-            return lax.psum(x, axis_name=axis_name)
-        return x
-
-    return jax.tree.map(maybe_sum, metrics)
+    return _reduce_arrays(metrics, lambda x: lax.psum(x, axis_name=axis_name), skip_scalars=False)
 
 
-def all_gather(
-    metrics: dict[str, Any],
+def all_gather[V](
+    metrics: Mapping[str, V],
     axis_name: str = "batch",
-) -> dict[str, Any]:
+) -> dict[str, V | jax.Array]:
     """Gather metrics from all devices.
 
     Only valid inside a pmap or shard_map context.
@@ -218,16 +202,12 @@ def all_gather(
     Returns:
         A dictionary of gathered metrics.
     """
-
-    def maybe_gather(x: Any) -> Any:
-        if isinstance(x, jax.Array):
-            return lax.all_gather(x, axis_name=axis_name)
-        return x
-
-    return jax.tree.map(maybe_gather, metrics)
+    return _reduce_arrays(
+        metrics, lambda x: lax.all_gather(x, axis_name=axis_name), skip_scalars=False
+    )
 
 
-def collect_from_devices(metrics: dict[str, Any]) -> dict[str, list[Any] | Any]:
+def collect_from_devices[V](metrics: Mapping[str, V]) -> dict[str, list[jax.Array] | V]:
     """Collect metrics from all devices.
 
     Call outside of a pmapped function to split per-device values
@@ -240,12 +220,10 @@ def collect_from_devices(metrics: dict[str, Any]) -> dict[str, list[Any] | Any]:
     Returns:
         A dictionary of metrics, with array values split into per-device lists.
     """
-    result: dict[str, list[Any] | Any] = {}
+    result: dict[str, list[jax.Array] | V] = {}
     for key, value in metrics.items():
-        is_array = isinstance(value, jax.Array)
-        if is_array and value.ndim > 0:
+        if isinstance(value, jax.Array) and value.ndim > 0:
             result[key] = [value[i] for i in range(value.shape[0])]
         else:
             result[key] = value
-
     return result

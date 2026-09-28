@@ -6,7 +6,9 @@ import importlib.util
 import subprocess
 import textwrap
 from pathlib import Path
+from typing import TypedDict
 
+import pydantic
 import pytest
 
 from substrax.runtime import JaxRuntime, XlaFlagConflictError
@@ -14,6 +16,16 @@ from substrax.testing import ChildFailedError, ChildResult, cuda_is_visible, run
 
 
 TIMEOUT = 180.0
+
+
+class _Device(TypedDict):
+    platform: str
+    id: int
+
+
+class _Report(TypedDict):
+    devices: list[_Device]
+    loss: float
 
 
 def _result(stdout: str, *, returncode: int = 0, stderr: str = "") -> ChildResult:
@@ -37,6 +49,18 @@ class TestChildResult:
     def test_last_json_on_a_line_that_is_not_json_raises_and_shows_it(self) -> None:
         with pytest.raises(ValueError, match="done"):
             _result('{"a": 1}\ndone\n').last_json()
+
+    def test_last_json_as_returns_the_value_in_the_shape_asked_for(self) -> None:
+        shape = _result('{"devices": [{"platform": "cpu", "id": 0}], "loss": 0.5}\n').last_json_as(
+            _Report
+        )
+
+        assert shape["devices"][0]["id"] == 0
+        assert shape["loss"] == 0.5
+
+    def test_last_json_as_refuses_a_value_of_another_shape_naming_the_field(self) -> None:
+        with pytest.raises(pydantic.ValidationError, match="loss"):
+            _result('{"devices": [], "loss": "high"}\n').last_json_as(_Report)
 
     def test_check_returns_a_successful_result(self) -> None:
         result = _result("ok\n")

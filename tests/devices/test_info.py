@@ -9,7 +9,7 @@ import jax
 import pytest
 from hypothesis import given, strategies as st
 
-from substrax.devices import detect_devices, DeviceInfo, DeviceKind
+from substrax.devices import detect_devices, DeviceInfo, DeviceKind, visible_devices
 
 
 _KNOWN_PLATFORMS = {"cpu", "gpu", "cuda", "rocm", "tpu", "metal"}
@@ -74,3 +74,12 @@ def test_device_info_is_immutable() -> None:
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         info.count = 2  # type: ignore[misc]
+
+
+def test_visible_devices_are_the_devices_jax_reports_in_its_order() -> None:
+    devices = visible_devices()
+
+    assert [(device.platform, device.id) for device in devices] == [
+        (device.platform, device.id) for device in jax.devices()
+    ]
+    assert all(isinstance(device.device_kind, str) for device in devices)

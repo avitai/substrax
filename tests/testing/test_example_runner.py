@@ -361,8 +361,11 @@ def test_the_runner_directory_is_replaced_by_the_example_directory_on_the_path(
 
     run = run_example(path, repo_root=repo, output_dir=outputs, timeout=_BUDGET, call_main=True)
 
-    assert run.summary["path"][0] == str(path.parent.resolve())
-    assert str(Path(substrax.testing.examples.__file__).parent) not in run.summary["path"]
+    assert isinstance(run.summary, dict)
+    shown = run.summary["path"]
+    assert isinstance(shown, list)
+    assert shown[0] == str(path.parent.resolve())
+    assert str(Path(substrax.testing.examples.__file__).parent) not in shown
 
 
 def test_calling_main_on_a_file_that_is_not_a_module_fails_naming_it(

@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Final
+from typing import Final
 
 import jax
+import optax
 from flax import nnx
+from flax.typing import Key, PathParts
 
+from substrax.nnx_typing import PathEntry
 from substrax.optim.config import OptimizerConfig
+from substrax.typing import PyTree
 
 
 _UNDECAYED_LEAVES: Final = frozenset({"bias", "scale"})
 
 
-def _is_neither_bias_nor_scale(path: tuple[Any, ...], value: object) -> bool:
+def _is_neither_bias_nor_scale(path: PathParts, value: object) -> bool:
     del value
     return bool(path) and path[-1] not in _UNDECAYED_LEAVES
 
@@ -23,7 +27,7 @@ EXCLUDE_BIAS_AND_NORM_SCALE: Final[nnx.filterlib.Filter] = _is_neither_bias_nor_
 """Decay every parameter except biases and normalisation scales, as Hugging Face and timm do."""
 
 
-def weight_decay_mask(model: nnx.Module, config: OptimizerConfig) -> Any:
+def weight_decay_mask(model: nnx.Module, config: OptimizerConfig) -> PyTree:
     """Return the optax mask for ``config.weight_decay_filter`` over ``nnx.state(model, wrt)``.
 
     The mask is the parameters' pure tree (nested dicts, as ``nnx.to_pure_dict`` gives it)
@@ -51,7 +55,7 @@ def weight_decay_mask(model: nnx.Module, config: OptimizerConfig) -> Any:
     return mask
 
 
-def mask_callable(config: OptimizerConfig) -> Callable[[Any], Any]:
+def mask_callable(config: OptimizerConfig) -> Callable[[optax.Params], PyTree]:
     """Return the callable optax evaluates on the parameter tree to get the decay mask.
 
     Args:
@@ -68,7 +72,7 @@ def _chosen(config: OptimizerConfig) -> nnx.filterlib.Filter:
     return True if config.weight_decay_filter is None else config.weight_decay_filter
 
 
-def mask_from_filter(params: Any, chosen: nnx.filterlib.Filter) -> Any:
+def mask_from_filter(params: PyTree, chosen: nnx.filterlib.Filter) -> PyTree:
     """Map an NNX filter over a parameter tree, giving a Python boolean per leaf.
 
     The tree may be an ``nnx.State`` or the pure tree optax hands a callable mask; a trailing
@@ -83,7 +87,7 @@ def mask_from_filter(params: Any, chosen: nnx.filterlib.Filter) -> Any:
     """
     predicate = nnx.filterlib.to_predicate(chosen)
 
-    def decayed(keypath: tuple[Any, ...], value: object) -> bool:
+    def decayed(keypath: jax.tree_util.KeyPath[PathEntry], value: object) -> bool:
         entries = [_path_key(entry) for entry in keypath]
         if entries and entries[-1] == "value" and isinstance(keypath[-1], jax.tree_util.GetAttrKey):
             entries = entries[:-1]
@@ -92,7 +96,7 @@ def mask_from_filter(params: Any, chosen: nnx.filterlib.Filter) -> Any:
     return jax.tree_util.tree_map_with_path(decayed, params)
 
 
-def _path_key(entry: Any) -> Any:
+def _path_key(entry: PathEntry) -> Key:
     if isinstance(entry, jax.tree_util.DictKey):
         return entry.key
     if isinstance(entry, jax.tree_util.SequenceKey):

@@ -4449,6 +4449,7 @@ name = "substrax"
 version = "0.1.18"
 source = { editable = "." }
 dependencies = [
+    { name = "etils", extra = ["epath"] },
     { name = "flax" },
     { name = "jax" },
     { name = "jaxlib" },
@@ -4681,6 +4682,7 @@ requires-dist = [
     { name = "coverage", marker = "extra == 'test'", specifier = ">=7" },
     { name = "deptry", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "diff-cover", marker = "extra == 'test'", specifier = ">=10.6.0" },
+    { name = "etils", extras = ["epath"], specifier = ">=1.14.0" },
     { name = "flax", specifier = ">=0.12.9" },
     { name = "griffe", marker = "extra == 'docs'", specifier = ">=1.7.3" },
     { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6.100" },

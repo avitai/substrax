@@ -21,6 +21,9 @@ assert result.check().last_json() == 8
 either of them chooses otherwise, the child runs on the CPU backend without preallocation, so a
 test never starts an accelerator it did not ask for. `check()` raises `ChildFailedError` with
 the end of the child's standard error, and `last_json()` parses the last line the child printed.
+`last_json_as(shape)` parses it as a value of `shape`, a `TypedDict` or a type such as
+`dict[str, list[str]]`, validated by pydantic in strict JSON mode, so a test reads a structured
+report with its fields typed and a report of another shape fails naming the field.
 `cuda_is_visible()` asks a child on the CUDA backend whether jax sees a GPU.
 
 ## Counting traces

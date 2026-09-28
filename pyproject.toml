@@ -24,6 +24,9 @@ classifiers = [
   "Topic :: Scientific/Engineering"
 ]
 dependencies = [
+  # The checkpoint store passes Orbax's per-array metadata reader the epath.Path it declares;
+  # Orbax itself requires etils[epath].
+  "etils[epath]>=1.14.0",
   "flax>=0.12.9",
   # jax 0.11.2 renamed jax.experimental.hijax.HiPrimitive, which flax 0.12.9 imports at
   # module load (google/flax#5566 fixes it on main, unreleased); the cap lifts with the
@@ -322,8 +325,6 @@ skip-magic-trailing-comma = false
 # pydoclint's DOC codes appear in `# noqa` comments on def lines.
 external = ["DOC"]
 ignore = [
-  # Any is the honest type of a pytree leaf container.
-  "ANN401",
   # Google-style docstrings: D203 and D213 conflict with D211 and D212.
   "D203",
   "D213",

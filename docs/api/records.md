@@ -57,7 +57,9 @@ function JAX traces.
 
 ::: substrax.typing
 
-`substrax.nnx_typing` holds the aliases that need flax, such as `NnxState`, the state a module's
-`nnx.split` returns; `substrax.typing` stays importable without jax.
+`substrax.typing` also holds `CheckpointState`, the dictionary a `Checkpointable` hands a
+checkpoint. `substrax.nnx_typing` holds the aliases that need jax or flax: `NnxState`, the state a
+module's `nnx.split` returns, and `PathEntry`, an entry of a jax key path; `substrax.typing`
+stays importable without jax.
 
 ::: substrax.nnx_typing

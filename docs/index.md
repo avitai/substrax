@@ -15,7 +15,7 @@ and holds the code those packages used to carry separately.
 | `substrax.checkpoint` | The `CheckpointStore` protocol and its Orbax implementation |
 | `substrax.callbacks` | Training callbacks, `BestMetricTracker`, `EarlyStopping` |
 | `substrax.tracking` | Step-wise experiment tracking backends |
-| `substrax.typing`, `substrax.nnx_typing`, `substrax.records` | The shared type aliases (`PyTree`, `JsonValue`; `NnxState` over flax) and typed reading of JSON records |
+| `substrax.typing`, `substrax.nnx_typing`, `substrax.records` | The shared type aliases (`PyTree`, `JsonValue`, `CheckpointState`; `NnxState` and `PathEntry` over jax and flax) and typed reading of JSON records |
 
 Each subpackage has an [API page](api/devices.md).
 

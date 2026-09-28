@@ -14,7 +14,7 @@ from flax.nnx.filterlib import Filter
 from jax.sharding import Mesh, NamedSharding, PartitionSpec, Sharding
 
 from substrax.mesh import create_named_sharding
-from substrax.nnx_typing import NnxState
+from substrax.nnx_typing import NnxState, PathEntry
 from substrax.typing import PyTree
 
 
@@ -94,17 +94,8 @@ def _as_array(leaf: jax.Array | np.ndarray | np.generic) -> jax.Array | np.ndarr
     return np.asarray(leaf) if isinstance(leaf, np.generic) else leaf
 
 
-_PathEntry = (
-    jax.tree_util.DictKey
-    | jax.tree_util.SequenceKey
-    | jax.tree_util.GetAttrKey
-    | jax.tree_util.FlattenedIndexKey
-)
-"""The entries of a key path ``jax.tree.flatten_with_path`` returns."""
-
-
 def _check_holds(
-    path: jax.tree_util.KeyPath[_PathEntry], array: jax.Array | np.ndarray, sharding: Sharding
+    path: jax.tree_util.KeyPath[PathEntry], array: jax.Array | np.ndarray, sharding: Sharding
 ) -> None:
     """Refuse a leaf with fewer dimensions than its named sharding partitions, naming its path."""
     if isinstance(sharding, NamedSharding) and len(sharding.spec) > np.ndim(array):
@@ -116,10 +107,10 @@ def _check_holds(
         raise ValueError(msg)
 
 
-def spmd_train_step(
-    model: nnx.Module,
-    optimizer: nnx.Optimizer[nnx.Module],
-    loss_fn: Callable[[nnx.Module, PyTree], jax.Array],
+def spmd_train_step[M: nnx.Module](
+    model: M,
+    optimizer: nnx.Optimizer[M],
+    loss_fn: Callable[[M, PyTree], jax.Array],
     batch: PyTree,
 ) -> jax.Array:
     """Execute a data-parallel training step using SPMD.

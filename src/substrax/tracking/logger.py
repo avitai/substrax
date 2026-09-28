@@ -11,21 +11,15 @@ import csv
 import logging
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from substrax.tracking._plots import save_histogram, save_image_grid
 
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
-
-    from jax.typing import ArrayLike
-    from numpy.typing import NDArray
 
 _LINE_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 _TIMESTAMP_FORMAT = "%Y%m%d_%H%M%S"
@@ -55,7 +49,7 @@ def summarize(values: ArrayLike | Sequence[float]) -> dict[str, float]:
     }
 
 
-def as_images(image: ArrayLike | Sequence[ArrayLike]) -> list[NDArray[Any]]:
+def as_images(image: ArrayLike | Sequence[ArrayLike]) -> list[NDArray[np.generic]]:
     """Return ``image`` as a list of numpy arrays, whether it is one image or several."""
     items = image if isinstance(image, Sequence) else [image]
     return [np.asarray(item) for item in items]
@@ -66,7 +60,7 @@ def format_scalars(scalars: Mapping[str, float]) -> str:
     return ", ".join(f"{name}: {value:.6g}" for name, value in scalars.items())
 
 
-def describe_images(name: str, images: Sequence[NDArray[Any]]) -> str:
+def describe_images(name: str, images: Sequence[NDArray[np.generic]]) -> str:
     """Return the log line for one image (with its shape) or several."""
     if len(images) == 1:
         return f"Logged image {name} with shape {images[0].shape}"
@@ -199,7 +193,7 @@ class Logger(ABC):
         """
 
     @abstractmethod
-    def log_hyperparams(self, params: Mapping[str, Any]) -> None:
+    def log_hyperparams(self, params: Mapping[str, object]) -> None:
         """Log hyperparameters.
 
         Args:
@@ -236,7 +230,7 @@ class ConsoleLogger(Logger):
         """Log ``text`` under ``name``."""
         self.info(f"{step_prefix(step)}{name}:\n{text}")
 
-    def log_hyperparams(self, params: Mapping[str, Any]) -> None:
+    def log_hyperparams(self, params: Mapping[str, object]) -> None:
         """Log one line per hyperparameter."""
         self.info("Hyperparameters:")
         for name, value in params.items():
@@ -308,7 +302,7 @@ class FileLogger(ConsoleLogger):
         directory = self._subdirectory("texts")
         (directory / artifact_filename(name, step, ".txt")).write_text(text)
 
-    def log_hyperparams(self, params: Mapping[str, Any]) -> None:
+    def log_hyperparams(self, params: Mapping[str, object]) -> None:
         """Log the hyperparameters and save them to ``hyperparams_<timestamp>.txt``."""
         super().log_hyperparams(params)
         lines = "".join(f"{name}: {value}\n" for name, value in params.items())

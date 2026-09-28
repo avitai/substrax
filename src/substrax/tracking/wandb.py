@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import html
 import logging
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from substrax.tracking._optional import import_optional
 from substrax.tracking.logger import (
@@ -25,12 +27,6 @@ from substrax.tracking.logger import (
 )
 
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-
-    from jax.typing import ArrayLike
-
-
 class WandbLogger(Logger):
     """Logger that records metrics, media and artifacts in a Weights & Biases run."""
 
@@ -41,11 +37,12 @@ class WandbLogger(Logger):
         *,
         entity: str | None = None,
         log_dir: str | Path | None = None,
-        config: Mapping[str, Any] | None = None,
+        config: Mapping[str, object] | None = None,
         tags: Sequence[str] | None = None,
         notes: str | None = None,
         level: int = logging.INFO,
-        **init_options: Any,
+        # Any: forwarded to wandb.init, whose keywords the optional SDK types.
+        **init_options: Any,  # noqa: ANN401
     ) -> None:
         """Start the W&B run.
 
@@ -79,7 +76,8 @@ class WandbLogger(Logger):
         self.run: Any | None = run
         self.info(f"Initialized W&B run: {run.name} (ID: {run.id})")
 
-    def _active_run(self) -> Any:
+    # Any: wandb.Run, an optional extra; its type is not importable in the gate.
+    def _active_run(self) -> Any:  # noqa: ANN401
         """Return the run, or fail when it has already been finished.
 
         Returns:
@@ -120,7 +118,7 @@ class WandbLogger(Logger):
         self._wandb.log({name: self._wandb.Html(f"<pre>{html.escape(text)}</pre>")}, step=step)
         self.info(f"{step_prefix(step)}Logged text for {name}")
 
-    def log_hyperparams(self, params: Mapping[str, Any]) -> None:
+    def log_hyperparams(self, params: Mapping[str, object]) -> None:
         """Record the hyperparameters on the run's config."""
         self._active_run().config.update(dict(params))
         self.info(f"Logged {len(params)} hyperparameters to W&B")
@@ -134,7 +132,7 @@ class WandbLogger(Logger):
         self,
         model_path: str | Path,
         name: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, object] | None = None,
     ) -> None:
         """Upload a model file or directory as a W&B artifact of type ``model``.
 

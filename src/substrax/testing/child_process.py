@@ -10,9 +10,11 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+
+from pydantic import TypeAdapter
 
 from substrax.runtime import child_environment, JaxRuntime
+from substrax.typing import JsonValue
 
 
 _STDERR_TAIL_LINES = 40
@@ -50,24 +52,54 @@ class ChildResult:
             raise ChildFailedError(self)
         return self
 
-    def last_json(self) -> Any:
+    def last_json(self) -> JsonValue:
         """Parse the last non-empty line of standard output as JSON.
 
         Returns:
-            The decoded value.
+            The decoded value; a caller narrows it to the shape it expects.
 
         Raises:
             ValueError: If the child wrote no output, or its last line is not JSON.
         """
+        line = self._last_line()
+        try:
+            return json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"the child's last line of output is not JSON: {line!r}") from error
+
+    def last_json_as[T](self, shape: type[T]) -> T:  # noqa: DOC502  # raised by _last_line and pydantic
+        """Parse the last non-empty line of standard output as JSON of ``shape``.
+
+        The line is validated by pydantic in strict JSON mode, so a value of another type is
+        refused rather than converted (an integer is accepted where ``shape`` has a float, as
+        JSON does not tell them apart).
+
+        Args:
+            shape: The type the value must have, such as a ``TypedDict`` or ``list[int]``.
+
+        Returns:
+            The decoded value, of ``shape``.
+
+        Raises:
+            ValueError: If the child wrote no output.
+            pydantic.ValidationError: If the line is not JSON, or not a value of ``shape``; the
+                message names the offending field.
+        """
+        return TypeAdapter(shape).validate_json(self._last_line(), strict=True)
+
+    def _last_line(self) -> str:
+        """The last non-empty line of standard output.
+
+        Returns:
+            The line.
+
+        Raises:
+            ValueError: If the child wrote no output.
+        """
         lines = [line for line in self.stdout.splitlines() if line.strip()]
         if not lines:
             raise ValueError(f"the child wrote no output to parse as JSON: {self.argv[:2]}")
-        try:
-            return json.loads(lines[-1])
-        except json.JSONDecodeError as error:
-            raise ValueError(
-                f"the child's last line of output is not JSON: {lines[-1]!r}"
-            ) from error
+        return lines[-1]
 
 
 class ChildFailedError(AssertionError):

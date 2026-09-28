@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, get_args, Literal, TYPE_CHECKING
+from typing import Final, get_args, Literal
 
+import optax
 from flax import nnx
-
-
-if TYPE_CHECKING:
-    import optax
 
 
 OptimizerType = Literal["adam", "adamw", "sgd", "rmsprop", "adagrad", "lamb", "radam", "nadam"]

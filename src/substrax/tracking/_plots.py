@@ -6,16 +6,14 @@ when it is missing, and the loggers turn that into a warning.
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from collections.abc import Sequence
+from pathlib import Path
+
+import numpy as np
+from numpy.typing import NDArray
 
 from substrax.tracking._optional import import_optional
 
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-    from pathlib import Path
-
-    from numpy.typing import NDArray
 
 _COLOR_CHANNEL_COUNTS = (1, 3, 4)
 _IMAGE_NDIM = 3
@@ -24,12 +22,12 @@ _INCHES_PER_IMAGE = 3
 _HISTOGRAM_SIZE = (8, 6)
 
 
-def _is_color_image(image: NDArray[Any]) -> bool:
+def _is_color_image(image: NDArray[np.generic]) -> bool:
     """Return whether ``image`` has a trailing channel axis of 1, 3 or 4."""
     return image.ndim == _IMAGE_NDIM and image.shape[2] in _COLOR_CHANNEL_COUNTS
 
 
-def save_image_grid(path: Path, images: Sequence[NDArray[Any]]) -> None:
+def save_image_grid(path: Path, images: Sequence[NDArray[np.generic]]) -> None:
     """Save ``images`` side by side as one PNG.
 
     Colour images (a trailing axis of 1, 3 or 4 channels) are drawn as given; anything
@@ -52,7 +50,7 @@ def save_image_grid(path: Path, images: Sequence[NDArray[Any]]) -> None:
     plt.close(figure)
 
 
-def save_histogram(path: Path, values: NDArray[Any], *, title: str) -> None:
+def save_histogram(path: Path, values: NDArray[np.generic], *, title: str) -> None:
     """Save a histogram of ``values`` as a PNG.
 
     Args:

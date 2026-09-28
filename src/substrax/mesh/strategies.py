@@ -11,7 +11,6 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
 
 import jax
 from jax import Array
@@ -147,14 +146,6 @@ class ShardingStrategy(ABC):
         Returns:
             Sharded array
         """
-
-    def get_sharding_constraints(self) -> dict[str, Any]:
-        """Get sharding constraints for this strategy.
-
-        Returns:
-            Dictionary of sharding constraints
-        """
-        return {"axis_name": self.axis_name, "mesh_axis": self.mesh_axis}
 
 
 class DataParallelStrategy(ShardingStrategy):

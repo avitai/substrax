@@ -6,11 +6,11 @@ import subprocess  # nosec B404
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from substrax.artifacts import OUTPUT_DIR_ENV
 from substrax.runtime import JaxRuntime
 from substrax.testing.child_process import ChildResult, run_python, tail_lines
+from substrax.typing import JsonValue
 
 
 _ENTRY_POINT = Path(__file__).with_name("_example_main.py")
@@ -29,7 +29,7 @@ class ExampleRun:
 
     path: Path
     result: ChildResult
-    summary: Any
+    summary: JsonValue
 
 
 class ExampleTimeoutError(AssertionError):

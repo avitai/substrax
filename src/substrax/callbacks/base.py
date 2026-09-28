@@ -7,7 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from flax import nnx
 
-from substrax.typing import Checkpointable
+from substrax.typing import Checkpointable, CheckpointState
 
 
 @runtime_checkable
@@ -127,7 +127,7 @@ class CallbackList:
             if isinstance(callback, Checkpointable)
         }
 
-    def get_state(self) -> dict[str, Any]:
+    def get_state(self) -> CheckpointState:
         """Every stateful callback's state, for a checkpoint.
 
         Returns:
@@ -137,7 +137,7 @@ class CallbackList:
         checkpointable = self._checkpointable()
         return {position: callback.get_state() for position, callback in checkpointable.items()}
 
-    def set_state(self, state: dict[str, Any]) -> None:
+    def set_state(self, state: CheckpointState) -> None:
         """Take back a state :meth:`get_state` returned, into a list built the same way.
 
         Args:

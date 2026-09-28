@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping
-from typing import Any
 
 
-def check_state_keys(state: Mapping[str, Any], expected: Collection[str], *, owner: str) -> None:
+def check_state_keys(state: Mapping[str, object], expected: Collection[str], *, owner: str) -> None:
     """Refuse a state whose keys are not the ones ``owner`` writes.
 
     Args:

@@ -5,6 +5,7 @@ Tests both SPMD-compatible reductions (jnp.*) and collective reductions (lax.p*)
 
 from unittest import mock
 
+import jax
 import jax.numpy as jnp
 
 from substrax.spmd import (
@@ -151,7 +152,9 @@ class TestAllGather:
         with mock.patch("jax.lax.all_gather", return_value=jnp.array([1.0, 2.0])):
             metrics = {"loss": jnp.array(1.0), "step": 5}
             result = all_gather(metrics)
-            assert result["loss"].tolist() == [1.0, 2.0]
+            gathered = result["loss"]
+            assert isinstance(gathered, jax.Array)
+            assert gathered.tolist() == [1.0, 2.0]
             assert result["step"] == 5
 
 
@@ -163,10 +166,9 @@ class TestCollectFromDevices:
         metrics = {"loss": jnp.array([1.0, 2.0, 3.0]), "accuracy": 0.95}
         result = collect_from_devices(metrics)
 
-        assert len(result["loss"]) == 3
-        assert float(result["loss"][0]) == 1.0
-        assert float(result["loss"][1]) == 2.0
-        assert float(result["loss"][2]) == 3.0
+        per_device = result["loss"]
+        assert isinstance(per_device, list)
+        assert [float(value) for value in per_device] == [1.0, 2.0, 3.0]
         assert result["accuracy"] == 0.95
 
     def test_scalar_arrays_unchanged(self) -> None:

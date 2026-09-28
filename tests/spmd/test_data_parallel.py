@@ -9,7 +9,6 @@ import socket
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
-from typing import Any
 from unittest import mock
 
 import jax
@@ -384,7 +383,7 @@ class TestDataParallelGradients:
 class TestSpmdTrainStep:
     """Tests for spmd_train_step function."""
 
-    def _make_model_and_optimizer(self) -> tuple[nnx.Linear, nnx.Optimizer[Any]]:
+    def _make_model_and_optimizer(self) -> tuple[nnx.Linear, nnx.Optimizer[nnx.Linear]]:
         """Create a minimal NNX model and optimizer for testing."""
         model = nnx.Linear(2, 1, rngs=nnx.Rngs(0))
         optimizer = nnx.Optimizer(model, optax.sgd(0.01), wrt=nnx.Param)
@@ -395,7 +394,7 @@ class TestSpmdTrainStep:
         model, optimizer = self._make_model_and_optimizer()
         batch = {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}
 
-        def loss_fn(m: nnx.Module, b: dict[str, jax.Array]) -> jax.Array:
+        def loss_fn(m: nnx.Linear, b: dict[str, jax.Array]) -> jax.Array:
             return jnp.mean((m(b["x"]) - b["y"]) ** 2)
 
         loss = spmd_train_step(model, optimizer, loss_fn, batch)
@@ -407,7 +406,7 @@ class TestSpmdTrainStep:
         params_before = jax.tree.map(jnp.copy, nnx.state(model, nnx.Param))
         batch = {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}
 
-        def loss_fn(m: nnx.Module, b: dict[str, jax.Array]) -> jax.Array:
+        def loss_fn(m: nnx.Linear, b: dict[str, jax.Array]) -> jax.Array:
             return jnp.mean((m(b["x"]) - b["y"]) ** 2)
 
         spmd_train_step(model, optimizer, loss_fn, batch)
@@ -426,7 +425,7 @@ class TestSpmdTrainStep:
         model, optimizer = self._make_model_and_optimizer()
         batch = {"x": jnp.ones((4, 2)), "y": jnp.zeros((4, 1))}
 
-        def loss_fn(m: nnx.Module, b: dict[str, jax.Array]) -> jax.Array:
+        def loss_fn(m: nnx.Linear, b: dict[str, jax.Array]) -> jax.Array:
             return jnp.mean((m(b["x"]) - b["y"]) ** 2)
 
         loss_first = spmd_train_step(model, optimizer, loss_fn, batch)

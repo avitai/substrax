@@ -96,7 +96,6 @@ class TestShardingStrategy:
         # Test that it's an abstract base class
         assert hasattr(ShardingStrategy, "get_partition_spec")
         assert hasattr(ShardingStrategy, "apply_sharding")
-        assert hasattr(ShardingStrategy, "get_sharding_constraints")
 
     def test_sharding_strategy_validation(self) -> None:
         """Test strategy validation methods."""
