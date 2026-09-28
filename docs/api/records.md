@@ -56,3 +56,8 @@ function JAX traces.
 ::: substrax.records
 
 ::: substrax.typing
+
+`substrax.nnx_typing` holds the aliases that need flax, such as `NnxState`, the state a module's
+`nnx.split` returns; `substrax.typing` stays importable without jax.
+
+::: substrax.nnx_typing

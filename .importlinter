@@ -24,11 +24,12 @@ forbidden_modules =
     substrax.spmd
 
 [importlinter:contract:process_setup]
-name = runtime, artifacts, examples, rng and optim are leaves that import no other subpackage
+name = runtime, artifacts, examples, rng, optim and nnx_typing are leaves that import no other subpackage
 type = forbidden
 source_modules =
     substrax.artifacts
     substrax.examples
+    substrax.nnx_typing
     substrax.optim
     substrax.rng
     substrax.runtime
@@ -51,6 +52,7 @@ source_modules =
     substrax.compute
     substrax.devices
     substrax.mesh
+    substrax.nnx_typing
     substrax.optim
     substrax.rng
     substrax.runtime

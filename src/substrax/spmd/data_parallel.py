@@ -5,15 +5,16 @@ centered on current SPMD APIs via ``nnx.jit`` and meshes.
 """
 
 import logging
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
 
 import jax
 import numpy as np
 from flax import nnx
+from flax.nnx.filterlib import Filter
 from jax.sharding import Mesh, NamedSharding, PartitionSpec, Sharding
 
 from substrax.mesh import create_named_sharding
+from substrax.nnx_typing import NnxState
 from substrax.typing import PyTree
 
 
@@ -93,7 +94,18 @@ def _as_array(leaf: jax.Array | np.ndarray | np.generic) -> jax.Array | np.ndarr
     return np.asarray(leaf) if isinstance(leaf, np.generic) else leaf
 
 
-def _check_holds(path: tuple[Any, ...], array: jax.Array | np.ndarray, sharding: Sharding) -> None:
+_PathEntry = (
+    jax.tree_util.DictKey
+    | jax.tree_util.SequenceKey
+    | jax.tree_util.GetAttrKey
+    | jax.tree_util.FlattenedIndexKey
+)
+"""The entries of a key path ``jax.tree.flatten_with_path`` returns."""
+
+
+def _check_holds(
+    path: jax.tree_util.KeyPath[_PathEntry], array: jax.Array | np.ndarray, sharding: Sharding
+) -> None:
     """Refuse a leaf with fewer dimensions than its named sharding partitions, naming its path."""
     if isinstance(sharding, NamedSharding) and len(sharding.spec) > np.ndim(array):
         msg = (
@@ -106,7 +118,7 @@ def _check_holds(path: tuple[Any, ...], array: jax.Array | np.ndarray, sharding:
 
 def spmd_train_step(
     model: nnx.Module,
-    optimizer: nnx.Optimizer[Any],
+    optimizer: nnx.Optimizer[nnx.Module],
     loss_fn: Callable[[nnx.Module, PyTree], jax.Array],
     batch: PyTree,
 ) -> jax.Array:
@@ -145,10 +157,10 @@ def spmd_train_step(
 
 
 def place_nnx_state_on_shards(
-    state: nnx.State[Any, Any],
+    state: NnxState,
     mesh: Mesh,
-    filter_sharding: nnx.StateSharding | dict[Any, PartitionSpec | Sharding],
-) -> nnx.State[Any, Any]:
+    filter_sharding: nnx.StateSharding | Mapping[Filter, PartitionSpec | Sharding],
+) -> NnxState:
     """Shard a Flax NNX state tree using current NNX sharding helpers."""
     state_sharding = (
         filter_sharding

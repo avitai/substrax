@@ -15,6 +15,15 @@ and uses semantic versioning while the public API stabilizes.
 - `substrax.testing.compiles`: `compiled_programs()` records the XLA programs jax compiles inside a
   block, by name, and `expect_compiles(count)` fails a block that compiled a different number
   (`CompileCountError`). The listener lives for the block only.
+- `substrax.nnx_typing.NnxState`, the state a module's `nnx.split` returns (nested states and
+  `Variable`s holding arrays), for annotations that need flax; `substrax.typing` stays importable
+  without jax.
+
+### Changed
+
+- `place_nnx_state_on_shards`, `update_with_line_search` and `spmd_train_step` annotate states,
+  filters and optimizers with their types (`NnxState`, flax's `Filter`, `nnx.Optimizer[M]`) instead
+  of `Any`.
 
 ### Fixed
 
