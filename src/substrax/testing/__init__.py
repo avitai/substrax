@@ -9,6 +9,8 @@ example per child interpreter with its outputs redirected (``substrax.examples.d
 lists them). The plugin, ``substrax.testing.pytest_plugin``, is
 enabled from a ``conftest.py``: it adds the ``x64``, ``devices`` and ``accelerator`` markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
+``substrax.testing.compiles`` records the XLA programs compiled inside a block and fails a block
+that compiled an unexpected number (it imports jax, so the package does not import it).
 ``substrax.testing.source_scans`` holds the contract checks a repository runs over its own source:
 import-time logging and environment writes, and documented meshes without axis types.
 Importing this package imports no jax.

@@ -54,6 +54,36 @@ count, so there is no global registry to clear. Wrap the Python function, then j
 The counter does not listen to jax's `jax.monitoring` trace event: jax records that event only
 for top-level traces, and its name is not documented.
 
+## Counting compiles
+
+A trace and a compile are different events: a trace builds a jaxpr, a compile builds an XLA
+executable, and a call that hits the executable cache does neither. `substrax.testing.compiles`
+records the executables jax builds inside a block, by name:
+
+```python
+import jax
+import jax.numpy as jnp
+
+from substrax.testing.compiles import compiled_programs, expect_compiles
+
+step, x = jax.jit(lambda v: v * 2.0), jnp.ones(3)  # jnp.ones compiles too: make inputs first
+
+with compiled_programs() as names:
+    step(x)
+assert names == ["jit(<lambda>)"]
+with expect_compiles(0):  # same shape and dtype: the cached executable
+    step(x)
+```
+
+It listens to `/jax/core/compile/backend_compile_duration`, which jax records around
+`compile_or_get_cached` when its in-process executable cache misses, so an executable the
+persistent compilation cache supplies counts as well. The event name is jax's own constant
+(`jax._src.dispatch.BACKEND_COMPILE_EVENT`), not a documented name; the package's tests fail if
+jax stops recording it. The listener lives for the block only, and it sees every compile in the
+process, including another thread's. `expect_compiles` raises `CompileCountError`, an
+`AssertionError` with the expected count and the compiled names. The module imports jax, so
+`substrax.testing` does not import it.
+
 ## Running examples
 
 `substrax.examples.discover_examples` lists a repository's example scripts, and `run_example` runs
@@ -191,6 +221,8 @@ that does not exist raises `FileNotFoundError`, so a mistyped directory fails th
 shrinking what it reads.
 
 ::: substrax.testing
+
+::: substrax.testing.compiles
 
 ::: substrax.testing.source_scans
 

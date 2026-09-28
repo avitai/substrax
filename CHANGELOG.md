@@ -12,6 +12,9 @@ and uses semantic versioning while the public API stabilizes.
 - `place_batch_on_shards(batch, sharding)` takes a pytree prefix of the batch whose leaves are
   shardings, one per subtree, besides a single sharding: rows split on the data axis and a
   batch-level value replicated, on one process or several.
+- `substrax.testing.compiles`: `compiled_programs()` records the XLA programs jax compiles inside a
+  block, by name, and `expect_compiles(count)` fails a block that compiled a different number
+  (`CompileCountError`). The listener lives for the block only.
 
 ### Fixed
 
