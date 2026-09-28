@@ -11,7 +11,7 @@ outputs_volume = "demo-outputs"
 examples = ["examples/metrics"]          # one task per script, as discover_examples lists them
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
-accelerator = { kind = "L4", count = 1 }
+resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300               # each task's budget; the job's when unset
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
@@ -145,7 +145,11 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
     spec = read_record(
         JobSpec, {**table, "name": name, "tasks": [dump_record(task) for task in tasks]}
     )
-    return spec if accelerator is None else dataclasses.replace(spec, accelerator=accelerator)
+    if accelerator is None:
+        return spec
+    return dataclasses.replace(
+        spec, resources=dataclasses.replace(spec.resources, accelerator=accelerator)
+    )
 
 
 def _example_tasks(sources: TaskSources, job: str, project: Path, budget: float) -> list[Task]:

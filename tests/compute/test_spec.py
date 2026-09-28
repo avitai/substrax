@@ -16,6 +16,7 @@ from substrax.compute import (
     Mount,
     MountAccess,
     read_job_spec,
+    Resources,
     Task,
 )
 from substrax.records import dump_record
@@ -35,7 +36,7 @@ class TestJobSpec:
     def test_a_full_spec_round_trips_through_json(self) -> None:
         spec = _spec(
             extras=("cuda12",),
-            accelerator=Accelerator(kind="L4", count=2),
+            resources=Resources(accelerator=Accelerator(kind="L4", count=2), cpu=4.0),
             runtime=JaxRuntime(
                 platforms=("cuda",), xla_flags=("--xla_gpu_deterministic_ops=true",)
             ),
@@ -52,7 +53,7 @@ class TestJobSpec:
         spec = _spec()
 
         assert spec.schema_version == JOB_SPEC_VERSION
-        assert spec.accelerator is None
+        assert spec.resources == Resources()
         assert spec.extras == ()
         assert spec.mounts == ()
         assert spec.env == {}
@@ -91,6 +92,18 @@ class TestJobSpec:
         with pytest.raises(ValueError, match=rf"{JOB_SPEC_VERSION + 1}.*{JOB_SPEC_VERSION}"):
             read_job_spec(payload)
 
+    def test_an_earlier_spec_version_is_refused_naming_both_versions(self) -> None:
+        payload = dump_record(_spec())
+        payload["schema_version"] = JOB_SPEC_VERSION - 1
+
+        with pytest.raises(ValueError, match=rf"{JOB_SPEC_VERSION - 1}.*{JOB_SPEC_VERSION}"):
+            read_job_spec(payload)
+
+    def test_the_resources_round_trip(self) -> None:
+        spec = _spec(resources=Resources(cpu=6.5, memory_mib=32768))
+
+        assert read_job_spec(dump_record(spec)) == spec
+
     def test_reading_json_applies_the_same_validation_as_construction(self) -> None:
         payload = dump_record(_spec(tasks=(_task("first"), _task("second"))))
         tasks = payload["tasks"]
@@ -108,6 +121,18 @@ class TestJobSpec:
 
         with pytest.raises(ValueError, match="timeout_seconds"):
             read_job_spec(payload)
+
+
+class TestResources:
+    def test_nothing_is_requested_by_default(self) -> None:
+        assert Resources() == Resources(accelerator=None, cpu=None, memory_mib=None)
+
+    @pytest.mark.parametrize(("cpu", "memory_mib"), [(0.0, None), (-1.0, None), (None, 0)])
+    def test_a_request_that_is_not_positive_is_refused(
+        self, cpu: float | None, memory_mib: int | None
+    ) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            Resources(cpu=cpu, memory_mib=memory_mib)
 
 
 class TestTask:

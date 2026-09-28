@@ -19,7 +19,7 @@ from substrax.runtime import JaxRuntime
 from substrax.typing import JsonValue
 
 
-JOB_SPEC_VERSION = 1
+JOB_SPEC_VERSION = 2
 """The job spec layout this release writes and reads."""
 
 # A name becomes a directory under the run's outputs, so it is one path component.
@@ -127,6 +127,34 @@ class Task:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class Resources:
+    """What the machine a job runs on must have; each request is the least it gets.
+
+    Attributes:
+        accelerator: The accelerators; ``None`` runs on CPUs.
+        cpu: The CPU cores, fractional allowed; ``None`` takes the provider's default.
+        memory_mib: The memory, in MiB; ``None`` takes the provider's default.
+    """
+
+    __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
+
+    accelerator: Accelerator | None = None
+    cpu: float | None = None
+    memory_mib: int | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the requests.
+
+        Raises:
+            ValueError: If a CPU or memory request is not a positive finite number.
+        """
+        for request, value in (("cpu", self.cpu), ("memory_mib", self.memory_mib)):
+            if value is not None and not (math.isfinite(value) and value > 0):
+                msg = f"the {request} request must be a positive finite number, not {value}"
+                raise ValueError(msg)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class JobSpec:
     """A job: its tasks and everything the machine that runs them must provide.
 
@@ -135,7 +163,7 @@ class JobSpec:
         name: The job's name, such as ``"examples"``.
         tasks: The commands, run in order; a failed task does not stop the ones after it.
         timeout_seconds: Seconds the whole job may take; the backend stops it after that.
-        accelerator: The accelerators it needs; ``None`` runs on CPUs.
+        resources: The accelerators, CPU cores and memory the machine must have.
         extras: The project's optional dependency groups installed with its locked dependencies.
         runtime: The JAX settings of every task.
         env: Variables set in every task before ``runtime`` is applied.
@@ -148,7 +176,7 @@ class JobSpec:
     name: str
     tasks: tuple[Task, ...]
     timeout_seconds: float
-    accelerator: Accelerator | None = None
+    resources: Resources = field(default_factory=Resources)
     extras: tuple[str, ...] = ()
     runtime: JaxRuntime = field(default_factory=JaxRuntime)
     env: Mapping[str, str] = field(default_factory=dict)

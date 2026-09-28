@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from substrax.compute import Accelerator, JobSpec, Mount, MountAccess, Task
+from substrax.compute import Accelerator, JobSpec, Mount, MountAccess, Resources, Task
 from substrax.compute.backend import ComputeBackend
 from substrax.compute.skypilot_backend import SkyPilotBackend
 from substrax.testing.compute import BackendContract
@@ -72,7 +72,7 @@ def test_the_task_syncs_the_lock_with_the_extras_and_runs_the_worker(tmp_path: P
     project.mkdir()
 
     handle = _backend(tmp_path / "state", infra="gcp/us-central1").submit(
-        _spec(accelerator=Accelerator(kind="L4")), project=project
+        _spec(resources=Resources(accelerator=Accelerator(kind="L4"))), project=project
     )
 
     task = _task_file(tmp_path / "state")
@@ -90,6 +90,28 @@ def test_the_task_syncs_the_lock_with_the_extras_and_runs_the_worker(tmp_path: P
     mounts = task["file_mounts"]
     assert isinstance(mounts, dict)
     assert mounts["/outputs"] == {"source": "gs://outputs", "mode": "MOUNT"}
+
+
+def test_the_resources_ask_for_at_least_the_cpu_and_memory_requested(tmp_path: Path) -> None:
+    """SkyPilot reads ``<n>+`` as at least ``n`` vCPUs and ``<n>MB+`` as at least ``n`` MiB."""
+    (tmp_path / "project").mkdir()
+    _backend(tmp_path / "state").submit(
+        _spec(resources=Resources(cpu=8.0, memory_mib=65536)), project=tmp_path / "project"
+    )
+
+    resources = _task_file(tmp_path / "state")["resources"]
+    assert isinstance(resources, dict)
+    assert (resources["cpus"], resources["memory"]) == ("8+", "65536MB+")
+
+
+def test_no_cpu_or_memory_is_asked_for_when_the_job_requests_none(tmp_path: Path) -> None:
+    (tmp_path / "project").mkdir()
+    _backend(tmp_path / "state").submit(_spec(), project=tmp_path / "project")
+
+    resources = _task_file(tmp_path / "state")["resources"]
+    assert isinstance(resources, dict)
+    assert "cpus" not in resources
+    assert "memory" not in resources
 
 
 def test_each_mount_is_its_configured_bucket(tmp_path: Path) -> None:

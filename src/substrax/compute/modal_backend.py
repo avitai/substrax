@@ -150,7 +150,9 @@ class ModalBackend:
         app = modal.App(f"{root.name}-{spec.name}")
         worker = app.function(
             image=self._image(spec, root),
-            gpu=_gpu(spec.accelerator),
+            gpu=_gpu(spec.resources.accelerator),
+            cpu=spec.resources.cpu,
+            memory=spec.resources.memory_mib,
             timeout=math.ceil(spec.timeout_seconds),
             volumes=self._volumes(spec),
             serialized=True,

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from substrax.compute import Accelerator, Mount, MountAccess, Task
+from substrax.compute import Accelerator, Mount, MountAccess, Resources, Task
 from substrax.compute.config import (
     parse_accelerator,
     read_compute_config,
@@ -36,7 +36,7 @@ outputs_volume = "demo-outputs"
 [tool.substrax.compute.jobs.examples]
 examples = ["examples"]
 extras = ["cuda12"]
-accelerator = { kind = "L4" }
+resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
@@ -73,7 +73,9 @@ def test_a_job_resolves_to_a_spec_with_examples_first_then_commands(tmp_path: Pa
             timeout_seconds=300,
         ),
     )
-    assert spec.accelerator == Accelerator(kind="L4")
+    assert spec.resources == Resources(
+        accelerator=Accelerator(kind="L4"), cpu=8.0, memory_mib=32768
+    )
     assert spec.extras == ("cuda12",)
     assert spec.timeout_seconds == 1800
     assert spec.runtime == JaxRuntime(
@@ -96,7 +98,7 @@ def test_a_task_without_its_own_budget_gets_the_jobs(tmp_path: Path) -> None:
     spec = resolve_job(read_compute_config(project), "probe", project=project)
 
     assert spec.tasks[0].timeout_seconds == 120
-    assert spec.accelerator is None
+    assert spec.resources == Resources()
 
 
 def test_the_accelerator_can_be_overridden_per_run(tmp_path: Path) -> None:
@@ -111,7 +113,8 @@ def test_the_accelerator_can_be_overridden_per_run(tmp_path: Path) -> None:
         accelerator=Accelerator(kind="H100", count=2),
     )
 
-    assert spec.accelerator == Accelerator(kind="H100", count=2)
+    assert spec.resources.accelerator == Accelerator(kind="H100", count=2)
+    assert (spec.resources.cpu, spec.resources.memory_mib) == (8.0, 32768)
 
 
 def test_an_unknown_job_is_refused_with_the_configured_names(tmp_path: Path) -> None:

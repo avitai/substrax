@@ -23,8 +23,20 @@ and uses semantic versioning while the public API stabilizes.
   and reverse, or reverse only for a `custom_vjp`), return it, and refuse an all-zero gradient
   unless allowed.
 
+- A compute job requests CPU cores and memory besides its accelerator, in one `Resources` record
+  (`resources = { accelerator = ..., cpu = 8, memory_mib = 32768 }` in its table): Modal's `gpu`,
+  `cpu` and `memory`, SkyPilot's `accelerators`, `cpus` and `memory` as minimums.
+- The run manifest records the devices the run's JAX saw (`RunDevices`: the platform and each
+  device's kind), from a child probe with the job's runtime before the first task; a failed probe
+  leaves `devices.log` and does not stop the job.
+
 ### Changed
 
+- A job's `accelerator` moves into its `resources` (`JobSpec.resources.accelerator`, and
+  `resources = { accelerator = ... }` in the job table).
+- The job spec (`JOB_SPEC_VERSION` 2) and the run manifest (`MANIFEST_VERSION` 2) change layout; a
+  spec or manifest of another version is refused naming both, so a run is submitted, run and read
+  by one substrax release.
 - `place_nnx_state_on_shards`, `update_with_line_search` and `spmd_train_step` annotate states,
   filters and optimizers with their types (`NnxState`, flax's `Filter`, `nnx.Optimizer[M]`) instead
   of `Any`.

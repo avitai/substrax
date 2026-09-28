@@ -18,7 +18,7 @@ outputs_volume = "demo-outputs"
 examples = ["examples/metrics"]          # one task per script
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
-accelerator = { kind = "L4", count = 1 }
+resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
@@ -26,7 +26,11 @@ env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
 ```
 
-A misspelled key is refused, not ignored. `examples` lists each directory's scripts as
+A misspelled key is refused, not ignored. `resources` is what the machine must have: an
+`accelerator`, CPU cores (`cpu`, fractional allowed) and memory in MiB (`memory_mib`), each the
+least it gets. Modal takes them as `gpu`, `cpu` and `memory`; SkyPilot as `accelerators`,
+`cpus = "<n>+"` and `memory = "<n>MB+"`; the local backend provisions nothing. `--accelerator`
+replaces the configured accelerator for one run. `examples` lists each directory's scripts as
 `substrax.examples.discover_examples` does, skipping every name that starts with `_`; a task's
 leading `"python"` is the project environment's interpreter.
 
@@ -51,7 +55,8 @@ project.
 
 ```text
 <run-id>/
-  manifest.json            # every task: argv, status, exit code, seconds, files written
+  manifest.json            # the devices JAX saw; every task: argv, status, exit code, seconds, files
+  devices.log              # only when the device probe failed
   <task>/stdout.log
   <task>/stderr.log
   <task>/<name>/...        # what the task saved through resolve_output_dir(name)
@@ -60,7 +65,10 @@ project.
 Each task runs from the project root with `AVITAI_OUTPUT_DIR` set to its own directory and the
 job's `JaxRuntime` applied, for at most its own budget or what is left of the job's. A failed
 task does not stop the ones after it. The worker rewrites the manifest after every task, and
-marks it `finished` after the last.
+marks it `finished` after the last. Before the first task a child with the job's `JaxRuntime`
+reports the platform and each device's kind, which the manifest records: what the provider
+allocated, which can differ from the request (an `H100:8` request has run on H200). The worker
+itself never starts a JAX backend.
 
 ## Backends
 
