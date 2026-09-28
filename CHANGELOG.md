@@ -31,6 +31,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Fixed
 
+- The local compute backend observes whether its worker is alive before reading the run's
+  manifest; read the other way round, a run finishing between the two checks was reported failed.
 - `place_batch_on_shards` places a NumPy scalar leaf (it came back unplaced) and refuses a leaf
   with fewer dimensions than its sharding splits, naming the leaf's path.
 - The version has one source, `pyproject.toml`; `substrax.__version__` reads it from the installed
