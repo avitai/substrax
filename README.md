@@ -1,10 +1,14 @@
 # Substrax
 
-**JAX/Flax NNX training infrastructure: JAX process configuration, device detection and
-placement, device meshes and SPMD sharding (data, FSDP, tensor and pipeline strategies), an
-Orbax checkpoint store that restores onto the current devices, early stopping and callbacks,
-W&B/MLflow logging, and runs of a project's jobs on Modal, SkyPilot's clouds or this machine.**
-It is the shared layer of the Avitai JAX stack.
+<!-- --8<-- [start:summary] -->
+**The training plumbing a JAX/Flax NNX project otherwise writes for itself, written once:
+configure the JAX process, find the devices and lay arrays out across them, save and restore
+state, decide when to stop, log the run, and send it to a GPU.**
+
+Every Avitai JAX package imports this layer instead of carrying its own copy, so each concern has
+one implementation and one test suite. Substrax imports none of those packages, so it works on its
+own.
+<!-- --8<-- [end:summary] -->
 
 [![CI](https://github.com/avitai/substrax/actions/workflows/ci.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/ci.yml)
 [![Build](https://github.com/avitai/substrax/actions/workflows/build-verification.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/build-verification.yml)
@@ -13,12 +17,12 @@ It is the shared layer of the Avitai JAX stack.
 
 [Documentation](https://substrax.readthedocs.io) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/avitai/substrax/issues)
 
-> **Research preview.** Substrax is under rapid iteration and the API will change while
-> the sibling packages migrate onto it. Pin a version.
+> **Research preview.** The API changes between releases while the stack is under active
+> development. Pin a version.
 
 ## Where it sits
 
-Substrax is the bottom of the Avitai dependency chain and depends on none of the siblings:
+The Avitai dependency chain:
 
 ```text
 substrax → calibrax → datarax → artifex → opifex
@@ -27,9 +31,9 @@ substrax → calibrax → datarax → artifex → opifex
 The domain packages built on them (DiffBio, DiffAV, cellifex, fluctifex, seismifex, pertrax)
 depend on it too.
 
-It holds the code those packages used to carry separately, so that each concern has one
-home and one test suite:
+Each concern has one home and one test suite:
 
+<!-- --8<-- [start:subpackages] -->
 | Subpackage | What it owns |
 | --- | --- |
 | `substrax.runtime` | `JaxRuntime` process settings rendered as the environment of a process that has not imported jax, or applied to the current one; XLA flags merged by name; test-run device emulation; entry-point logging |
@@ -45,6 +49,7 @@ home and one test suite:
 | `substrax.tracking` | Step-wise experiment logging with console, file, Weights & Biases and MLflow backends |
 | `substrax.compute` | A project's jobs run on a compute backend: the job spec, the worker every backend runs, the `ComputeBackend` protocol with `local`, `modal` and `skypilot` backends found through entry points, the accelerator, CPU and memory a job requests, a manifest recording the devices a run got, and the `substrax-compute` command |
 | `substrax.typing`, `substrax.nnx_typing`, `substrax.records`, `substrax.examples` | The shared type aliases (`PyTree`, `JsonValue`, `CheckpointState`; `NnxState` and `PathEntry` over jax and flax), typed reading and writing of JSON records, and the listing of a repository's example scripts |
+<!-- --8<-- [end:subpackages] -->
 
 Not in Substrax: optimizer algorithms and schedules (optax, which Substrax assembles from a
 config), loss scaling and gradient accumulation
@@ -61,10 +66,12 @@ uv add "substrax[testing]" # pytest plugin and fresh-interpreter test helpers
 uv add "substrax[modal]"   # the Modal compute backend
 ```
 
+<!-- --8<-- [start:requirements] -->
 Substrax requires Python 3.12 or later (CI runs 3.12 and 3.13), `jax` and `jaxlib` 0.11.1,
 `flax>=0.12.9`, `optax>=0.2.8`, `orbax-checkpoint>=0.11.33`, `etils[epath]>=1.14.0`,
 `numpy>=1.24,<2.6` and `pydantic>=2.10`. jax is capped below 0.11.2 until a flax release works with it
 (`pyproject.toml` records why). The `cuda12` and `metal` extras select the JAX backend.
+<!-- --8<-- [end:requirements] -->
 
 ## Quick start
 
