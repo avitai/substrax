@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-09-28
+
 ### Added
 
 - `place_batch_on_shards(batch, sharding)` takes a pytree prefix of the batch whose leaves are
