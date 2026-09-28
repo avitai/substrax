@@ -179,6 +179,11 @@ def parse_accelerator(text: str) -> Accelerator:
     return Accelerator(kind=matched["kind"], count=int(count) if count else 1)
 
 
+_LOCAL_SOURCES = frozenset({"editable", "directory", "path"})
+"""The keys of a uv.lock ``source`` table that install a package from a local path (uv's lock
+``Source``: ``Editable``, ``Directory``, ``Path``); ``registry``, ``git`` and ``url`` are remote."""
+
+
 def require_locked_substrax(project: Path) -> str:
     """Return the substrax the project locks, which the worker runs from.
 
@@ -199,6 +204,7 @@ def require_locked_substrax(project: Path) -> str:
         raise FileNotFoundError(msg)
     for package in tomllib.loads(lock.read_text(encoding="utf-8")).get("package", []):
         if package.get("name") == "substrax":
-            return package.get("version") or "editable"
+            local = _LOCAL_SOURCES.intersection(package.get("source", {}))
+            return "editable" if local else package.get("version", "editable")
     msg = f"substrax is not in {lock}; add it to the project's dependencies to run the worker"
     raise LookupError(msg)

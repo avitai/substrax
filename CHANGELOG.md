@@ -7,6 +7,15 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- The version has one source, `pyproject.toml`; `substrax.__version__` reads it from the installed
+  package. It was read from `src/substrax/__init__.py`, which uv does not watch, so an editable
+  install could report, and checkpoint metadata record, an earlier version.
+- `substrax-compute` recognises a project that installs substrax from a local path by the lock's
+  `source` (editable, directory or path); it inferred that from a missing version, which a static
+  version now records.
+
 ## [0.1.18] - 2026-09-25
 
 ### Added

@@ -202,6 +202,28 @@ def test_a_project_without_a_lock_is_refused(tmp_path: Path) -> None:
         require_locked_substrax(_project(tmp_path, ""))
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ('{ editable = "." }', "editable"),
+        ('{ directory = "../substrax" }', "editable"),
+        ('{ path = "../substrax" }', "editable"),
+        ('{ registry = "https://pypi.org/simple" }', "0.1.18"),
+        ('{ git = "https://github.com/avitai/substrax?rev=main#50055ae" }', "0.1.18"),
+    ],
+)
+def test_a_locked_substrax_is_named_by_its_source(
+    tmp_path: Path, source: str, expected: str
+) -> None:
+    """A local source counts as editable even when the lock records its version."""
+    project = _project(tmp_path, "")
+    (project / "uv.lock").write_text(
+        f'[[package]]\nname = "substrax"\nversion = "0.1.18"\nsource = {source}\n', "utf-8"
+    )
+
+    assert require_locked_substrax(project) == expected
+
+
 def test_substrax_itself_counts_as_locking_substrax() -> None:
     root = Path(__file__).resolve().parents[2]
 

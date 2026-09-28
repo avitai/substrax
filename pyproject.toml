@@ -40,7 +40,6 @@ dependencies = [
   "pydantic>=2.10"
 ]
 description = "JAX/Flax NNX training infrastructure: device meshes and SPMD sharding, an Orbax checkpoint store, early stopping and callbacks, W&B and MLflow logging, and job runs on Modal, SkyPilot or locally"
-dynamic = ["version"]
 keywords = [
   "checkpointing",
   "distributed",
@@ -53,6 +52,7 @@ license = {file = "LICENSE"}
 name = "substrax"
 readme = "README.md"
 requires-python = ">=3.12"
+version = "0.1.18"
 
 [project.entry-points."substrax.compute.backends"]
 local = "substrax.compute.local:LocalBackend"
@@ -229,9 +229,6 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/substrax"]
-
-[tool.hatch.version]
-path = "src/substrax/__init__.py"
 
 [tool.interrogate]
 exclude = ["scripts", "tests"]

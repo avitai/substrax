@@ -16,7 +16,8 @@ also runs the PyPI upload path.
    source activate.sh
    ```
 
-2. Bump the package version in `src/substrax/__init__.py`.
+2. Bump `version` in `pyproject.toml` (the one source of the version; `substrax.__version__`
+   reads it from the installed package).
 3. Update `CHANGELOG.md` by moving unreleased entries under the new version and
    date.
 4. Run the release checks.
