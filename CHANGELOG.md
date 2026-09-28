@@ -18,6 +18,10 @@ and uses semantic versioning while the public API stabilizes.
 - `substrax.nnx_typing.NnxState`, the state a module's `nnx.split` returns (nested states and
   `Variable`s holding arrays), for annotations that need flax; `substrax.typing` stays importable
   without jax.
+- `substrax.testing.gradients`: `check_parameter_gradients` and `check_input_gradients` compare a
+  module's gradient, in its `nnx.Param`s or its input, with finite differences in float64 (forward
+  and reverse, or reverse only for a `custom_vjp`), return it, and refuse an all-zero gradient
+  unless allowed.
 
 ### Changed
 

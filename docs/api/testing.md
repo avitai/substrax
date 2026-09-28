@@ -84,6 +84,26 @@ process, including another thread's. `expect_compiles` raises `CompileCountError
 `AssertionError` with the expected count and the compiled names. The module imports jax, so
 `substrax.testing` does not import it.
 
+## Checking gradients
+
+A test that only checks that a gradient exists, is finite or is non-zero passes on a wrong one.
+`substrax.testing.gradients` compares a module's gradient with finite differences, through
+`jax.test_util.check_grads` (forward and reverse mode along one random direction), and returns it:
+
+```python
+from substrax.testing.gradients import check_input_gradients, check_parameter_gradients
+
+gradient = check_parameter_gradients(module, lambda m: loss(m(x), y))  # in its nnx.Param leaves
+input_gradient = check_input_gradients(module, lambda m, v: loss(m(v), y), x)
+```
+
+The check runs on a float64 copy of the module, split in tree mode: a derivative summed over many
+output elements is below a float32 finite difference's resolution (`check_grads`'s default
+tolerance is 1e-5 in float64 against 2e-3 in float32). The caller's module keeps its dtype and
+values. A gradient that is zero everywhere is refused unless `allow_zero=True`, since a loss that
+ignores what is differentiated passes a finite-difference check. A function with a
+`jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
+
 ## Running examples
 
 `substrax.examples.discover_examples` lists a repository's example scripts, and `run_example` runs
@@ -223,6 +243,8 @@ shrinking what it reads.
 ::: substrax.testing
 
 ::: substrax.testing.compiles
+
+::: substrax.testing.gradients
 
 ::: substrax.testing.source_scans
 
