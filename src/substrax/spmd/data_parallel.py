@@ -33,33 +33,75 @@ def create_data_parallel_sharding(mesh: Mesh, data_axis: str = "data") -> NamedS
     return create_named_sharding(mesh, data_axis)
 
 
-def place_batch_on_shards(batch: PyTree, sharding: Sharding) -> PyTree:
-    """Turn this process's batch into global arrays on ``sharding``.
+def place_batch_on_shards(  # noqa: DOC502  # the ValueError is raised by _check_holds
+    batch: PyTree, sharding: Sharding | PyTree
+) -> PyTree:
+    """Turn this process's batch into global arrays, each subtree on its sharding.
 
-    Array leaves, whether ``jax.Array`` or a NumPy array as a host data loader yields them, go
-    to ``jax.make_array_from_process_local_data`` in one call. On a single process that is one
-    batched ``jax.device_put``. On several processes each process passes the slice of the
-    global batch it loaded, and jax stitches the slices into one global array. Any other leaf,
-    such as a string, is returned as it is. Call it on the host batches a loader yields, outside
-    ``jax.jit``: inside a traced function the result is not placed on ``sharding``.
+    Array leaves, whether ``jax.Array``, a NumPy array as a host data loader yields it, or a NumPy
+    scalar, go to ``jax.make_array_from_process_local_data`` in one call. On a single process that
+    is one batched ``jax.device_put``. On several processes each process passes the slice of the
+    global batch it loaded, and jax stitches the slices into one global array; a leaf on a
+    replicated sharding must be equal on every process. Any other leaf, such as a string, is
+    returned as it is. Call it on the host batches a loader yields, outside ``jax.jit``: inside a
+    traced function the result is not placed on ``sharding``.
 
     Args:
         batch: The batch this process loaded.
-        sharding: The sharding of the global batch.
+        sharding: One sharding for every array leaf, or a pytree prefix of ``batch`` whose leaves
+            are shardings, each applying to its subtree: rows sharded on the batch axis and a
+            batch-level field without one replicated, for example.
 
     Returns:
-        The batch with every array leaf replaced by the global array on ``sharding``.
+        The batch with every array leaf replaced by the global array on its sharding.
+
+    Raises:
+        ValueError: If a leaf has fewer dimensions than its sharding partitions (a scalar under
+            a sharding that splits the batch axis); the message names the leaf's path.
     """
-    leaves, treedef = jax.tree.flatten(batch)
+    paths_and_leaves, treedef = jax.tree.flatten_with_path(batch)
+    leaves = [leaf for _, leaf in paths_and_leaves]
+    shardings = _leaf_shardings(batch, sharding, len(leaves))
     positions = [
-        index for index, leaf in enumerate(leaves) if isinstance(leaf, jax.Array | np.ndarray)
+        index
+        for index, leaf in enumerate(leaves)
+        if isinstance(leaf, jax.Array | np.ndarray | np.generic)
     ]
+    arrays = [_as_array(leaves[index]) for index in positions]
+    for index, array in zip(positions, arrays, strict=True):
+        _check_holds(paths_and_leaves[index][0], array, shardings[index])
     placed = jax.make_array_from_process_local_data(
-        sharding, [leaves[index] for index in positions]
+        sharding if isinstance(sharding, Sharding) else [shardings[index] for index in positions],
+        arrays,
     )
     for index, leaf in zip(positions, placed, strict=True):
         leaves[index] = leaf
     return jax.tree.unflatten(treedef, leaves)
+
+
+def _leaf_shardings(batch: PyTree, sharding: Sharding | PyTree, count: int) -> list[Sharding]:
+    """The sharding of each of ``batch``'s ``count`` leaves, a prefix broadcast over its subtree."""
+    if isinstance(sharding, Sharding):
+        return [sharding] * count
+    return jax.tree.leaves(
+        jax.tree.broadcast(sharding, batch, is_leaf=lambda node: isinstance(node, Sharding))
+    )
+
+
+def _as_array(leaf: jax.Array | np.ndarray | np.generic) -> jax.Array | np.ndarray:
+    """A NumPy scalar as a 0-d array; any other array leaf as it is."""
+    return np.asarray(leaf) if isinstance(leaf, np.generic) else leaf
+
+
+def _check_holds(path: tuple[Any, ...], array: jax.Array | np.ndarray, sharding: Sharding) -> None:
+    """Refuse a leaf with fewer dimensions than its named sharding partitions, naming its path."""
+    if isinstance(sharding, NamedSharding) and len(sharding.spec) > np.ndim(array):
+        msg = (
+            f"batch leaf {jax.tree_util.keystr(path)} has {np.ndim(array)} dimension(s), but its "
+            f"sharding partitions {len(sharding.spec)} ({sharding.spec}); give that subtree a "
+            "replicated sharding in a prefix"
+        )
+        raise ValueError(msg)
 
 
 def spmd_train_step(

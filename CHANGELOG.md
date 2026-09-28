@@ -7,8 +7,16 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `place_batch_on_shards(batch, sharding)` takes a pytree prefix of the batch whose leaves are
+  shardings, one per subtree, besides a single sharding: rows split on the data axis and a
+  batch-level value replicated, on one process or several.
+
 ### Fixed
 
+- `place_batch_on_shards` places a NumPy scalar leaf (it came back unplaced) and refuses a leaf
+  with fewer dimensions than its sharding splits, naming the leaf's path.
 - The version has one source, `pyproject.toml`; `substrax.__version__` reads it from the installed
   package. It was read from `src/substrax/__init__.py`, which uv does not watch, so an editable
   install could report, and checkpoint metadata record, an earlier version.
