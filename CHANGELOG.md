@@ -7,6 +7,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- The documentation workflow checks the strict site build on pull requests and on `main`, and no
+  longer pushes the site to a `gh-pages` branch: Read the Docs builds and hosts it.
+- The documentation home page includes the README's summary, subpackage table and requirements
+  (`pymdownx.snippets`), so they have one source; the home page's own copies had lost the
+  `compute`, `optim` and `rng` rows.
+
 ## [0.1.19] - 2026-09-28
 
 ### Added

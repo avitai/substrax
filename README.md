@@ -1,10 +1,14 @@
 # Substrax
 
-**JAX/Flax NNX training infrastructure: JAX process configuration, device detection and
-placement, device meshes and SPMD sharding (data, FSDP, tensor and pipeline strategies), an
-Orbax checkpoint store that restores onto the current devices, early stopping and callbacks,
-W&B/MLflow logging, and runs of a project's jobs on Modal, SkyPilot's clouds or this machine.**
-It is the shared layer of the Avitai JAX stack.
+<!-- --8<-- [start:summary] -->
+**The training plumbing a JAX/Flax NNX project otherwise writes for itself, written once:
+configure the JAX process, find the devices and lay arrays out across them, save and restore
+state, decide when to stop, log the run, and send it to a GPU.**
+
+Every Avitai JAX package imports this layer instead of carrying its own copy, so each concern has
+one implementation and one test suite. Substrax imports none of those packages, so it works on its
+own.
+<!-- --8<-- [end:summary] -->
 
 [![CI](https://github.com/avitai/substrax/actions/workflows/ci.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/ci.yml)
 [![Build](https://github.com/avitai/substrax/actions/workflows/build-verification.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/build-verification.yml)
@@ -13,35 +17,39 @@ It is the shared layer of the Avitai JAX stack.
 
 [Documentation](https://substrax.readthedocs.io) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/avitai/substrax/issues)
 
-> **Research preview.** Substrax is under rapid iteration and the API will change while
-> the sibling packages migrate onto it. Pin a version.
+> **Research preview.** The API changes between releases while the stack is under active
+> development. Pin a version.
 
 ## Where it sits
 
-Substrax is the bottom of the Avitai dependency chain and depends on none of the siblings:
+The Avitai dependency chain:
 
 ```text
 substrax → calibrax → datarax → artifex → opifex
 ```
 
-It holds the code those packages used to carry separately, so that each concern has one
-home and one test suite:
+The domain packages built on them (DiffBio, DiffAV, cellifex, fluctifex, seismifex, pertrax)
+depend on it too.
 
+Each concern has one home and one test suite:
+
+<!-- --8<-- [start:subpackages] -->
 | Subpackage | What it owns |
 | --- | --- |
 | `substrax.runtime` | `JaxRuntime` process settings rendered as the environment of a process that has not imported jax, or applied to the current one; XLA flags merged by name; test-run device emulation; entry-point logging |
 | `substrax.artifacts` | Output directories resolved from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
 | `substrax.rng` | Keys from an explicit owner (`key_from`, no default seed), streams derived from a seed by name (`rngs_from_seed`), `split_key` and the interpreter-stable `fold_in_name` |
-| `substrax.optim` | `OptimizerConfig` in optax's terms, `create_transformation` and `create_optimizer` over optax with the schedule as the base learning rate and the weight-decay filter as a static mask, `current_learning_rate` read on device |
-| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
-| `substrax.devices` | `detect_devices()` (platform, device kind, count), device placement, the batch-size recommendation table |
+| `substrax.optim` | `OptimizerConfig` in optax's terms, `create_transformation` and `create_optimizer` over optax with the schedule as the base learning rate and the weight-decay filter as a static mask, `current_learning_rate` read on device, `switch_at` from one transformation to another at a step, `update_with_line_search` for L-BFGS-style optimizers, `with_strong_state_types` |
+| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration and typed JSON reports (`last_json_as`), trace and compile counters (`TraceCounter`, `substrax.testing.compiles`), value-asserting NNX gradient checks (`substrax.testing.gradients`), example runs, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
+| `substrax.devices` | `detect_devices()` (platform, device kind, count), `DeviceLike` and `visible_devices()` for typed device parameters, device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |
-| `substrax.spmd` | Data-parallel sharding and batch placement, `spmd_train_step`, gradient reduction and collectives |
+| `substrax.spmd` | Data-parallel sharding, batch placement from a sharding or a prefix of the batch, `spmd_train_step`, and metric collectives |
 | `substrax.checkpoint` | One `CheckpointStore` protocol and one Orbax implementation, `OrbaxCheckpointStore`, over `CheckpointManager` |
 | `substrax.callbacks` | The training-callback protocol, `CallbackList`, `BestMetricTracker`, `EarlyStopping` and `EarlyStoppingCallback` |
 | `substrax.tracking` | Step-wise experiment logging with console, file, Weights & Biases and MLflow backends |
-| `substrax.compute` | A project's jobs run on a compute backend: the job spec, the worker every backend runs, the `ComputeBackend` protocol with `local`, `modal` and `skypilot` backends found through entry points, and the `substrax-compute` command |
+| `substrax.compute` | A project's jobs run on a compute backend: the job spec, the worker every backend runs, the `ComputeBackend` protocol with `local`, `modal` and `skypilot` backends found through entry points, the accelerator, CPU and memory a job requests, a manifest recording the devices a run got, and the `substrax-compute` command |
 | `substrax.typing`, `substrax.nnx_typing`, `substrax.records`, `substrax.examples` | The shared type aliases (`PyTree`, `JsonValue`, `CheckpointState`; `NnxState` and `PathEntry` over jax and flax), typed reading and writing of JSON records, and the listing of a repository's example scripts |
+<!-- --8<-- [end:subpackages] -->
 
 Not in Substrax: optimizer algorithms and schedules (optax, which Substrax assembles from a
 config), loss scaling and gradient accumulation
@@ -58,8 +66,12 @@ uv add "substrax[testing]" # pytest plugin and fresh-interpreter test helpers
 uv add "substrax[modal]"   # the Modal compute backend
 ```
 
-Substrax requires Python 3.12 or 3.13, `jax>=0.11.1`, `flax>=0.12.9`,
-`orbax-checkpoint>=0.11.33` and `pydantic>=2.10`. The `cuda12` and `metal` extras select the JAX backend.
+<!-- --8<-- [start:requirements] -->
+Substrax requires Python 3.12 or later (CI runs 3.12 and 3.13), `jax` and `jaxlib` 0.11.1,
+`flax>=0.12.9`, `optax>=0.2.8`, `orbax-checkpoint>=0.11.33`, `etils[epath]>=1.14.0`,
+`numpy>=1.24,<2.6` and `pydantic>=2.10`. jax is capped below 0.11.2 until a flax release works with it
+(`pyproject.toml` records why). The `cuda12` and `metal` extras select the JAX backend.
+<!-- --8<-- [end:requirements] -->
 
 ## Quick start
 
@@ -160,9 +172,13 @@ print(location.source)  # "argument", "environment" or "run_default"
 `run_python` runs code in a fresh interpreter with the JAX settings a test chooses, and the opt-in
 pytest plugin adds device markers and fails a test that changes jax's global configuration, as
 jax's own test harness does.
-`TraceCounter` asserts how many times a jitted function traced, for example that a training step
-compiles once. `run_example` runs each example in its own interpreter, with its outputs redirected
-away from the repository.
+`TraceCounter` asserts how many times a jitted function traced, and
+`substrax.testing.compiles.expect_compiles(n)` how many XLA programs a block built, for example
+that a second training step compiles nothing. `substrax.testing.gradients` checks a module's
+gradient in its parameters or its input against finite differences in float64 and returns it, so
+a test asserts the gradient's value, not only that it exists. `last_json_as(shape)` reads a child's
+last line of output as JSON validated against a `TypedDict`. `run_example` runs each example in its
+own interpreter, with its outputs redirected away from the repository.
 
 ```python
 # conftest.py
@@ -199,7 +215,9 @@ if info.kind is DeviceKind.GPU:
 ```
 
 `place_on_device(pytree, device)` moves a pytree, and `get_batch_size_recommendation()`
-reads the per-hardware batch-size table.
+reads the per-hardware batch-size table. jaxlib ships no type stubs for `jax.Device`, so
+substrax annotates devices with the `DeviceLike` protocol, which a `jax.Device` satisfies, and
+`visible_devices()` returns `jax.devices()` typed as it.
 
 ### Mesh and SPMD
 
@@ -329,7 +347,7 @@ outputs_volume = "demo-outputs"
 [tool.substrax.compute.jobs.examples]
 examples = ["examples"]
 extras = ["cuda12"]
-accelerator = { kind = "L4" }
+resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 ```
@@ -339,6 +357,10 @@ uv run substrax-compute run examples                       # follow, wait, fetch
 uv run substrax-compute run examples --accelerator H100 --detach
 uv run substrax-compute status
 ```
+
+A job's `resources` are requests: Modal receives them as `gpu`, `cpu` and `memory`, SkyPilot as
+minimums. The run's manifest records the JAX platform and the kind of each device the run
+actually got, so a substituted GPU shows in the record.
 
 A provider is added by registering a factory in the `substrax.compute.backends` entry-point
 group; `substrax.testing.compute.BackendContract` holds the tests every backend must pass.
@@ -373,7 +395,8 @@ uv run --locked pre-commit run --all-files
 uv run --locked mkdocs build --strict --clean
 ```
 
-The test suite also runs as a pre-commit hook, so a commit takes a few seconds longer
+CI also requires 80 percent coverage of the lines a pull request changes; CONTRIBUTING.md gives
+the local `diff-cover` command. The test suite also runs as a pre-commit hook, so a commit takes a few seconds longer
 than a lint pass.
 
 ## Documentation
