@@ -5,6 +5,7 @@ Each task here is a few lines of Python without jax, so a child starts in well u
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 import textwrap
@@ -253,6 +254,20 @@ def test_a_device_probe_that_fails_is_logged_and_the_tasks_still_run(
     assert manifest.devices is None
     assert (outputs / DEVICES_LOG).read_text(encoding="utf-8")
     assert [task.status for task in manifest.tasks] == [TaskStatus.SUCCEEDED]
+
+
+def test_a_device_probe_past_the_job_budget_is_logged_and_the_job_goes_on(
+    project: Path, outputs: Path
+) -> None:
+    """The probe takes its time from the job's budget; a jax import cannot fit in 10 ms."""
+    job = dataclasses.replace(_job(_script(project, "ok", "pass")), timeout_seconds=0.01)
+
+    manifest = run_job(job, project=project, outputs=outputs)
+
+    assert manifest.devices is None
+    assert "ran past 0.01 s" in (outputs / DEVICES_LOG).read_text(encoding="utf-8")
+    assert manifest.finished
+    assert [task.status for task in manifest.tasks] == [TaskStatus.TIMED_OUT]
 
 
 def test_an_earlier_manifest_version_is_refused_naming_both_versions() -> None:
