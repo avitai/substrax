@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-09-28
+
 ### Fixed
 
 - `reduce_mean`, `reduce_sum`, `reduce_max`, `reduce_min`, `reduce_mean_collective`,
