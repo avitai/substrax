@@ -13,6 +13,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 CAP_OVERRIDES = ("--no-cov", "-o addopts", "--override-ini")
+GATE_CONDITION = "needs.already_tested.outputs.skip != 'true'"
 
 
 def _load_workflow(path: Path) -> dict[str, Any]:
@@ -40,7 +41,9 @@ def coverage_cap_violations(workflow: dict[str, Any], pyproject: dict[str, Any])
         problems.append(f"the pytest coverage floor is {caps}, not at least 80")
     if not {"push", "pull_request"} <= set(workflow["on"]):
         problems.append(f"CI runs on {sorted(workflow['on'])}, not on both push and pull_request")
-    if "if" in job:
+    # The one condition the job may carry is the already-tested gate: it stands down only where
+    # the same tree already reported coverage on the pull request that produced it.
+    if job.get("if") not in (None, GATE_CONDITION):
         problems.append(f"the test job only runs when {job['if']}")
     problems += [
         f"the pytest command overrides the floor with {override}"

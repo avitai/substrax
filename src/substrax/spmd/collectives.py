@@ -24,22 +24,25 @@ from jax import lax
 logger = logging.getLogger(__name__)
 
 
-def _reduce_arrays[V](
-    metrics: Mapping[str, V],
+def _reduce_arrays[T](
+    metrics: T,
     reduce: Callable[[jax.Array], jax.Array],
     *,
     skip_scalars: bool,
-) -> dict[str, V | jax.Array]:
-    """Apply ``reduce`` to each array value of ``metrics``.
+) -> T:
+    """Apply ``reduce`` to every array leaf of ``metrics``, at any depth.
 
-    Every other value, and a 0-d array when ``skip_scalars``, passes through unchanged.
+    Every other leaf, and a 0-d array when ``skip_scalars``, passes through unchanged, so the
+    result has the structure of ``metrics``: a gradient tree beside the scalars is reduced leaf by
+    leaf.
     """
-    return {
-        name: reduce(value)
-        if isinstance(value, jax.Array) and not (skip_scalars and value.ndim == 0)
-        else value
-        for name, value in metrics.items()
-    }
+
+    def leaf(value: object) -> object:
+        if isinstance(value, jax.Array) and not (skip_scalars and value.ndim == 0):
+            return reduce(value)
+        return value
+
+    return jax.tree.map(leaf, metrics)
 
 
 # ---------------------------------------------------------------------------
@@ -47,62 +50,62 @@ def _reduce_arrays[V](
 # ---------------------------------------------------------------------------
 
 
-def reduce_mean[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
+def reduce_mean[T](metrics: T) -> T:
     """Compute the mean of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
-    with at least one dimension passes through unchanged.
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). Every array leaf with at least one
+    dimension is reduced, at any depth of ``metrics``; every other leaf passes through unchanged.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce: a mapping, or any pytree of them.
 
     Returns:
-        A dictionary of mean-reduced metrics.
+        ``metrics`` with every array leaf mean-reduced.
     """
     return _reduce_arrays(metrics, jnp.mean, skip_scalars=True)
 
 
-def reduce_sum[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
+def reduce_sum[T](metrics: T) -> T:
     """Compute the sum of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
-    with at least one dimension passes through unchanged.
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). Every array leaf with at least one
+    dimension is reduced, at any depth of ``metrics``; every other leaf passes through unchanged.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce: a mapping, or any pytree of them.
 
     Returns:
-        A dictionary of summed metrics.
+        ``metrics`` with every array leaf summed.
     """
     return _reduce_arrays(metrics, jnp.sum, skip_scalars=True)
 
 
-def reduce_max[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
+def reduce_max[T](metrics: T) -> T:
     """Compute the maximum of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
-    with at least one dimension passes through unchanged.
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). Every array leaf with at least one
+    dimension is reduced, at any depth of ``metrics``; every other leaf passes through unchanged.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce: a mapping, or any pytree of them.
 
     Returns:
-        A dictionary of maximum metrics.
+        ``metrics`` with every array leaf reduced to its maximum.
     """
     return _reduce_arrays(metrics, jnp.max, skip_scalars=True)
 
 
-def reduce_min[V](metrics: Mapping[str, V]) -> dict[str, V | jax.Array]:
+def reduce_min[T](metrics: T) -> T:
     """Compute the minimum of metrics using standard JAX operations.
 
-    Works with global arrays in SPMD contexts (nnx.jit + mesh). A value that is not an array
-    with at least one dimension passes through unchanged.
+    Works with global arrays in SPMD contexts (nnx.jit + mesh). Every array leaf with at least one
+    dimension is reduced, at any depth of ``metrics``; every other leaf passes through unchanged.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce: a mapping, or any pytree of them.
 
     Returns:
-        A dictionary of minimum metrics.
+        ``metrics`` with every array leaf reduced to its minimum.
     """
     return _reduce_arrays(metrics, jnp.min, skip_scalars=True)
 
@@ -118,13 +121,14 @@ _SPMD_REDUCTION_OPS: dict[str, Callable[[jax.Array], jax.Array]] = {
 def reduce_custom[V](
     metrics: Mapping[str, V],
     reduce_fn: Mapping[str, str | None] | None = None,
-) -> dict[str, V | jax.Array]:
+) -> Mapping[str, V | jax.Array]:
     """Apply custom reduction operations to metrics.
 
-    Uses standard JAX operations. Works in SPMD contexts.
+    Uses standard JAX operations. Works in SPMD contexts. Each named value is reduced by its
+    operation when it is an array; without ``reduce_fn`` this is ``reduce_mean``.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce, by name.
         reduce_fn: A dictionary mapping metric names to reduction operations.
             Each operation should be one of {"mean", "sum", "max", "min"}.
             If None, defaults to "mean" for all metrics.
@@ -151,56 +155,56 @@ def reduce_custom[V](
 # ---------------------------------------------------------------------------
 
 
-def reduce_mean_collective[V](
-    metrics: Mapping[str, V],
+def reduce_mean_collective[T](
+    metrics: T,
     axis_name: str = "batch",
-) -> dict[str, V | jax.Array]:
+) -> T:
     """Compute the mean of metrics using collective operations.
 
     Only valid inside a pmap or shard_map context.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce: a mapping, or any pytree of them.
         axis_name: The name of the axis to reduce across.
 
     Returns:
-        A dictionary of mean metrics.
+        ``metrics`` with every array leaf averaged across the axis.
     """
     return _reduce_arrays(metrics, lambda x: lax.pmean(x, axis_name=axis_name), skip_scalars=False)
 
 
-def reduce_sum_collective[V](
-    metrics: Mapping[str, V],
+def reduce_sum_collective[T](
+    metrics: T,
     axis_name: str = "batch",
-) -> dict[str, V | jax.Array]:
+) -> T:
     """Compute the sum of metrics using collective operations.
 
     Only valid inside a pmap or shard_map context.
 
     Args:
-        metrics: The metrics to reduce.
+        metrics: The metrics to reduce: a mapping, or any pytree of them.
         axis_name: The name of the axis to reduce across.
 
     Returns:
-        A dictionary of summed metrics.
+        ``metrics`` with every array leaf summed.
     """
     return _reduce_arrays(metrics, lambda x: lax.psum(x, axis_name=axis_name), skip_scalars=False)
 
 
-def all_gather[V](
-    metrics: Mapping[str, V],
+def all_gather[T](
+    metrics: T,
     axis_name: str = "batch",
-) -> dict[str, V | jax.Array]:
+) -> T:
     """Gather metrics from all devices.
 
     Only valid inside a pmap or shard_map context.
 
     Args:
-        metrics: The metrics to gather.
+        metrics: The metrics to gather: a mapping, or any pytree of them.
         axis_name: The name of the axis to gather across.
 
     Returns:
-        A dictionary of gathered metrics.
+        ``metrics`` with every array leaf gathered across the axis.
     """
     return _reduce_arrays(
         metrics, lambda x: lax.all_gather(x, axis_name=axis_name), skip_scalars=False

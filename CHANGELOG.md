@@ -7,8 +7,24 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-09-28
+
+### Fixed
+
+- `reduce_mean`, `reduce_sum`, `reduce_max`, `reduce_min`, `reduce_mean_collective`,
+  `reduce_sum_collective` and `all_gather` reduce every array leaf of a nested tree again, as in
+  0.1.18; 0.1.19 reduced only top-level arrays, so a gradient tree passed through unreduced. They
+  take and return the same tree type.
+
 ### Changed
 
+- CI runs only what a change needs. A push to `main` whose tree its pull request already tested,
+  with every check of that pull request succeeded, stands down the CI and Quality jobs that would
+  repeat it (the `already-tested` action; a pending or cancelled check keeps the merge tested).
+  macOS runs in `macos.yml` nightly when `main` has moved, on demand, and on the release commit
+  before its tag (RELEASING.md), never on a push or pull request; the macOS build calls Build
+  Verification. Quality's pre-commit skips the `pytest` hook, since the test job runs the suite on
+  both Python versions.
 - The documentation workflow checks the strict site build on pull requests and on `main`, and no
   longer pushes the site to a `gh-pages` branch: Read the Docs builds and hosts it.
 - The documentation home page includes the README's summary, subpackage table and requirements

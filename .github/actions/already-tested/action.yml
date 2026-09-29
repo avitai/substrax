@@ -1,0 +1,36 @@
+name: Tree already tested
+description: >-
+  Report whether a push to main carries exactly the tree its pull request tested, with every check
+  of that pull request proven, so the jobs that would repeat the pull request can stand down.
+outputs:
+  skip:
+    description: "'true' when the pull request tested this tree and every check succeeded; otherwise 'false'"
+    value: ${{ steps.compare.outputs.skip }}
+runs:
+  using: composite
+  steps:
+    - id: compare
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        UNPROVEN: ${{ github.action_path }}/unproven.jq
+      run: |
+        set -euo pipefail
+        skip=false
+        pull_request=$(git log -1 --pretty=%s | sed -n 's/.*(#\([0-9]\+\))$/\1/p')
+        if [ -n "$pull_request" ]; then
+          # Every lookup answers "unknown" rather than failing: a subject ending in a number that
+          # names no pull request leaves the run green and running. The pull ref outlives the
+          # branch, so it resolves after the merge deleted the branch.
+          git fetch --no-tags --depth=1 origin "refs/pull/$pull_request/head" || true
+          tree=$(git rev-parse "HEAD^{tree}")
+          tested=$(git rev-parse "FETCH_HEAD^{tree}" 2>/dev/null || echo unknown)
+          unproven=$(gh pr view "$pull_request" --json statusCheckRollup --jq "$(grep -v '^#' "$UNPROVEN")" \
+            2>/dev/null || echo unknown)
+          if [ "$tree" = "$tested" ] && [ "$unproven" = "0" ]; then
+            skip=true
+          fi
+          echo "pull request #$pull_request: tree $tested, unproven checks $unproven"
+        fi
+        echo "this tree $(git rev-parse 'HEAD^{tree}') already tested: $skip"
+        echo "skip=$skip" >> "$GITHUB_OUTPUT"

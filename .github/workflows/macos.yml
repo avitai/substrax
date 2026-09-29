@@ -1,0 +1,85 @@
+name: macOS
+
+# macOS runners are scarce and slow, so no push or pull request runs on them. This workflow runs
+# the suite and the build on macOS nightly when main has moved, and on demand: RELEASING.md runs it
+# on the release commit before the tag.
+on:
+  schedule:
+    - cron: "0 4 * * *" # 04:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  main_moved:
+    name: Main moved since the last green night
+    runs-on: ubuntu-latest
+    outputs:
+      unchanged: ${{ steps.compare.outputs.unchanged }}
+    steps:
+      # Only a scheduled run compares; a manual run always runs. A lookup that fails answers
+      # "unknown", which runs the jobs.
+      - id: compare
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow macos.yml --branch main \
+            --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha' \
+            2>/dev/null || echo unknown)
+          unchanged=false
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            unchanged=true
+          fi
+          echo "last green night $last, this run $GITHUB_SHA, unchanged: $unchanged"
+          echo "unchanged=$unchanged" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Test (Python ${{ matrix.python-version }}, macos-14)
+    runs-on: macos-14
+    needs: main_moved
+    if: needs.main_moved.outputs.unchanged != 'true'
+    strategy:
+      fail-fast: false
+      # At most two macOS runners at a time, so the other repositories' macOS jobs get through.
+      max-parallel: 2
+      matrix:
+        python-version: ["3.12", "3.13"]
+    env:
+      JAX_PLATFORMS: cpu
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+      TF_CPP_MIN_LOG_LEVEL: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Create virtual environment
+        run: uv venv
+
+      - name: Install dependencies
+        run: uv sync --locked --extra dev --extra test
+
+      - name: Run tests
+        run: uv run pytest tests/ -p randomly -v
+
+  build:
+    name: Build
+    needs: main_moved
+    if: needs.main_moved.outputs.unchanged != 'true'
+    uses: ./.github/workflows/build-verification.yml
+    with:
+      os: macos-14

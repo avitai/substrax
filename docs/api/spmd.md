@@ -41,9 +41,11 @@ splits, such as a scalar under the data-axis sharding, is refused with its path.
 
 `spmd_train_step` differentiates with `nnx.value_and_grad` and updates the
 `nnx.Optimizer`; XLA inserts the gradient all-reduce when the parameters are sharded
-under `jax.set_mesh`. The collectives (`reduce_mean`, `reduce_sum`, `all_gather`,
-`collect_from_devices` and friends) take a flat mapping from metric name to value: each array
-value is reduced and every other value passes through, and the result keeps the input's value
-type beside `jax.Array`.
+under `jax.set_mesh`. The reductions (`reduce_mean`, `reduce_sum`, `reduce_max`,
+`reduce_min`) and the collectives (`reduce_mean_collective`, `reduce_sum_collective`,
+`all_gather`) reduce every array leaf of the tree they are given, at any depth, so a gradient tree
+beside scalar metrics is reduced leaf by leaf, and return a tree of the same structure; any other
+leaf passes through. `reduce_custom` and `collect_from_devices` take a flat
+mapping from metric name to value.
 
 ::: substrax.spmd

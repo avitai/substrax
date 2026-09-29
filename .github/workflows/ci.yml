@@ -11,9 +11,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  already_tested:
+    name: Tree already tested
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.compare.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # A merge repeats the pull request; a manual run is asked for. When the step does not run
+      # the output is empty, which every job reads as "test it".
+      - id: compare
+        if: github.event_name == 'push'
+        uses: ./.github/actions/already-tested
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: already_tested
+    if: needs.already_tested.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -44,16 +60,14 @@ jobs:
         run: uv run pyright --warnings src/
 
   test:
-    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    needs: lint
+    name: Test (Python ${{ matrix.python-version }})
+    # macOS runs nightly and before a release, in macos.yml.
+    runs-on: ubuntu-latest
+    needs: [lint, already_tested]
+    if: needs.already_tested.outputs.skip != 'true'
     strategy:
       fail-fast: false
       matrix:
-        # The macOS-14 runners queue for hours and run the same steps; they run on
-        # pushes to main only, so a branch or pull request is gated by the ubuntu
-        # jobs alone and the merge to main measures both platforms.
-        os: ${{ fromJSON(github.ref == 'refs/heads/main' && '["ubuntu-latest", "macos-14"]' || '["ubuntu-latest"]') }}
         python-version: ["3.12", "3.13"]
     env:
       JAX_PLATFORMS: cpu
@@ -88,13 +102,14 @@ jobs:
       # The package-wide floor lets a pull request add an untested module; this gates the lines
       # the pull request changes, from the coverage the run above measured.
       - name: Coverage on changed lines (at least 80%)
-        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        if: github.event_name == 'pull_request' && matrix.python-version == '3.12'
         run: uv run --no-sync diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --show-uncovered
 
   checkpoint-orbax-floor:
     name: Checkpoint tests on the Orbax floor
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, already_tested]
+    if: needs.already_tested.outputs.skip != 'true'
     env:
       JAX_PLATFORMS: cpu
       XLA_PYTHON_CLIENT_PREALLOCATE: "false"
@@ -130,7 +145,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, already_tested]
+    if: needs.already_tested.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v7
 
