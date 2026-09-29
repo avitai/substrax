@@ -3,10 +3,13 @@
 Tests both SPMD-compatible reductions (jnp.*) and collective reductions (lax.p*).
 """
 
+from collections.abc import Callable
 from unittest import mock
 
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
 
 from substrax.spmd import (
     all_gather,
@@ -24,6 +27,62 @@ from substrax.spmd import (
 # ---------------------------------------------------------------------------
 # SPMD-compatible reductions (jnp.* on global arrays)
 # ---------------------------------------------------------------------------
+
+
+def _nested() -> dict[str, jax.Array | dict[str, jax.Array]]:
+    """A metric beside a gradient tree, the shape the distributed-training guides pass."""
+    return {
+        "loss": jnp.array([1.0, 3.0]),
+        "grads": {"w": jnp.array([2.0, 4.0]), "b": jnp.array([0.0, 2.0])},
+    }
+
+
+@pytest.mark.parametrize(
+    ("reduce", "numpy_op"),
+    [(reduce_mean, np.mean), (reduce_sum, np.sum), (reduce_max, np.max), (reduce_min, np.min)],
+)
+def test_every_array_leaf_of_a_nested_tree_is_reduced(
+    reduce: Callable[[dict[str, jax.Array | dict[str, jax.Array]]], object],
+    numpy_op: Callable[[np.ndarray], np.floating],
+) -> None:
+    result = reduce(_nested())
+
+    expected = jax.tree.map(lambda leaf: numpy_op(np.asarray(leaf)), _nested())
+    assert jax.tree.structure(result) == jax.tree.structure(expected)
+    for got, want in zip(jax.tree.leaves(result), jax.tree.leaves(expected), strict=True):
+        assert float(got) == float(want)
+
+
+def test_a_nested_reduction_is_the_same_under_jit() -> None:
+    assert jax.tree.map(float, jax.jit(reduce_mean)(_nested())) == jax.tree.map(
+        float, reduce_mean(_nested())
+    )
+
+
+@pytest.mark.parametrize(
+    ("collective", "combine"),
+    [(reduce_mean_collective, np.mean), (reduce_sum_collective, np.sum)],
+)
+def test_a_collective_reduces_every_leaf_of_a_nested_tree_across_the_axis(
+    collective: Callable[..., object], combine: Callable[..., np.ndarray]
+) -> None:
+    """Under ``vmap`` with a named axis, as inside ``pmap`` or ``shard_map``."""
+    reduced = jax.vmap(lambda tree: collective(tree, axis_name="batch"), axis_name="batch")(
+        _nested()
+    )
+
+    expected = jax.tree.map(lambda leaf: combine(np.asarray(leaf), axis=0), _nested())
+    for got, want in zip(jax.tree.leaves(reduced), jax.tree.leaves(expected), strict=True):
+        np.testing.assert_allclose(np.asarray(got), np.broadcast_to(want, np.shape(got)))
+
+
+def test_all_gather_gathers_every_leaf_of_a_nested_tree() -> None:
+    gathered = jax.vmap(lambda tree: all_gather(tree, axis_name="batch"), axis_name="batch")(
+        _nested()
+    )
+
+    for got, leaf in zip(jax.tree.leaves(gathered), jax.tree.leaves(_nested()), strict=True):
+        np.testing.assert_array_equal(np.asarray(got)[0], np.asarray(leaf))
 
 
 class TestReduceMean:

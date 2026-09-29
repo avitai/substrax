@@ -7,6 +7,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `reduce_mean`, `reduce_sum`, `reduce_max`, `reduce_min`, `reduce_mean_collective`,
+  `reduce_sum_collective` and `all_gather` reduce every array leaf of a nested tree again, as in
+  0.1.18; 0.1.19 reduced only top-level arrays, so a gradient tree passed through unreduced. They
+  take and return the same tree type.
+
 ### Changed
 
 - The documentation workflow checks the strict site build on pull requests and on `main`, and no
