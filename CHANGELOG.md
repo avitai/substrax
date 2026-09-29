@@ -16,6 +16,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Changed
 
+- CI runs only what a change needs. A push to `main` whose tree its pull request already tested,
+  with every check of that pull request succeeded, stands down the CI and Quality jobs that would
+  repeat it (the `already-tested` action; a pending or cancelled check keeps the merge tested).
+  macOS runs in `macos.yml` nightly when `main` has moved, on demand, and on the release commit
+  before its tag (RELEASING.md), never on a push or pull request; the macOS build calls Build
+  Verification. Quality's pre-commit skips the `pytest` hook, since the test job runs the suite on
+  both Python versions.
 - The documentation workflow checks the strict site build on pull requests and on `main`, and no
   longer pushes the site to a `gh-pages` branch: Read the Docs builds and hosts it.
 - The documentation home page includes the README's summary, subpackage table and requirements

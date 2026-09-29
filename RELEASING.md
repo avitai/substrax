@@ -31,8 +31,16 @@ also runs the PyPI upload path.
    uv run twine check dist/*
    ```
 
-5. Commit the version and changelog updates.
-6. Create and push an annotated tag from the exact release commit.
+5. Commit the version and changelog updates, and merge them to `main`.
+6. Run the macOS workflow on the release commit and wait for it to pass. No push or pull request
+   runs on macOS, so this is the release's macOS check.
+
+   ```bash
+   gh workflow run macos.yml --ref main
+   gh run watch "$(gh run list --workflow macos.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+   ```
+
+7. Create and push an annotated tag from the exact release commit.
 
    ```bash
    target_sha=$(git rev-parse HEAD)
@@ -40,7 +48,7 @@ also runs the PyPI upload path.
    git push origin main vX.Y.Z
    ```
 
-7. In GitHub Actions, manually run `Publish to PyPI` with:
+8. In GitHub Actions, manually run `Publish to PyPI` with:
 
    - `target=github-release`
    - `version_tag=vX.Y.Z`
