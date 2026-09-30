@@ -7,6 +7,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- The `already-tested` action finds the pull request a push merged by asking GitHub which merged
+  pull request produced the pushed commit (`commits/{sha}/pulls`, the pull request whose
+  `merge_commit_sha` is that commit). It read the number from a `(#N)` subject suffix, which only a
+  squash merge writes, so after a rebase merge it re-ran every job on a tree its pull request had
+  already tested.
+
 ## [0.1.20] - 2026-09-28
 
 ### Fixed
