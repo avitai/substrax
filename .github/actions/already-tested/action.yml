@@ -14,14 +14,20 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         UNPROVEN: ${{ github.action_path }}/unproven.jq
+        PULL_REQUEST: ${{ github.action_path }}/pull_request.jq
+        REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
         skip=false
-        pull_request=$(git log -1 --pretty=%s | sed -n 's/.*(#\([0-9]\+\))$/\1/p')
+        # A squash merge names its pull request in the subject; a rebase merge keeps each commit's
+        # own. GitHub records, for every merged pull request, the commit its merge produced.
+        commit=$(git rev-parse HEAD)
+        pull_request=$(gh api "repos/$REPOSITORY/commits/$commit/pulls" 2>/dev/null \
+          | jq -r --arg sha "$commit" -f "$PULL_REQUEST" 2>/dev/null || true)
         if [ -n "$pull_request" ]; then
-          # Every lookup answers "unknown" rather than failing: a subject ending in a number that
-          # names no pull request leaves the run green and running. The pull ref outlives the
-          # branch, so it resolves after the merge deleted the branch.
+          # Every lookup answers "unknown" rather than failing: a pull request that cannot be read
+          # leaves the run green and running. The pull ref outlives the branch, so it resolves
+          # after the merge deleted the branch.
           git fetch --no-tags --depth=1 origin "refs/pull/$pull_request/head" || true
           tree=$(git rev-parse "HEAD^{tree}")
           tested=$(git rev-parse "FETCH_HEAD^{tree}" 2>/dev/null || echo unknown)

@@ -1,0 +1,10 @@
+{
+  "pulls": [
+    {
+      "merge_commit_sha": "1613fb9d0eaf8c065f6cc5cee811fcaf201b450e",
+      "merged_at": "2026-09-30T18:04:47Z",
+      "number": 37
+    }
+  ],
+  "sha": "1613fb9d0eaf8c065f6cc5cee811fcaf201b450e"
+}

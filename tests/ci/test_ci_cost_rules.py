@@ -1,7 +1,7 @@
 """CI runs only what a change needs: no repeated merge runs, no macOS on pushes or pull requests.
 
-Two rules, both about runner time. A squash merge onto an unmoved ``main`` carries the tree its pull
-request already tested, so the jobs that would repeat it stand down when every check of that pull
+Two rules, both about runner time. A merge onto an unmoved ``main``, squash or rebase, carries the
+tree its pull request already tested, so the jobs that would repeat it stand down when every check of that pull
 request succeeded (the ``already-tested`` action). macOS runners are scarce and slow: no macOS job
 runs on a push or a pull request; ``macos.yml`` runs nightly when ``main`` has moved, on demand, and
 on the release commit before its tag (RELEASING.md).
@@ -173,6 +173,67 @@ def test_a_check_that_did_not_succeed_keeps_the_merge_tested(
 ) -> None:
     """Only SUCCESS, SKIPPED and NEUTRAL count as proven; pending and cancelled do not."""
     assert _unproven(checks) == unproven
+
+
+PULLS = Path(__file__).parent / "fixtures" / "commit_pulls"
+
+
+def _pull_request(fixture: str) -> str:
+    """The pull request the action finds for a pushed commit, from a recorded API response.
+
+    Each fixture is ``GET /repos/{owner}/{repo}/commits/{sha}/pulls`` for a real commit, reduced to
+    the fields the selection reads.
+    """
+    recorded = json.loads((PULLS / f"{fixture}.json").read_text())
+    result = subprocess.run(  # noqa: S603  # nosec B603 - jq on a fixed program and fixture
+        [
+            shutil.which("jq") or "jq",
+            "-r",
+            "--arg",
+            "sha",
+            recorded["sha"],
+            "-f",
+            str(ACTION / "pull_request.jq"),
+        ],
+        input=json.dumps(recorded["pulls"]),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq, present on GitHub's runners, is absent")
+@pytest.mark.parametrize(
+    ("fixture", "pull_request"),
+    [
+        ("rebase_merge", "47"),  # datarax bd92a3e: a rebase merge keeps the commit's own subject
+        ("rebase_merge_tip", "37"),  # artifex 1613fb9: the last commit of a two-commit rebase
+        ("rebase_merge_intermediate", ""),  # artifex 4ee4722: pushed with the tip, never alone
+        ("squash_merge", "39"),  # datarax 27d1539
+        ("open_pull_request", ""),  # datarax 80be69b: an open pull request carries a test merge
+        ("stacked_pull_requests", "47"),  # one commit in an open and a merged pull request
+    ],
+)
+def test_the_pushed_commit_names_the_pull_request_it_merged(
+    fixture: str, pull_request: str
+) -> None:
+    """A commit belongs to the pull request whose merge made it, however the pull request merged.
+
+    The subject names a pull request only after a squash merge; a rebase merge keeps each
+    commit's own subject, so the action asks GitHub which merged pull request produced the commit.
+    """
+    assert _pull_request(fixture) == pull_request
+
+
+def test_the_action_asks_github_which_pull_request_produced_the_commit() -> None:
+    step = yaml.safe_load((ACTION / "action.yml").read_text())["runs"]["steps"][0]
+    script = step["run"]
+
+    assert "commits/$commit/pulls" in script
+    assert step["env"]["PULL_REQUEST"].endswith("/pull_request.jq")
+    assert '-f "$PULL_REQUEST"' in script, "the selection is the tested jq program"
+    assert "--pretty=%s" not in script, "a subject names a pull request only after a squash merge"
 
 
 def test_quality_checks_leave_the_suite_to_the_test_job() -> None:
