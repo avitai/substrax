@@ -1,0 +1,18 @@
+# A consumer of the audit-lock action: three extras, two of which cannot resolve together.
+
+[project]
+name = "audit-lock-fixture"
+version = "0.0.0"
+
+[project.optional-dependencies]
+a = []
+b = []
+c = []
+
+[tool.uv]
+conflicts = [
+  [
+    {extra = "a"},
+    {extra = "b"}
+  ]
+]

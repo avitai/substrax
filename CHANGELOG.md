@@ -7,6 +7,17 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- The `audit-lock` composite action audits every extra a uv project's lockfile resolves. It
+  exports the extras from `uv.lock` in groups that respect `[tool.uv] conflicts` and runs a pinned
+  pip-audit (`uvx --from pip-audit==<version>`, input `pip-audit-version`) on each export with a
+  fresh advisory cache, so the audit covers extras no environment installs and cannot read a stale
+  cache. It fails on an advisory the consumer's `[tool.substrax.audit-lock.ignore]` table
+  (advisory id or alias to a non-empty reason) does not name, and on an entry of that table no
+  advisory matches any more. Consumers pin it by commit SHA, as with `already-tested`, and run
+  `astral-sh/setup-uv` before it.
+
 ### Removed
 
 - Dependabot version updates: no bot opens dependency pull requests; dependency updates come

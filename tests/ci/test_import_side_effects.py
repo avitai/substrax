@@ -23,17 +23,21 @@ from substrax.testing.source_scans import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULES = [*python_files(ROOT, ("src", "scripts", "tests")), ROOT / "conftest.py"]
+MODULES = [
+    *python_files(ROOT, ("src", "scripts", "tests", ".github/actions")),
+    ROOT / "conftest.py",
+]
 
 pytestmark = pytest.mark.contract
 
 
-def test_the_corpus_reaches_the_package_scripts_tests_and_root_conftest() -> None:
+def test_the_corpus_reaches_the_package_scripts_actions_tests_and_root_conftest() -> None:
     names = {path.relative_to(ROOT).as_posix() for path in MODULES}
 
     assert {
         "src/substrax/runtime/managed_env.py",
         "scripts/derive_status.py",
+        ".github/actions/audit-lock/audit_lock.py",
         "tests/ci/test_import_side_effects.py",
         "conftest.py",
     } <= names
