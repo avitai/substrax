@@ -261,6 +261,7 @@ exclude = [
   "scripts"
 ]
 include = [
+  ".github/actions",
   "src",
   "tests"
 ]
@@ -369,6 +370,8 @@ order-by-type = false
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
+# Action scripts report to the job log from main().
+".github/actions/*/*.py" = ["T20"]
 "scripts/*" = ["T20"]
 "tests/*" = ["ANN", "D", "PLR2004", "S101"]
 

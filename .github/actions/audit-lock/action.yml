@@ -1,0 +1,21 @@
+name: Lockfile audit
+description: >-
+  Audit every extra a uv project's lockfile resolves, in groups that respect [tool.uv] conflicts,
+  with a pinned pip-audit run on an export of the lock (never on an installed environment, which
+  holds only the extras it installed) and a fresh advisory cache. Fails on an advisory the
+  project's [tool.substrax.audit-lock.ignore] table (advisory id -> reason) does not name, and on
+  an entry of that table no advisory matches any more. Needs uv on PATH: run astral-sh/setup-uv
+  before this action.
+inputs:
+  pip-audit-version:
+    description: The pip-audit release to run, through uvx, isolated from the project
+    required: false
+    default: "2.10.1"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        PIP_AUDIT_VERSION: ${{ inputs.pip-audit-version }}
+      run: python3 "$GITHUB_ACTION_PATH/audit_lock.py" --pip-audit-version "$PIP_AUDIT_VERSION"
