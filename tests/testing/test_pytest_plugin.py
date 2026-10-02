@@ -6,6 +6,8 @@ process-wide JAX state.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from substrax.testing import run_python
@@ -183,6 +185,53 @@ def test_an_accelerator_marker_skips_on_the_cpu(
     )
 
     _run(pytester).assert_outcomes(skipped=2)
+
+
+_SKIPPED_AT_THE_TEST = """\
+import pytest
+
+@pytest.mark.accelerator(kind="gpu")
+def test_first_gpu():
+    pass
+
+@pytest.mark.accelerator(kind="gpu")
+def test_second_gpu():
+    pass
+
+@pytest.mark.devices(2, kind="gpu")
+def test_two_gpus():
+    pass
+"""
+
+
+def _summary_line(source: str, test_name: str, reason: str) -> str:
+    """The ``-rs`` line pytest prints for a test skipped at its own location."""
+    lines = source.splitlines()
+    definition = lines.index(f"def {test_name}():")
+    # pytest reports a function at its first decorator, as the code object's first line.
+    first = definition
+    while first > 0 and lines[first - 1].startswith("@"):
+        first -= 1
+    return re.escape(f"SKIPPED [1] test_skips.py:{first + 1}: {reason}")
+
+
+def test_a_device_skip_is_reported_at_the_test_not_the_plugin(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JAX_PLATFORMS", "cpu")
+    pytester.makepyfile(test_skips=_SKIPPED_AT_THE_TEST)
+
+    result = _run(pytester, "-rs")
+
+    result.assert_outcomes(skipped=3)
+    result.stdout.re_match_lines(
+        [
+            _summary_line(_SKIPPED_AT_THE_TEST, "test_first_gpu", "needs a gpu backend"),
+            _summary_line(_SKIPPED_AT_THE_TEST, "test_second_gpu", "needs a gpu backend"),
+            _summary_line(_SKIPPED_AT_THE_TEST, "test_two_gpus", "needs 2 gpu device(s)"),
+        ]
+    )
+    result.stdout.no_fnmatch_line("*pytest_plugin.py*")
 
 
 @pytest.mark.parametrize(
