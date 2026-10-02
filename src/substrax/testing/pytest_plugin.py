@@ -23,7 +23,7 @@ from __future__ import annotations
 import importlib
 import os
 import sys
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -171,41 +171,65 @@ def rngs() -> nnx.Rngs:
     return rngs_from_seed(FIXTURE_SEED, streams=RNGS_FIXTURE_STREAMS)
 
 
-def pytest_runtest_setup(item: pytest.Item) -> None:
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item: pytest.Item) -> Generator[None, None, None]:
     """Skip a test whose ``devices`` or ``accelerator`` marker the visible devices cannot satisfy.
+
+    The skip is a ``skipif`` marker added to the test before pytest's skipping plugin evaluates
+    the test's marks (a wrapper runs before every plain implementation of the hook), so the
+    skip is reported at the test's own location, as one written on the test is
+    (``_pytest/skipping.py`` raises it with ``_use_item_location=True``). A ``pytest.skip`` call
+    here would be reported at this file's line, and ``-rs`` would merge the skips of every test
+    with the same reason into one entry. ``skipif``, not ``skip``: ``-rs`` folds the setup skips
+    of ``skip``-marked tests by file and drops their line (``_pytest/terminal.py``,
+    ``_folded_skips``).
 
     Args:
         item: The test about to run.
+
+    Returns:
+        The result of the hook's other implementations.
     """
+    reason = _unmet_device_requirement(item)
+    if reason is not None:
+        item.add_marker(pytest.mark.skipif(True, reason=reason))
+    return (yield)
+
+
+def _unmet_device_requirement(item: pytest.Item) -> str | None:
+    """The skip reason for the first ``devices`` or ``accelerator`` marker not satisfied, if any."""
     devices_markers = list(item.iter_markers("devices"))
     accelerator_markers = list(item.iter_markers("accelerator"))
     if not devices_markers and not accelerator_markers:
-        return
+        return None
     info: DeviceInfo = importlib.import_module("substrax.devices").detect_devices()
-    for marker in devices_markers:
-        _skip_unless_devices(info, *_device_requirement(marker))
-    for marker in accelerator_markers:
-        _skip_unless_accelerator(info, _accelerator_kind(marker))
+    reasons = [_missing_devices(info, *_device_requirement(marker)) for marker in devices_markers]
+    reasons += [
+        _missing_accelerator(info, _accelerator_kind(marker)) for marker in accelerator_markers
+    ]
+    return next((reason for reason in reasons if reason is not None), None)
 
 
-def _skip_unless_devices(info: DeviceInfo, count: int, kind: DeviceKind | None) -> None:
-    """Skip when fewer than ``count`` devices, of ``kind`` when given, are visible."""
+def _missing_devices(info: DeviceInfo, count: int, kind: DeviceKind | None) -> str | None:
+    """Why fewer than ``count`` devices, of ``kind`` when given, are visible, if they are."""
     kinds = importlib.import_module("substrax.devices").DeviceKind
     visible = (
         info.count
         if kind is None
         else sum(kinds.from_platform(name) is kind for name in info.device_kinds)
     )
-    if visible < count:
-        needed = f"{count} device(s)" if kind is None else f"{count} {kind} device(s)"
-        pytest.skip(f"needs {needed}; visible: {info.count} {info.kind}")
+    if visible >= count:
+        return None
+    needed = f"{count} device(s)" if kind is None else f"{count} {kind} device(s)"
+    return f"needs {needed}; visible: {info.count} {info.kind}"
 
 
-def _skip_unless_accelerator(info: DeviceInfo, kind: DeviceKind | None) -> None:
-    """Skip unless the default backend is an accelerator, of ``kind`` when given."""
-    if not info.has_accelerator or (kind is not None and info.kind is not kind):
-        needed = "an accelerator" if kind is None else f"a {kind} backend"
-        pytest.skip(f"needs {needed}; default backend: {info.platform}")
+def _missing_accelerator(info: DeviceInfo, kind: DeviceKind | None) -> str | None:
+    """Why the default backend is not an accelerator, of ``kind`` when given, if it is not."""
+    if info.has_accelerator and (kind is None or info.kind is kind):
+        return None
+    needed = "an accelerator" if kind is None else f"a {kind} backend"
+    return f"needs {needed}; default backend: {info.platform}"
 
 
 def _device_requirement(marker: pytest.Mark) -> tuple[int, DeviceKind | None]:

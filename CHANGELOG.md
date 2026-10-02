@@ -25,6 +25,11 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Fixed
 
+- A test skipped by the pytest plugin's `devices` or `accelerator` marker is reported at its own
+  location, as a `skipif` written on the test is. The plugin skipped from its own module, so
+  `-rs` named `substrax/testing/pytest_plugin.py` for every such skip and merged the tests with
+  one reason into one entry; it now adds a `skipif` marker to the test before pytest evaluates
+  the test's marks.
 - The `already-tested` action finds the pull request a push merged by asking GitHub which merged
   pull request produced the pushed commit (`commits/{sha}/pulls`, the pull request whose
   `merge_commit_sha` is that commit). It read the number from a `(#N)` subject suffix, which only a
