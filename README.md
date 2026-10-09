@@ -40,7 +40,7 @@ Each concern has one home and one test suite:
 | `substrax.artifacts` | Output directories resolved from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
 | `substrax.rng` | Keys from an explicit owner (`key_from`, no default seed), streams derived from a seed by name (`rngs_from_seed`), `split_key` and the interpreter-stable `fold_in_name` |
 | `substrax.optim` | `OptimizerConfig` in optax's terms, `create_transformation` and `create_optimizer` over optax with the schedule as the base learning rate and the weight-decay filter as a static mask, `current_learning_rate` read on device, `switch_at` from one transformation to another at a step, `update_with_line_search` for L-BFGS-style optimizers, `with_strong_state_types` |
-| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration and typed JSON reports (`last_json_as`), trace and compile counters (`TraceCounter`, `substrax.testing.compiles`), value-asserting NNX gradient checks (`substrax.testing.gradients`), example runs, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
+| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration and typed JSON reports (`last_json_as`), trace, compile and work counters (`TraceCounter`, `substrax.testing.compiles`, `counted_calls`), value-asserting NNX gradient checks (`substrax.testing.gradients`), example runs, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
 | `substrax.devices` | `detect_devices()` (platform, device kind, count), `DeviceLike` and `visible_devices()` for typed device parameters, device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |
 | `substrax.spmd` | Data-parallel sharding, batch placement from a sharding or a prefix of the batch, `spmd_train_step`, and metric collectives |
@@ -174,7 +174,10 @@ pytest plugin adds device markers and fails a test that changes jax's global con
 jax's own test harness does.
 `TraceCounter` asserts how many times a jitted function traced, and
 `substrax.testing.compiles.expect_compiles(n)` how many XLA programs a block built, for example
-that a second training step compiles nothing. `substrax.testing.gradients` checks a module's
+that a second training step compiles nothing. `counted_calls` counts the Python functions a block
+starts on every thread, and with `substrax.testing.jax_calls` its compiled dispatches and
+placements, so a test bounds a code path's work per iteration by count instead of time.
+`substrax.testing.gradients` checks a module's
 gradient in its parameters or its input against finite differences in float64 and returns it, so
 a test asserts the gradient's value, not only that it exists. `last_json_as(shape)` reads a child's
 last line of output as JSON validated against a `TypedDict`. `run_example` runs each example in its

@@ -9,7 +9,10 @@ example per child interpreter with its outputs redirected (``substrax.examples.d
 lists them). The plugin, ``substrax.testing.pytest_plugin``, is
 enabled from a ``conftest.py``: it adds the ``x64``, ``devices`` and ``accelerator`` markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
-``substrax.testing.compiles`` records the XLA programs compiled inside a block and fails a block
+``counted_calls`` counts the Python functions a block starts on every thread, grouped by
+``by_package``, and ``per_iteration`` takes the exact work per iteration from two pass lengths, for
+tests that bound work by count instead of time; ``substrax.testing.jax_calls`` adds jax's
+dispatches and placements to those counts. ``substrax.testing.compiles`` records the XLA programs compiled inside a block and fails a block
 that compiled an unexpected number, and ``substrax.testing.gradients`` checks a module's gradients
 against finite differences in float64 (both import jax, so the package does not import them).
 ``substrax.testing.source_scans`` holds the contract checks a repository runs over its own source:
@@ -17,6 +20,14 @@ import-time logging and environment writes, and documented meshes without axis t
 Importing this package imports no jax.
 """
 
+from substrax.testing.calls import (
+    by_package,
+    counted_calls,
+    CountingFailedError,
+    per_iteration,
+    ToolIdsInUseError,
+    UnevenCountError,
+)
 from substrax.testing.child_process import (
     ChildFailedError,
     ChildResult,
@@ -36,11 +47,17 @@ from substrax.testing.traces import RetraceError, TraceCounter
 __all__ = [
     "ChildFailedError",
     "ChildResult",
+    "CountingFailedError",
     "ExampleRun",
     "ExampleTimeoutError",
     "RetraceError",
+    "ToolIdsInUseError",
     "TraceCounter",
+    "UnevenCountError",
+    "by_package",
+    "counted_calls",
     "cuda_is_visible",
+    "per_iteration",
     "restored_jax_config",
     "run_example",
     "run_python",
