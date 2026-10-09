@@ -135,6 +135,12 @@ assert per_batch["mypackage:Loader.__next__"] == 1
   identity, so an alias counts) and `device_put_leaves` (the leaves placed). It imports jax, so
   `substrax.testing` does not import it.
 
+Code whose calls depend on object addresses varies between passes, and the counter cannot make it
+deterministic: an `__eq__` of a key hashed by `id()` runs only when a new object reuses a dead one's
+address, which the allocator decides. `per_iteration` names such a key (count its package by name
+with `named` to see the function), and a keys function that wraps `by_package` can leave that
+code object out, as `by_package` leaves out `threading`.
+
 A start is a Python function or generator starting; a generator resuming and a C function are not
 counted, and a count sees nothing a C function does without calling back into Python. Every thread
 in the process is counted, so a block runs no unrelated Python on other threads, or counts only

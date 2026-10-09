@@ -18,6 +18,11 @@ The counts are deterministic for deterministic code:
 - A ``PY_START`` event fires when a Python function or generator starts, not when a generator
   resumes, and C functions fire none, so neither is counted.
 
+Code whose calls depend on object addresses is not deterministic, and no counter makes it so: an
+``__eq__`` of a key hashed by ``id()`` runs only when a new object reuses a dead one's address.
+:func:`per_iteration` names such a count; a keys function that wraps :func:`by_package` can leave
+the code object out.
+
 On a free-threaded build, callbacks run on several threads at once; a lock guards the counts, so
 they stay exact. The standard library's ``cProfile`` uses ``sys.monitoring`` too, but documents
 one thread: across threads on 3.12 its call stack interleaves and calls are attributed as
