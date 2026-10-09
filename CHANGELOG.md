@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-10-09
+
 ### Added
 
 - `substrax.testing.counted_calls` counts the Python functions a block starts, on every thread,
@@ -36,6 +38,7 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Fixed
 
+- The lockfile resolves multidict 6.9.1, which fixes CVE-2026-104874 (6.7.1 was locked).
 - A test skipped by the pytest plugin's `devices` or `accelerator` marker is reported at its own
   location, as a `skipif` written on the test is. The plugin skipped from its own module, so
   `-rs` named `substrax/testing/pytest_plugin.py` for every such skip and merged the tests with
