@@ -9,6 +9,17 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Added
 
+- `substrax.testing.counted_calls` counts the Python functions a block starts, on every thread,
+  through `sys.monitoring` (Python 3.12+), so a test can bound a code path's work by count
+  instead of wall time. `by_package` groups the starts by package, and by qualified name for the
+  packages in `named`, leaving out `threading` and `queue`, whose counts depend on thread timing.
+  Automatic garbage collection is off inside the block and one collection runs at its end, so
+  finalizers are counted at a fixed point. `per_iteration` returns the exact per-iteration count
+  from a short and a long pass and raises `UnevenCountError` for a count that does not divide.
+  `weights` count calls by callable and first argument; `substrax.testing.jax_calls` provides
+  `jit_dispatch`, `device_put` and `device_put_leaves`. The block takes a free `sys.monitoring`
+  tool id, 3 and 4 first so coverage.py's `sysmon` core and `cProfile` keep theirs, and frees it
+  when the block ends or raises.
 - The `audit-lock` composite action audits every extra a uv project's lockfile resolves. It
   exports the extras from `uv.lock` in groups that respect `[tool.uv] conflicts` and runs a pinned
   pip-audit (`uvx --from pip-audit==<version>`, input `pip-audit-version`) on each export with a

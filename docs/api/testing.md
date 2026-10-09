@@ -1,8 +1,8 @@
 # Testing
 
 `substrax.testing` holds the test infrastructure JAX packages share: fresh-interpreter runs with a
-chosen JAX configuration, trace counts, example runs, and an opt-in pytest plugin. Install it with
-`substrax[testing]`.
+chosen JAX configuration, trace, compile and work counts, example runs, and an opt-in pytest
+plugin. Install it with `substrax[testing]`.
 
 ```python
 from substrax.runtime import JaxRuntime
@@ -86,6 +86,66 @@ jax stops recording it. The listener lives for the block only, and it sees every
 process, including another thread's. `expect_compiles` raises `CompileCountError`, an
 `AssertionError` with the expected count and the compiled names. The module imports jax, so
 `substrax.testing` does not import it.
+
+## Counting work
+
+A test that bounds how much work a code path does by timing it measures the machine as much as the
+code. The functions the path starts and the calls it makes are the same on every machine.
+`counted_calls` counts them with `sys.monitoring`, whose events are process-wide, so work a block
+hands to another thread is counted too:
+
+```python
+import jax
+
+from substrax.testing import by_package, counted_calls, per_iteration
+from substrax.testing.jax_calls import JAX_CALL_WEIGHTS
+
+keys = by_package("mypackage", "grain", "jax", named=["mypackage"])
+
+
+def count(batches: int) -> dict[str, int]:
+    run_pass(batches)  # warm: nothing traces or compiles inside the counted pass
+    with counted_calls(keys, weights=JAX_CALL_WEIGHTS) as counts:
+        run_pass(batches)
+    return counts
+
+
+per_batch = per_iteration(count, short=100, long=200)
+assert per_batch["device_put"] == 1  # one placement per batch
+assert per_batch["jit_dispatch"] == 1  # one compiled step per batch
+assert per_batch["mypackage:Loader.__next__"] == 1
+```
+
+- `by_package` adds one to a package's name for each function started in its files, and one to
+  `"<package>:<qualified name>"` for a package in `named`; anything else counts as `other`.
+  Packages are matched by the directories `importlib` finds for them, and a name it cannot find
+  is refused, so a misspelt package fails instead of counting nothing.
+- `threading` and `queue` are left out by default (`excluded`): how often a thread waits on a
+  condition depends on timing, which a count must not.
+- Automatic garbage collection is off inside the block and one collection runs at its end, still
+  counted: the collector runs by allocation count, so finalizers would otherwise land in or out of
+  the block depending on what ran before it.
+- `per_iteration(count, short=, long=)` returns `(count(long) - count(short)) / (long - short)` per
+  key, so work done once per pass (setup, a thread's start and close) cancels. A count that does
+  not grow by a whole number per iteration raises `UnevenCountError` naming it, instead of being
+  averaged.
+- `weights` count calls made from Python code: each weight sees the callable and the first argument
+  the call passes, and adds what it returns. `substrax.testing.jax_calls.JAX_CALL_WEIGHTS` counts
+  `jit_dispatch` (calls of a `jax.jit`-compiled callable, `nnx.jit` included), `device_put` (by
+  identity, so an alias counts) and `device_put_leaves` (the leaves placed). It imports jax, so
+  `substrax.testing` does not import it.
+
+A start is a Python function or generator starting; a generator resuming and a C function are not
+counted, and a count sees nothing a C function does without calling back into Python. Every thread
+in the process is counted, so a block runs no unrelated Python on other threads, or counts only
+packages that thread does not run.
+
+`counted_calls` takes a `sys.monitoring` tool id for the block and frees it at the end, also when
+the block raises. It tries the ids CPython leaves unassigned first (3 and 4), so coverage.py's
+`sysmon` core (id 1) and `cProfile` (id 2) keep theirs, and raises `ToolIdsInUseError` naming the
+holders when none is free. Python 3.12 and 3.13 run it; on a free-threaded build the callbacks run
+on several threads at once and a lock keeps the counts exact. `cProfile` uses `sys.monitoring` too,
+but measures one thread: on 3.12, calls from several threads interleave on its call stack.
 
 ## Checking gradients
 
@@ -246,6 +306,8 @@ shrinking what it reads.
 ::: substrax.testing
 
 ::: substrax.testing.compiles
+
+::: substrax.testing.jax_calls
 
 ::: substrax.testing.gradients
 

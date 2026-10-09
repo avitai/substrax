@@ -95,6 +95,28 @@ forbidden_modules =
     substrax.spmd
     substrax.tracking
 
+[importlinter:contract:calls]
+name = the call counter uses the standard library only
+type = forbidden
+source_modules =
+    substrax.testing._recorder
+    substrax.testing.calls
+forbidden_modules =
+    flax
+    jax
+    numpy
+    pytest
+    substrax.artifacts
+    substrax.callbacks
+    substrax.checkpoint
+    substrax.devices
+    substrax.mesh
+    substrax.optim
+    substrax.rng
+    substrax.runtime
+    substrax.spmd
+    substrax.tracking
+
 [importlinter:contract:records]
 name = the type aliases and record reading load neither jax nor Orbax nor another subpackage
 type = forbidden
