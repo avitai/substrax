@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-10-10
+
 ### Changed
 
 - `substrax.testing.counted_calls` counts only the block's own threads: the thread that opened it
