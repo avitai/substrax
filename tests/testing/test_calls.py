@@ -1,4 +1,4 @@
-"""``counted_calls`` counts the Python functions a block starts, on every thread, by key.
+"""``counted_calls`` counts the Python functions a block and the threads it starts run, by key.
 
 Each test imports a small package written to ``tmp_path``, so the counts it asserts belong to code
 no other test, thread or plugin runs; work elsewhere in the process lands under other keys.
@@ -6,14 +6,16 @@ no other test, thread or plugin runs; work elsewhere in the process lands under 
 
 from __future__ import annotations
 
+import _thread
 import contextlib
 import gc
 import importlib
+import inspect
 import json
 import sys
 import threading
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from pathlib import Path
 from types import CodeType, ModuleType
 
@@ -28,7 +30,7 @@ from substrax.testing import (
     ToolIdsInUseError,
     UnevenCountError,
 )
-from substrax.testing._recorder import CallRecorder
+from substrax.testing._recorder import BlockThreads, CallRecorder
 from substrax.testing.calls import TOOL_ID_ORDER
 
 
@@ -164,7 +166,7 @@ def test_threading_and_queue_are_left_out_by_default() -> None:
     assert kept["other"] >= 1
 
 
-def test_every_thread_is_counted_and_repeats_are_identical(
+def test_threads_the_block_starts_are_counted_and_repeats_are_identical(
     make_package: Callable[[], ModuleType],
 ) -> None:
     package = make_package()
@@ -183,6 +185,148 @@ def test_every_thread_is_counted_and_repeats_are_identical(
 
     assert runs[0][f"{package.__name__}:leaf"] == 4 * 501
     assert all(counts == runs[0] for counts in runs)
+
+
+class _Waiting:
+    """A thread started before a block that runs the work it is handed, until stopped."""
+
+    def __init__(self) -> None:
+        self._work: Callable[[], object] | None = None
+        self._wake, self._done = threading.Event(), threading.Event()
+        self.thread = threading.Thread(target=self._serve, daemon=True)
+        self.thread.start()
+
+    def _serve(self) -> None:
+        while True:
+            self._wake.wait()
+            self._wake.clear()
+            if self._work is None:
+                return
+            self._work()
+            self._done.set()
+
+    def run(self, work: Callable[[], object]) -> None:
+        """Run ``work`` on the waiting thread and wait until it is done."""
+        self._work = work
+        self._done.clear()
+        self._wake.set()
+        assert self._done.wait(10)
+
+    def stop(self) -> None:
+        """End the thread and wait for it."""
+        self._work = None
+        self._wake.set()
+        self.thread.join(10)
+
+
+@contextlib.contextmanager
+def _waiting() -> Generator[_Waiting]:
+    waiting = _Waiting()
+    try:
+        yield waiting
+    finally:
+        waiting.stop()
+
+
+def test_a_thread_already_running_when_the_block_opens_is_not_counted(
+    make_package: Callable[[], ModuleType],
+) -> None:
+    package = make_package()
+    name = package.__name__
+
+    with _waiting() as earlier, counted_calls(by_package(name, named=[name])) as counts:
+        earlier.run(lambda: package.branch(5))
+        package.leaf()
+
+    assert counts[name] == 1
+    assert counts[f"{name}:branch"] == 0
+
+
+def test_a_thread_on_the_id_of_one_that_ended_in_the_block_is_counted(
+    make_package: Callable[[], ModuleType],
+) -> None:
+    package = make_package()
+    name = package.__name__
+    earlier = _Waiting()
+    ended = earlier.thread.ident
+
+    def start_until_one_reuses_the_ended_id() -> tuple[int, bool]:
+        """Start one-call threads until one gets the ended thread's id; CPython reuses it."""
+        for started in range(1, 1001):
+            worker = threading.Thread(target=package.leaf)
+            worker.start()
+            worker.join()
+            if worker.ident == ended:
+                return started, True
+        return 1000, False
+
+    with counted_calls(by_package(name)) as counts:
+        earlier.stop()
+        started, reused = start_until_one_reuses_the_ended_id()
+
+    assert reused, "no new thread got the ended thread's id"
+    assert counts[name] == started  # each started thread's one call, the reused id's too
+
+
+def test_a_thread_started_without_the_threading_module_is_counted(
+    make_package: Callable[[], ModuleType],
+) -> None:
+    package = make_package()
+    finished = threading.Event()
+
+    def raw() -> None:
+        package.branch(2)
+        finished.set()
+
+    with counted_calls(by_package(package.__name__)) as counts:
+        _thread.start_new_thread(raw, ())
+        assert finished.wait(10)
+
+    assert counts[package.__name__] == 5  # branch, 2 leaf, inner, leaf
+
+
+def test_weights_count_only_the_calls_of_the_blocks_threads() -> None:
+    def target() -> None:
+        pass
+
+    def weigh(callee: object, first: object) -> int:
+        del first
+        return int(callee is target)
+
+    with (
+        _waiting() as earlier,
+        counted_calls(by_package("json"), weights={"target": weigh}) as counts,
+    ):
+        earlier.run(target)
+        target()
+
+    assert counts["target"] == 1
+
+
+def test_per_iteration_is_exact_when_a_thread_from_before_works_in_one_pass_only(
+    make_package: Callable[[], ModuleType],
+) -> None:
+    """A library thread waking inside one of the two passes (a monitor's periodic wake)."""
+    package = make_package()
+    name = package.__name__
+    by_name = by_package(name, named=[name])
+
+    def package_only(code: CodeType) -> tuple[str, ...]:
+        """The package's keys; the test's own call that hands work over is the block's, as other."""
+        return tuple(key for key in by_name(code) if key != "other")
+
+    with _waiting() as earlier:
+
+        def count(iterations: int) -> dict[str, int]:
+            with counted_calls(package_only) as counts:
+                package.branch(iterations)
+                if iterations == 400:
+                    earlier.run(package.leaf)
+            return dict(counts)
+
+        slope = per_iteration(count, short=200, long=400)
+
+    assert slope == {name: 1, f"{name}:leaf": 1}
 
 
 def test_the_collector_is_off_inside_and_frees_the_blocks_garbage_before_it_ends(
@@ -443,6 +587,43 @@ def test_the_recorder_adds_each_start_and_each_weight() -> None:
     events = sys.monitoring.events
     assert recorder.events == events.PY_START | events.CALL
     assert CallRecorder(lambda _: (), {}).events == events.PY_START
+
+
+def test_the_block_owns_its_opening_thread_and_the_threads_started_after_it() -> None:
+    def belongs(threads: BlockThreads) -> bool:
+        verdict: list[bool] = []
+        worker = threading.Thread(target=lambda: verdict.append(threads.has_current()))
+        worker.start()
+        worker.join()
+        return verdict[0]
+
+    with _waiting() as earlier:
+        threads = BlockThreads()
+        verdicts: list[bool] = []
+        earlier.run(lambda: verdicts.append(threads.has_current()))
+
+        assert threads.has_current()
+        assert verdicts == [False]
+        assert belongs(threads)
+
+
+def test_counting_by_thread_is_refused_without_access_to_frames(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(inspect, "currentframe", lambda: None)
+
+    with pytest.raises(RuntimeError, match="stack frames"):
+        BlockThreads()
+
+
+def test_the_recorder_leaves_out_starts_and_calls_on_threads_outside_the_block() -> None:
+    with _waiting() as earlier:
+        recorder = CallRecorder(lambda _: ("counted",), {"calls": lambda _callee, _first: 1})
+        earlier.run(lambda: recorder.started(_owners.__code__, 0))
+        earlier.run(lambda: recorder.called(_owners.__code__, 0, len, None))
+        recorder.started(_owners.__code__, 0)
+
+    assert recorder.counts == {"counted": 1}
 
 
 def test_the_recorder_stops_counting_after_a_key_function_raises() -> None:

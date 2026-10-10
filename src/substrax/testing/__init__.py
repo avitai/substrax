@@ -9,7 +9,7 @@ example per child interpreter with its outputs redirected (``substrax.examples.d
 lists them). The plugin, ``substrax.testing.pytest_plugin``, is
 enabled from a ``conftest.py``: it adds the ``x64``, ``devices`` and ``accelerator`` markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
-``counted_calls`` counts the Python functions a block starts on every thread, grouped by
+``counted_calls`` counts the Python functions a block's own threads start, grouped by
 ``by_package``, and ``per_iteration`` takes the exact work per iteration from two pass lengths, for
 tests that bound work by count instead of time; ``substrax.testing.jax_calls`` adds jax's
 dispatches and placements to those counts. ``substrax.testing.compiles`` records the XLA programs compiled inside a block and fails a block

@@ -1,12 +1,12 @@
-"""Count the Python functions a block starts, on every thread, for tests that assert work by count.
+"""Count the Python functions a block's threads start, for tests that assert work by count.
 
 A test that bounds how much work a code path does by timing it measures the machine as much as the
 code. The number of Python functions the path starts, and the calls it makes to chosen callables,
 are the same on every machine. :func:`counted_calls` counts them with ``sys.monitoring``
-(PEP 669, Python 3.12+), whose events are process-wide, so work a block hands to another thread is
-counted too. :func:`by_package` groups the starts by package and, for chosen packages, by qualified
-name. :func:`per_iteration` turns two pass lengths into an exact per-iteration count, so work done
-once per pass cancels.
+(PEP 669, Python 3.12+), whose events are process-wide, on the block's own threads: the one that
+opened it and the threads it starts. :func:`by_package` groups the starts by package and, for
+chosen packages, by qualified name. :func:`per_iteration` turns two pass lengths into an exact
+per-iteration count, so work done once per pass cancels.
 
 The counts are deterministic for deterministic code:
 
@@ -17,6 +17,9 @@ The counts are deterministic for deterministic code:
   condition, and so how often those modules' functions run, depends on thread timing.
 - A ``PY_START`` event fires when a Python function or generator starts, not when a generator
   resumes, and C functions fire none, so neither is counted.
+- A thread already running Python when the block opens is left out: a library's monitor that
+  wakes on a timer would otherwise add its calls to whichever pass it woke in. A thread is told
+  apart by the frame its Python execution started in, not by its id, which CPython reuses.
 
 Code whose calls depend on object addresses is not deterministic, and no counter makes it so: an
 ``__eq__`` of a key hashed by ``id()`` runs only when a new object reuses a dead one's address.
@@ -24,9 +27,8 @@ Code whose calls depend on object addresses is not deterministic, and no counter
 the code object out.
 
 On a free-threaded build, callbacks run on several threads at once; a lock guards the counts, so
-they stay exact. The standard library's ``cProfile`` uses ``sys.monitoring`` too, but documents
-one thread: across threads on 3.12 its call stack interleaves and calls are attributed as
-recursive.
+they stay exact. The standard library's ``cProfile`` has used ``sys.monitoring`` since 3.12 and
+records the calls of every thread in the process, with no way to leave a thread out.
 """
 
 from __future__ import annotations
@@ -244,10 +246,16 @@ def counted_calls(  # noqa: DOC503  # ToolIdsInUseError is raised by _claim_tool
 ) -> Generator[Counter[str]]:
     """Count the Python functions started, and weighted calls made, inside the block.
 
-    Every thread's work is counted. ``keys`` decides which counts each function start adds one to
-    (it runs once per code object). Each of ``weights`` sees every call made from Python code, with
-    the callable and the first argument it passes, and adds what it returns to its own key.
-    Events do not fire while a callback runs, so the weights' own calls are not counted.
+    Only the block's own threads are counted: the thread that opened it and every thread
+    started after it opened, so work the block hands to a thread it starts is counted. A thread
+    already running Python when the block opens (a library's monitor or heartbeat, a pool an
+    earlier test left) is not the block's work and is left out, and so is work the block hands
+    to such a thread, for example to a thread pool created before the block.
+
+    ``keys`` decides which counts each function start adds one to (it runs once per code
+    object). Each of ``weights`` sees every call made from Python code, with the callable and the
+    first argument it passes, and adds what it returns to its own key. Events do not fire while a
+    callback runs, so the weights' own calls are not counted.
 
     Automatic garbage collection is off inside the block; one collection runs at its end, still
     counted, and the collector's previous state is restored after it.
