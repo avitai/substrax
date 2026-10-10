@@ -7,6 +7,17 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- `substrax.testing.counted_calls` counts only the block's own threads: the thread that opened it
+  and every thread started after it opened. A thread already running Python when the block opens
+  is left out, so a library's timer thread (tqdm's progress-bar monitor wakes every 10 seconds and
+  runs 7 functions) no longer adds its calls to whichever pass it woke in and makes
+  `per_iteration` raise `UnevenCountError`. Work handed to a thread pool created before the block
+  is left out with it. A thread is told apart by the frame its Python execution started in, since
+  CPython reuses the id of a thread that ended and, on 3.12, `threading.current_thread()` returns
+  a stale placeholder for a new thread on such an id until the thread registers itself.
+
 ## [0.1.21] - 2026-10-09
 
 ### Added

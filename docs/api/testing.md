@@ -91,8 +91,9 @@ process, including another thread's. `expect_compiles` raises `CompileCountError
 
 A test that bounds how much work a code path does by timing it measures the machine as much as the
 code. The functions the path starts and the calls it makes are the same on every machine.
-`counted_calls` counts them with `sys.monitoring`, whose events are process-wide, so work a block
-hands to another thread is counted too:
+`counted_calls` counts them with `sys.monitoring` on the block's own threads: the thread that
+opened it and every thread started after it opened, so work a block hands to a thread it starts is
+counted too:
 
 ```python
 import jax
@@ -142,16 +143,20 @@ with `named` to see the function), and a keys function that wraps `by_package` c
 code object out, as `by_package` leaves out `threading`.
 
 A start is a Python function or generator starting; a generator resuming and a C function are not
-counted, and a count sees nothing a C function does without calling back into Python. Every thread
-in the process is counted, so a block runs no unrelated Python on other threads, or counts only
-packages that thread does not run.
+counted, and a count sees nothing a C function does without calling back into Python. A thread
+already running Python when the block opens is left out: a library's monitor or heartbeat (tqdm's
+progress-bar monitor wakes every 10 seconds) would otherwise add its calls to whichever pass it
+woke in, and `per_iteration` would find the count uneven. Work a block hands to such a thread, a
+thread pool created before the block for example, is left out with it; create the pool inside the
+block to count it. A thread is told apart by the frame its Python execution started in, not by its
+id: CPython gives the id of a thread that ended to the next one it starts.
 
 `counted_calls` takes a `sys.monitoring` tool id for the block and frees it at the end, also when
 the block raises. It tries the ids CPython leaves unassigned first (3 and 4), so coverage.py's
 `sysmon` core (id 1) and `cProfile` (id 2) keep theirs, and raises `ToolIdsInUseError` naming the
 holders when none is free. Python 3.12 and 3.13 run it; on a free-threaded build the callbacks run
-on several threads at once and a lock keeps the counts exact. `cProfile` uses `sys.monitoring` too,
-but measures one thread: on 3.12, calls from several threads interleave on its call stack.
+on several threads at once and a lock keeps the counts exact. `cProfile` has used `sys.monitoring`
+since 3.12 and records the calls of every thread, with no way to leave a thread out.
 
 ## Checking gradients
 

@@ -175,7 +175,7 @@ jax's own test harness does.
 `TraceCounter` asserts how many times a jitted function traced, and
 `substrax.testing.compiles.expect_compiles(n)` how many XLA programs a block built, for example
 that a second training step compiles nothing. `counted_calls` counts the Python functions a block
-starts on every thread, and with `substrax.testing.jax_calls` its compiled dispatches and
+and the threads it starts run, and with `substrax.testing.jax_calls` its compiled dispatches and
 placements, so a test bounds a code path's work per iteration by count instead of time.
 `substrax.testing.gradients` checks a module's
 gradient in its parameters or its input against finite differences in float64 and returns it, so
