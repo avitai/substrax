@@ -7,6 +7,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- The Security workflow audits substrax's own lock with the `audit-lock` action, covering every
+  extra, and Quality Checks no longer runs pip-audit. Both ran pip-audit on an environment synced
+  with the `dev` and `test` extras, which never held the packages only the `mlflow` and `wandb`
+  extras resolve.
+
 ### Fixed
 
 - The lockfile resolves the fixed releases of nine packages pip-audit reports: aiohttp 3.14.5,

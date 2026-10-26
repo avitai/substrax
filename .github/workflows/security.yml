@@ -34,8 +34,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev
 
-      - name: Pip audit
-        run: uv run pip-audit
+      # Every extra the lock resolves, in groups that respect [tool.uv] conflicts, each audited by
+      # a pinned pip-audit with a fresh advisory cache. An environment holds only the extras it
+      # installed, so an audit of it misses the rest of the lock.
+      - name: Audit the locked dependencies
+        uses: ./.github/actions/audit-lock
 
       - name: Bandit
         run: |

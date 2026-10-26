@@ -71,8 +71,5 @@ jobs:
       - name: Ruff isort check
         run: uv run ruff check --select I --diff src/ tests/
 
-      - name: Pip audit
-        run: uv run pip-audit
-
       - name: Derived status matches the README
         run: uv run python scripts/derive_status.py --check

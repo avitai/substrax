@@ -356,3 +356,35 @@ class TestActionContract:
 
     def test_it_says_uv_must_be_set_up_first(self, action: dict[str, Any]) -> None:
         assert "astral-sh/setup-uv" in action["description"]
+
+
+class TestSubstraxAuditsItsOwnLock:
+    """substrax's own CI audits its lock with the action, never an installed environment."""
+
+    WORKFLOWS = ROOT / ".github" / "workflows"
+
+    @staticmethod
+    def load(path: Path) -> dict[str, Any]:
+        # BaseLoader keeps every scalar a string, so the `on:` key stays `on` rather than True.
+        return yaml.load(path.read_text(), Loader=yaml.BaseLoader)  # noqa: S506
+
+    def test_the_security_workflow_runs_the_action_after_setup_uv(self) -> None:
+        workflow = self.load(self.WORKFLOWS / "security.yml")
+        steps = workflow["jobs"]["security"]["steps"]
+        uses = [str(step.get("uses", "")) for step in steps]
+
+        assert "./.github/actions/audit-lock" in uses
+        setup_uv = next(i for i, use in enumerate(uses) if use.startswith("astral-sh/setup-uv@"))
+        assert setup_uv < uses.index("./.github/actions/audit-lock")
+        assert {"push", "pull_request", "schedule"} <= set(workflow["on"])
+
+    def test_no_workflow_runs_pip_audit_on_an_environment(self) -> None:
+        runs = [
+            f"{path.name}:{name}"
+            for path in sorted(self.WORKFLOWS.glob("*.yml"))
+            for name, job in self.load(path)["jobs"].items()
+            for step in job.get("steps", [])
+            if "pip-audit" in str(step.get("run", ""))
+        ]
+
+        assert runs == []
