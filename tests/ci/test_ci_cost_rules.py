@@ -276,3 +276,26 @@ def test_every_uv_cache_is_pruned_before_it_is_saved() -> None:
 
     assert checked, "no setup-uv step found; the contract is reading the wrong files"
     assert unpruned == [], f"setup-uv steps saving an unpruned cache: {unpruned}"
+
+
+def test_quality_restores_the_pre_commit_hook_environments_before_running_them() -> None:
+    """Hook environments are built once per configuration and Python, not downloaded every run.
+
+    Without the cache every Quality run installs every hook's environment again; the
+    ``shellcheck-py`` hook fetches the ShellCheck binary from GitHub releases, and an HTTP 504 there
+    failed a run.
+    """
+    steps = _load(WORKFLOWS / "quality-checks.yml")["jobs"]["quality"]["steps"]
+    cache = next(
+        index
+        for index, step in enumerate(steps)
+        if step.get("uses", "").startswith("actions/cache@")
+        and step.get("with", {}).get("path") == "~/.cache/pre-commit"
+    )
+    pre_commit = next(i for i, step in enumerate(steps) if "pre-commit run" in step.get("run", ""))
+    key = steps[cache]["with"]["key"]
+
+    assert cache < pre_commit
+    assert "hashFiles('.pre-commit-config.yaml')" in key
+    assert "matrix.python-version" in key
+    assert "runner.os" in key
