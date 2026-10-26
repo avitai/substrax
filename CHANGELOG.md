@@ -21,6 +21,8 @@ and uses semantic versioning while the public API stabilizes.
   mlflow 3.17.2, opentelemetry-api 1.45.1 and werkzeug 3.1.9, which only the `mlflow` and `wandb`
   extras resolve. mlflow-skinny, mlflow-tracing, opentelemetry-sdk,
   opentelemetry-semantic-conventions, python-discovery and yarl follow.
+- The lockfile resolves Mako 1.4.3, which fixes PYSEC-2026-4243 (CVE-2026-102991; 1.4.1 was locked)
+  in the `mlflow` extra, through alembic. pip-audit's PyPI service does not report it, and OSV does.
 
 ## [0.1.22] - 2026-10-10
 
