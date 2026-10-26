@@ -11,9 +11,6 @@ Rationale: README / INDEX / badge claims rot as the code evolves. This makes
 the claims falsifiable — it walks ``src/`` plus manifests, emits the numbers
 the docs assert, and fails loudly when an asserted value disagrees with the
 measured one. Wire ``--check`` into CI so drift can never land silently.
-
-This file ends in ``.tmpl`` because the CONFIG block carries
-``<placeholders>`` that must be substituted per repo.
 """
 
 from __future__ import annotations
