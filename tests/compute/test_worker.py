@@ -232,7 +232,9 @@ def test_main_runs_a_spec_file_and_its_exit_code_says_whether_every_task_succeed
 
 
 def test_the_manifest_records_the_devices_the_job_saw(project: Path, outputs: Path) -> None:
-    manifest = run_job(_job(_script(project, "ok", "pass")), project=project, outputs=outputs)
+    # The job's platform is pinned so the expected one does not depend on the machine's devices.
+    job = _job(_script(project, "ok", "pass"), runtime=JaxRuntime(platforms=("cpu",)))
+    manifest = run_job(job, project=project, outputs=outputs)
 
     assert manifest.devices is not None
     assert manifest.devices.platform == "cpu"
