@@ -7,7 +7,9 @@ environment sees only the extras that environment installed, and a bare ``pip-au
 one lockfile across all extras, but extras declared as conflicting cannot be exported together, so
 the extras are covered in groups that each hold no conflicting pair. Each group is exported from
 the lock and audited by a pinned ``pip-audit``, run in isolation through ``uvx``, with a fresh
-cache: a cached advisory database can hide an advisory published since it was filled.
+cache: a cached advisory database can hide an advisory published since it was filled. Each export is
+audited against both of pip-audit's vulnerability services, PyPI and OSV, and the advisories of both
+count: either one can lack an advisory the other reports.
 
 The run fails on an advisory the project's ``[tool.substrax.audit-lock.ignore]`` table does not
 name by id or alias, and on an entry of that table no advisory matches any more, so the table
@@ -35,6 +37,9 @@ from typing import Any
 DESCRIPTION = "Audit every extra a uv lockfile resolves."
 IGNORE_TABLE = "[tool.substrax.audit-lock.ignore]"
 PIP_AUDIT_FINDINGS_EXIT = 1  # pip-audit's exit status when it reports an advisory
+# pip-audit's vulnerability services. On one datarax lock (2026-10-26) OSV reported 16 advisories
+# where PyPI reported 13, among them a high-severity nbconvert one, so neither alone is the audit.
+SERVICES = ("pypi", "osv")
 
 # (package, version, advisory id, aliases)
 Advisory = tuple[str, str, str, frozenset[str]]
@@ -124,6 +129,9 @@ def findings(
 ) -> list[tuple[str, str, str]]:
     """Advisories in pip-audit JSON reports that ``ignored`` names by neither id nor alias.
 
+    An advisory two services report under one id with different aliases is one advisory, and an
+    ignore naming any of its aliases from either report covers it.
+
     Args:
         reports: pip-audit JSON reports.
         ignored: Advisory id or alias to reason.
@@ -131,10 +139,13 @@ def findings(
     Returns:
         Sorted, de-duplicated (package, version, advisory id) triples.
     """
+    aliases_of: dict[tuple[str, str, str], set[str]] = {}
+    for name, version, identifier, aliases in _advisories(reports):
+        aliases_of.setdefault((name, version, identifier), set()).update(aliases)
     return sorted(
-        (name, version, identifier)
-        for name, version, identifier, aliases in _advisories(reports)
-        if identifier not in ignored and not aliases & ignored.keys()
+        advisory
+        for advisory, aliases in aliases_of.items()
+        if advisory[2] not in ignored and not aliases & ignored.keys()
     )
 
 
@@ -171,26 +182,30 @@ def _label(group: Sequence[str]) -> str:
 
 def _audit_group(
     group: Sequence[str], project_dir: Path, work_dir: Path, pip_audit_version: str
-) -> Mapping[str, Any]:
-    """Export one group of extras from the lock and return pip-audit's JSON report on it."""
+) -> list[Mapping[str, Any]]:
+    """Export one group of extras from the lock and return each service's pip-audit JSON report."""
     requirements = work_dir / "requirements.txt"
-    report = work_dir / "report.json"
     extras = [argument for extra in group for argument in ("--extra", extra)]
     subprocess.run(  # noqa: S603  # nosec B603 - uv with fixed arguments
         [_tool("uv"), "export", "--frozen", "--all-groups", "--no-emit-project", *extras,
          "--output-file", str(requirements)],
         cwd=project_dir, check=True, stdout=subprocess.DEVNULL,
     )  # fmt: skip
-    with tempfile.TemporaryDirectory(dir=work_dir) as cache_dir:  # fresh: no stale advisories
-        audited = subprocess.run(  # noqa: S603  # nosec B603 - uvx with fixed arguments
-            [_tool("uvx"), "--from", f"pip-audit=={pip_audit_version}", "pip-audit",
-             "--requirement", str(requirements), "--disable-pip", "--no-deps",
-             "--cache-dir", cache_dir, "--format", "json", "--output", str(report)],
-            cwd=project_dir, check=False,
-        )  # fmt: skip
-    if audited.returncode not in (0, PIP_AUDIT_FINDINGS_EXIT):  # findings: the caller judges
-        raise subprocess.CalledProcessError(audited.returncode, audited.args)
-    return json.loads(report.read_text())
+    reports: list[Mapping[str, Any]] = []
+    for service in SERVICES:
+        report = work_dir / f"report-{service}.json"
+        with tempfile.TemporaryDirectory(dir=work_dir) as cache_dir:  # fresh: no stale advisories
+            audited = subprocess.run(  # noqa: S603  # nosec B603 - uvx with fixed arguments
+                [_tool("uvx"), "--from", f"pip-audit=={pip_audit_version}", "pip-audit",
+                 "--requirement", str(requirements), "--disable-pip", "--no-deps",
+                 "--vulnerability-service", service, "--cache-dir", cache_dir,
+                 "--format", "json", "--output", str(report)],
+                cwd=project_dir, check=False,
+            )  # fmt: skip
+        if audited.returncode not in (0, PIP_AUDIT_FINDINGS_EXIT):  # findings: the caller judges
+            raise subprocess.CalledProcessError(audited.returncode, audited.args)
+        reports.append(json.loads(report.read_text()))
+    return reports
 
 
 def _summary(
@@ -227,7 +242,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     reports: list[Mapping[str, Any]] = []
     for group in groups:
         with tempfile.TemporaryDirectory() as work_dir:
-            reports.append(
+            reports.extend(
                 _audit_group(group, project_dir, Path(work_dir), arguments.pip_audit_version)
             )
     unignored = findings(reports, ignored)

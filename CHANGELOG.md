@@ -9,6 +9,11 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Changed
 
+- The `audit-lock` action audits each export against both of pip-audit's vulnerability services,
+  PyPI and OSV, and counts the advisories of both: either can lack one the other reports. On a
+  datarax lock OSV reported 16 advisories where PyPI reported 13, among them nbconvert
+  CVE-2026-114140 (high). An advisory both services report is one finding, and an ignore naming
+  any alias either service gives covers it.
 - The Security workflow audits substrax's own lock with the `audit-lock` action, covering every
   extra, and Quality Checks no longer runs pip-audit. Both ran pip-audit on an environment synced
   with the `dev` and `test` extras, which never held the packages only the `mlflow` and `wandb`
