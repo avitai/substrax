@@ -52,6 +52,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra dev --extra test
 
+      # The hook environments, built once per configuration and Python; without them every run
+      # downloads each hook again, ShellCheck's binary from GitHub releases among them.
+      - name: Restore the pre-commit hook environments
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Pre-commit
         env:
