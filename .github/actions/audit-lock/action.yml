@@ -2,7 +2,8 @@ name: Lockfile audit
 description: >-
   Audit every extra a uv project's lockfile resolves, in groups that respect [tool.uv] conflicts,
   with a pinned pip-audit run on an export of the lock (never on an installed environment, which
-  holds only the extras it installed) and a fresh advisory cache. Fails on an advisory the
+  holds only the extras it installed) against both its PyPI and OSV services, with a fresh advisory
+  cache. Fails on an advisory the
   project's [tool.substrax.audit-lock.ignore] table (advisory id -> reason) does not name, and on
   an entry of that table no advisory matches any more. Needs uv on PATH: run astral-sh/setup-uv
   before this action.

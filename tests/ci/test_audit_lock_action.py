@@ -45,11 +45,21 @@ FAKE_UVX = """#!/usr/bin/env bash
 set -euo pipefail
 printf 'uvx %s\\n' "$*" >> "$AUDIT_LOCK_LOG"
 output=""
+previous=""
+service=""
+for arg in "$@"; do
+  if [ "$previous" = "--vulnerability-service" ]; then service="$arg"; fi
+  previous="$arg"
+done
 while [ $# -gt 0 ]; do
   if [ "$1" = "--output" ]; then output="$2"; shift; fi
   shift
 done
-cp "$FAKE_REPORT" "$output"
+if [ "$service" = "osv" ] && [ -n "${FAKE_REPORT_OSV:-}" ]; then
+  cp "$FAKE_REPORT_OSV" "$output"
+else
+  cp "$FAKE_REPORT" "$output"
+fi
 exit "${FAKE_PIP_AUDIT_EXIT:-0}"
 """
 
@@ -129,6 +139,14 @@ class TestFindings:
         report = _report(("pkg", [_vuln("PYSEC-1"), _vuln("PYSEC-1")]))
 
         assert audit.findings([report, report], {}) == [("pkg", "1.0", "PYSEC-1")]
+
+    def test_one_advisory_two_services_name_differently_is_one_finding(
+        self, audit: ModuleType
+    ) -> None:
+        pypi = _report(("pkg", [_vuln("PYSEC-1", "CVE-1")]))
+        osv = _report(("pkg", [_vuln("PYSEC-1", "CVE-1", "GHSA-1")]))
+
+        assert audit.findings([pypi, osv], {}) == [("pkg", "1.0", "PYSEC-1")]
 
     def test_an_ignore_no_advisory_matches_is_stale(self, audit: ModuleType) -> None:
         report = _report(("pkg", [_vuln("PYSEC-1", "CVE-1")]))
@@ -234,7 +252,7 @@ class TestMain:
         assert self.run(audit) == 0
 
         audits = [call for call in self.calls(project) if call.startswith("uvx ")]
-        assert len(audits) == 2
+        assert len(audits) == 4
         for call in audits:
             assert f"--from pip-audit=={PIP_AUDIT_VERSION} pip-audit" in call
             for flag in ("--requirement", "--disable-pip", "--no-deps", "--cache-dir"):
@@ -243,6 +261,49 @@ class TestMain:
         cache_dirs = [re.search(r"--cache-dir (\S+)", call) for call in audits]
         assert all(match is not None for match in cache_dirs)
         assert not any(Path(match.group(1)).exists() for match in cache_dirs if match)
+
+    def test_every_group_is_audited_with_each_service(
+        self, audit: ModuleType, project: Path
+    ) -> None:
+        assert self.run(audit) == 0
+
+        calls = self.calls(project)
+        exports = [i for i, call in enumerate(calls) if call.startswith("uv ")]
+        for start, end in zip(exports, [*exports[1:], len(calls)], strict=True):
+            services = [
+                re.search(r"--vulnerability-service (\S+)", call) for call in calls[start + 1 : end]
+            ]
+            assert [match.group(1) for match in services if match] == ["pypi", "osv"]
+
+    @pytest.mark.usefixtures("project")
+    def test_an_advisory_only_osv_reports_fails_the_audit(
+        self,
+        audit: ModuleType,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        osv = tmp_path / "osv.json"
+        osv.write_text(json.dumps(_report(("pkg", [_vuln("CVE-7", "GHSA-7")]))))
+        monkeypatch.setenv("FAKE_REPORT_OSV", str(osv))
+
+        assert self.run(audit) == 1
+
+        assert "advisory: pkg 1.0 CVE-7" in capsys.readouterr().out
+
+    def test_an_ignore_one_service_matches_is_not_stale(
+        self,
+        audit: ModuleType,
+        project: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        osv = tmp_path / "osv.json"
+        osv.write_text(json.dumps(_report(("pkg", [_vuln("CVE-7", "GHSA-7")]))))
+        monkeypatch.setenv("FAKE_REPORT_OSV", str(osv))
+        self.ignore(project, ("GHSA-7", "no fixed release"))
+
+        assert self.run(audit) == 0
 
     @pytest.mark.usefixtures("project")
     def test_an_unignored_advisory_fails_the_audit(
