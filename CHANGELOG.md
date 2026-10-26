@@ -7,6 +7,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- The lockfile resolves the fixed releases of nine packages pip-audit reports: aiohttp 3.14.5,
+  certifi 2026.10.23, filelock 4.2.4, pillow 13.0.0 and virtualenv 21.14.13, and gitpython 3.2.1,
+  mlflow 3.17.2, opentelemetry-api 1.45.1 and werkzeug 3.1.9, which only the `mlflow` and `wandb`
+  extras resolve. mlflow-skinny, mlflow-tracing, opentelemetry-sdk,
+  opentelemetry-semantic-conventions, python-discovery and yarl follow.
+
 ## [0.1.22] - 2026-10-10
 
 ### Changed
