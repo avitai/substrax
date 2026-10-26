@@ -40,7 +40,9 @@ jobs:
       - name: Audit the locked dependencies
         uses: ./.github/actions/audit-lock
 
+      # Bandit reports whatever the audit found, so a red job names every scan that failed.
       - name: Bandit
+        if: ${{ !cancelled() }}
         run: |
           uv run bandit -r src/substrax/ -c pyproject.toml -ll
           uv run bandit -r src/substrax/ -c pyproject.toml -f json -o bandit-report.json -q

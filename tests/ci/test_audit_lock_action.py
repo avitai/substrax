@@ -378,6 +378,15 @@ class TestSubstraxAuditsItsOwnLock:
         assert setup_uv < uses.index("./.github/actions/audit-lock")
         assert {"push", "pull_request", "schedule"} <= set(workflow["on"])
 
+    def test_bandit_runs_whatever_the_audit_found_and_its_failure_fails_the_job(self) -> None:
+        """A failed audit would skip Bandit, and the job would report one scan's verdict, not two."""
+        steps = self.load(self.WORKFLOWS / "security.yml")["jobs"]["security"]["steps"]
+        bandit = next(step for step in steps if "bandit " in step.get("run", ""))
+
+        assert bandit.get("if") == "${{ !cancelled() }}"
+        assert "continue-on-error" not in bandit
+        assert "||" not in bandit["run"], "a captured exit status can hide bandit's failure"
+
     def test_no_workflow_runs_pip_audit_on_an_environment(self) -> None:
         runs = [
             f"{path.name}:{name}"
