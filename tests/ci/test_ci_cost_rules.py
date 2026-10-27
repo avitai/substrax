@@ -95,9 +95,10 @@ def test_a_quiet_night_runs_no_macos_job() -> None:
     moved = workflow["jobs"]["main_moved"]
     compare = next(step for step in moved["steps"] if step.get("id") == "compare")
 
-    assert compare.get("if") == "github.event_name == 'schedule'"
-    assert "--status success" in compare["run"]
-    assert "--event schedule" in compare["run"]
+    # The comparison is the shared action's, tested in test_main_moved_action.py.
+    assert compare["uses"] == "./.github/actions/main-moved"
+    assert compare["with"]["workflow"] == MACOS_WORKFLOW
+    assert "steps.compare.outputs.unchanged" in moved["outputs"]["unchanged"]
     for name, job in workflow["jobs"].items():
         if name == "main_moved":
             continue

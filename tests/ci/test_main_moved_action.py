@@ -131,3 +131,13 @@ class TestActionContract:
 
         assert "continue-on-error" not in text
         assert "set -euo pipefail" in (ACTION / "compare.sh").read_text()
+
+
+def test_the_macos_workflow_uses_the_action_and_carries_no_copy_of_its_logic() -> None:
+    text = (ROOT / ".github" / "workflows" / "macos.yml").read_text()
+    moved = yaml.safe_load(text)["jobs"]["main_moved"]
+
+    assert [
+        step.get("uses") for step in moved["steps"] if "main-moved" in str(step.get("uses"))
+    ] == ["./.github/actions/main-moved"]
+    assert "gh run list" not in text

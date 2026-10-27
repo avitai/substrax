@@ -23,23 +23,13 @@ jobs:
     outputs:
       unchanged: ${{ steps.compare.outputs.unchanged }}
     steps:
-      # Only a scheduled run compares; a manual run always runs. A lookup that fails answers
-      # "unknown", which runs the jobs.
+      - uses: actions/checkout@v7
+
+      # Only a scheduled run compares; a manual run, a failed lookup or a first night always runs.
       - id: compare
-        if: github.event_name == 'schedule'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow macos.yml --branch main \
-            --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha' \
-            2>/dev/null || echo unknown)
-          unchanged=false
-          if [ "$last" = "$GITHUB_SHA" ]; then
-            unchanged=true
-          fi
-          echo "last green night $last, this run $GITHUB_SHA, unchanged: $unchanged"
-          echo "unchanged=$unchanged" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/main-moved
+        with:
+          workflow: macos.yml
 
   test:
     name: Test (Python ${{ matrix.python-version }}, macos-14)
