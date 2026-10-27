@@ -55,7 +55,9 @@ while [ $# -gt 0 ]; do
   if [ "$1" = "--output" ]; then output="$2"; shift; fi
   shift
 done
-if [ "$service" = "osv" ] && [ -n "${FAKE_REPORT_OSV:-}" ]; then
+if [ -n "${FAKE_NO_REPORT:-}" ]; then
+  : # pip-audit after a service error: it writes no report
+elif [ "$service" = "osv" ] && [ -n "${FAKE_REPORT_OSV:-}" ]; then
   cp "$FAKE_REPORT_OSV" "$output"
 else
   cp "$FAKE_REPORT" "$output"
@@ -210,6 +212,7 @@ class TestMain:
         monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
         monkeypatch.delenv("FAKE_UV_EXIT", raising=False)
         monkeypatch.delenv("FAKE_PIP_AUDIT_EXIT", raising=False)
+        monkeypatch.delenv("FAKE_NO_REPORT", raising=False)
         self.report(tmp_path, monkeypatch, _report(("pkg", [])))
         return project
 
@@ -366,6 +369,18 @@ class TestMain:
         monkeypatch.setenv("FAKE_PIP_AUDIT_EXIT", "2")
 
         with pytest.raises(subprocess.CalledProcessError):
+            self.run(audit)
+
+    @pytest.mark.usefixtures("project")
+    def test_pip_audit_failing_without_a_report_names_the_service(
+        self, audit: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # pip-audit exits 1 both on an advisory and on a service error; only the advisory run
+        # writes a report, so a missing one is the service failing, never a clean result.
+        monkeypatch.setenv("FAKE_PIP_AUDIT_EXIT", "1")
+        monkeypatch.setenv("FAKE_NO_REPORT", "1")
+
+        with pytest.raises(SystemExit, match=r"pip-audit .*pypi.* without a report"):
             self.run(audit)
 
     @pytest.mark.usefixtures("project")

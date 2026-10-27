@@ -36,6 +36,10 @@ and uses semantic versioning while the public API stabilizes.
   opentelemetry-semantic-conventions, python-discovery and yarl follow.
 - The lockfile resolves Mako 1.4.3, which fixes PYSEC-2026-4243 (CVE-2026-102991; 1.4.1 was locked)
   in the `mlflow` extra, through alembic. pip-audit's PyPI service does not report it, and OSV does.
+- When pip-audit exits without writing its report, the `audit-lock` action stops with a message
+  naming the vulnerability service and pointing at pip-audit's own error, instead of a
+  `FileNotFoundError` for the missing report. pip-audit exits 1 both on an advisory and on a
+  service error, such as an OSV `500`, and only the first writes a report.
 
 ## [0.1.22] - 2026-10-10
 

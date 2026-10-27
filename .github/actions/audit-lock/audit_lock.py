@@ -204,6 +204,11 @@ def _audit_group(
             )  # fmt: skip
         if audited.returncode not in (0, PIP_AUDIT_FINDINGS_EXIT):  # findings: the caller judges
             raise subprocess.CalledProcessError(audited.returncode, audited.args)
+        if not report.exists():  # exit 1 is also a service error, which writes no report
+            raise SystemExit(
+                f"audit-lock: pip-audit exited {audited.returncode} against the {service} service "
+                "without a report; its own error is printed above"
+            )
         reports.append(json.loads(report.read_text()))
     return reports
 
