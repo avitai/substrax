@@ -1,0 +1,30 @@
+name: Main moved
+description: >-
+  Report whether a branch has moved since a workflow's last successful scheduled run, so a nightly
+  workflow on scarce runners (macOS) stands down on a quiet night. Only a scheduled run compares; a
+  manual run, a failed lookup or a first night always runs.
+inputs:
+  workflow:
+    description: The workflow file whose last successful scheduled run is compared, such as macos.yml
+    required: true
+  branch:
+    description: The branch the scheduled runs are on
+    required: false
+    default: main
+outputs:
+  unchanged:
+    description: "'true' when this scheduled run's commit is the one the last green scheduled run tested"
+    value: ${{ steps.compare.outputs.unchanged }}
+runs:
+  using: composite
+  steps:
+    - id: compare
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        EVENT_NAME: ${{ github.event_name }}
+        SHA: ${{ github.sha }}
+        REPOSITORY: ${{ github.repository }}
+        WORKFLOW: ${{ inputs.workflow }}
+        BRANCH: ${{ inputs.branch }}
+      run: bash "$GITHUB_ACTION_PATH/compare.sh"

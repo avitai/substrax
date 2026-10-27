@@ -7,6 +7,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- The `main-moved` composite action reports whether a branch has moved since a workflow's last
+  successful scheduled run (output `unchanged`, inputs `workflow` and `branch`), so a nightly
+  workflow on scarce runners stands down on a quiet night. Only a scheduled run compares; a manual
+  run, a failed lookup or a first night always runs. Consumers pin it by commit, as with
+  `already-tested`. substrax's own macOS workflow uses it in place of its inline comparison.
+
 ### Changed
 
 - The `audit-lock` action audits each export against both of pip-audit's vulnerability services,
