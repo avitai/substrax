@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.23] - 2026-10-28
+
 ### Added
 
 - The `main-moved` composite action reports whether a branch has moved since a workflow's last
@@ -778,7 +780,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.22...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.23...HEAD
+[0.1.23]: https://github.com/avitai/substrax/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/avitai/substrax/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/avitai/substrax/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/avitai/substrax/compare/v0.1.19...v0.1.20
