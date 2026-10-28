@@ -12,16 +12,21 @@ short still says what finished. Its exit code is 0 when every task succeeded and
 from __future__ import annotations
 
 import argparse
+import contextlib
 import dataclasses
 import json
+import os
+import signal
 import subprocess  # nosec B404 - runs the job's own commands, never through a shell
 import sys
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Generator, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from types import FrameType
 from typing import BinaryIO, IO
 
 from substrax.artifacts import OUTPUT_DIR_ENV
@@ -44,6 +49,8 @@ _DEVICE_PROBE = (
     "print(json.dumps({'platform': info.platform, 'kinds': list(info.device_kinds)}))"
 )
 _DEVICE_PROBE_SECONDS = 300.0
+# How often a waiting task checks for a cancellation; the delay a cancel can take to land.
+_POLL_SECONDS = 0.1
 
 
 class TaskStatus(StrEnum):
@@ -194,6 +201,43 @@ def run_job(
     return manifest
 
 
+@dataclass
+class _Cancellation:
+    signum: int | None = None
+
+
+_CANCELLATION: ContextVar[_Cancellation | None] = ContextVar("worker_cancellation", default=None)
+
+
+@contextlib.contextmanager
+def _cancellation_scope() -> Generator[None]:
+    """Remember termination until the worker can reap its owned task group.
+
+    Recording the signal instead of raising inside Popen also covers a signal
+    arriving between child creation and assignment of its process handle.
+    """
+    state = _Cancellation()
+    token = _CANCELLATION.set(state)
+
+    def remember(signum: int, frame: FrameType | None) -> None:
+        del frame
+        state.signum = signum
+
+    previous = {sig: signal.signal(sig, remember) for sig in (signal.SIGTERM, signal.SIGINT)}
+    try:
+        yield
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        _CANCELLATION.reset(token)
+
+
+def _check_cancelled() -> None:
+    state = _CANCELLATION.get()
+    if state is not None and state.signum is not None:
+        raise SystemExit(128 + state.signum)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the job a spec file describes.
 
@@ -209,7 +253,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--outputs", type=Path, required=True, help="where the run's files go")
     arguments = parser.parse_args(argv)
     spec = read_job_spec(json.loads(arguments.spec.read_text(encoding="utf-8")))
-    manifest = run_job(spec, project=arguments.project, outputs=arguments.outputs)
+    with _cancellation_scope():
+        manifest = run_job(spec, project=arguments.project, outputs=arguments.outputs)
     return 0 if manifest.succeeded else 1
 
 
@@ -255,6 +300,7 @@ def _probe_devices(
 def _run_task(
     spec: JobSpec, task: Task, *, project: Path, outputs: Path, echo: bool, python: str
 ) -> TaskOutcome:
+    _check_cancelled()
     directory = outputs / task.name
     directory.mkdir(parents=True, exist_ok=True)
     argv = (python, *task.argv[1:]) if task.argv[0] == _PYTHON else task.argv
@@ -266,7 +312,12 @@ def _run_task(
     ):
         try:
             process = subprocess.Popen(  # noqa: S603  # nosec B603 - the job's command, no shell
-                argv, cwd=project, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                argv,
+                cwd=project,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=os.name == "posix",
             )
         except OSError as error:
             err_log.write(f"{argv[0]} could not start: {error}\n".encode())
@@ -320,15 +371,40 @@ def _wait(
     for copier in copiers:
         copier.start()
     try:
-        returncode = process.wait(timeout=task.timeout_seconds)
-        status = TaskStatus.SUCCEEDED if returncode == 0 else TaskStatus.FAILED
-    except subprocess.TimeoutExpired:
-        process.kill()
-        returncode = process.wait()
-        status = TaskStatus.TIMED_OUT
-    for copier in copiers:
-        copier.join()
+        status = _wait_for_exit(process, deadline=time.monotonic() + task.timeout_seconds)
+    finally:
+        returncode = _stop_group(process)
+        for copier in copiers:
+            copier.join()
     return status, returncode
+
+
+def _wait_for_exit(process: subprocess.Popen[bytes], *, deadline: float) -> TaskStatus:
+    """Poll until the task exits or its deadline passes; a cancellation raises between polls."""
+    while True:
+        _check_cancelled()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return TaskStatus.TIMED_OUT
+        try:
+            returncode = process.wait(timeout=min(_POLL_SECONDS, remaining))
+        except subprocess.TimeoutExpired:
+            continue
+        return TaskStatus.SUCCEEDED if returncode == 0 else TaskStatus.FAILED
+
+
+def _stop_group(process: subprocess.Popen[bytes]) -> int:
+    """Kill the task's process group and return the task's exit code.
+
+    The group is killed after a normal exit too: a descendant can outlive the task and hold its
+    log pipes open. A cancellation finishes this before the worker exits.
+    """
+    with contextlib.suppress(ProcessLookupError):
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:
+            process.kill()
+    return process.wait()
 
 
 def _copy(source: IO[bytes] | None, log: BinaryIO, mirror: BinaryIO | None, prefix: bytes) -> None:
