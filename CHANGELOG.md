@@ -102,6 +102,12 @@ and uses semantic versioning while the public API stabilizes.
 - substrax's CI audits its own lock with the `audit-lock` action, covering every extra, and no
   longer runs pip-audit on an environment synced with the `dev` and `test` extras, which never held
   the packages only the `mlflow` and `wandb` extras resolve.
+- **Breaking (release process):** `publish.yml` runs the whole of `ci.yml` on the commit it
+  releases and publishes the distributions the gates' Build job built and checked, the artifact
+  `python-package-distributions`, in place of a build of its own. A `target=github-release` run
+  must be started from its tag (`gh workflow run publish.yml --ref vX.Y.Z ...`) and stops
+  otherwise, since CI builds the run's ref. Every action in every workflow and composite action
+  is pinned by commit, which a test checks.
 
 ### Fixed
 

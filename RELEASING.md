@@ -2,11 +2,13 @@
 
 Substrax publishes through `.github/workflows/publish.yml`.
 No commit or tag push creates a release by itself. Release timing and versioning
-stay under operator control. The manual `target=github-release` workflow path
-creates a GitHub Release for an explicit existing tag with
-`softprops/action-gh-release@v3` and `generate_release_notes: true`, then
-publishes to PyPI with trusted publishing. Publishing an existing GitHub Release
-also runs the PyPI upload path.
+stay under operator control. Every publish runs CI (`ci.yml`) on the released
+commit first and uploads the distributions its gates built and checked, the
+artifact `python-package-distributions`; the workflow builds nothing itself. The
+manual `target=github-release` workflow path creates a GitHub Release for an
+explicit existing tag with `softprops/action-gh-release`, pinned by commit, and
+`generate_release_notes: true`, then publishes to PyPI with trusted publishing.
+Publishing an existing GitHub Release also runs the PyPI upload path.
 
 ## Release Checklist
 
@@ -59,13 +61,15 @@ also runs the PyPI upload path.
    git push origin vX.Y.Z
    ```
 
-8. In GitHub Actions, manually run `Publish to PyPI` with:
+8. Run `Publish to PyPI` from the tag, with `target=github-release` and `version_tag=vX.Y.Z`:
 
-   - `target=github-release`
-   - `version_tag=vX.Y.Z`
+   ```bash
+   gh workflow run publish.yml --ref vX.Y.Z -f target=github-release -f version_tag=vX.Y.Z
+   ```
 
-   The workflow verifies that the tag exists, creates the GitHub Release with
-   generated release notes, then publishes to PyPI.
+   The workflow runs CI on the tagged commit, then checks that the tag exists and that the run's
+   ref is that tag, since CI built the run's ref. It then creates the GitHub Release with
+   generated release notes and publishes CI's distributions to PyPI.
 
 ## Manual Release Recovery
 

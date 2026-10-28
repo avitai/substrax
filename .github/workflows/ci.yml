@@ -12,6 +12,8 @@ on:
   schedule:
     - cron: "0 0 * * 1" # the weekly dependency audit
   workflow_dispatch:
+  # publish.yml runs the whole of CI on the commit it releases, then ships the gates' artifact.
+  workflow_call:
 
 concurrency:
   # The event is part of the group, so the weekly audit and a merge's run never cancel each other.

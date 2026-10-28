@@ -35,7 +35,6 @@ INPUTS = {
     "uv-version",
 }
 JOBS = {"lint", "test", "security", "build", "docs"}
-FULL_SHA = re.compile(r"@[0-9a-f]{40}$")
 # The stack is a hierarchy built bottom-up from substrax: its shared workflow may use substrax's
 # own actions and third-party actions, never another stack repository's.
 STACK_OWNERS = ("avitai/", "mahdi-shafiei/")
@@ -366,10 +365,6 @@ def test_no_script_interpolates_an_input() -> None:
     ]
 
     assert interpolated == []
-
-
-def test_every_action_is_pinned_by_commit() -> None:
-    assert [use for use in _uses() if not FULL_SHA.search(use)] == []
 
 
 def test_it_uses_no_stack_repository_but_substrax() -> None:

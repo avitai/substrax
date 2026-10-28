@@ -18,6 +18,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
+ACTIONS = ROOT / ".github" / "actions"
 GATES = "./.github/workflows/python-gates.yml"
 GATE_SKIP = "${{ needs.already_tested.outputs.skip }}"
 WORKFLOW_FILES = {"ci.yml", "macos.yml", "publish.yml", "python-gates.yml"}
@@ -37,10 +38,11 @@ def test_the_folded_workflows_are_gone() -> None:
     assert {path.name for path in WORKFLOWS.glob("*.yml")} == WORKFLOW_FILES
 
 
-def test_ci_runs_on_every_change_the_weekly_audit_and_on_demand() -> None:
+def test_ci_runs_on_every_change_the_weekly_audit_on_demand_and_for_a_release() -> None:
+    """``workflow_call`` lets publish.yml run the whole of CI on the commit it releases."""
     on = _load("ci.yml")["on"]
 
-    assert set(on) == {"push", "pull_request", "schedule", "workflow_dispatch"}
+    assert set(on) == {"push", "pull_request", "schedule", "workflow_dispatch", "workflow_call"}
     assert on["push"] == {"branches": ["main"]}
     assert on["pull_request"] == {"branches": ["main"]}
 
@@ -127,6 +129,34 @@ def test_the_macos_night_calls_the_gates_on_macos_with_the_full_suite() -> None:
     assert {key: gates["with"][key] for key in shared} == {
         key: _ci_jobs()["gates"]["with"][key] for key in shared
     }
+
+
+def _uses_everywhere() -> list[tuple[str, str]]:
+    """Every ``uses:`` in substrax's workflows and local actions, a job's or a step's."""
+    files = [*sorted(WORKFLOWS.glob("*.yml")), *sorted(ACTIONS.glob("*/action.yml"))]
+    found: list[tuple[str, str]] = []
+    for path in files:
+        document = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)  # noqa: S506
+        jobs = document.get("jobs") or {}
+        steps = [step for job in jobs.values() for step in job.get("steps", [])]
+        steps += document.get("runs", {}).get("steps", [])
+        uses = [str(job["uses"]) for job in jobs.values() if "uses" in job]
+        uses += [str(step["uses"]) for step in steps if "uses" in step]
+        found += [(path.relative_to(ROOT).as_posix(), use) for use in uses]
+    return found
+
+
+def test_every_action_in_every_workflow_is_pinned_by_commit() -> None:
+    """A tag or branch can move under a release; a commit cannot. Local ``./`` uses are this tree."""
+    uses = _uses_everywhere()
+    unpinned = [
+        f"{path}: {use}"
+        for path, use in uses
+        if not use.startswith("./") and not re.search(r"@[0-9a-f]{40}$", use)
+    ]
+
+    assert any(path.endswith("publish.yml") for path, _ in uses), "publish.yml was not read"
+    assert unpinned == []
 
 
 def test_every_job_in_ci_uses_the_uv_the_gates_pin() -> None:
