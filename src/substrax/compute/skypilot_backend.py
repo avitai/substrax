@@ -11,15 +11,15 @@ records the run's intent and SkyPilot's request id beside the task file, so an i
 is reconciled from them rather than submitted again. Cancelling cancels that request and the job,
 then tears the cluster down, keeping every failure.
 
-Inputs and outputs are buckets SkyPilot mounts; see :mod:`substrax.compute.skypilot_transports`.
+How inputs reach the cluster and outputs come back is the transport's, configured as exactly one
+of ``[...skypilot.bucket]`` or ``[...skypilot.copy]``; see :mod:`substrax.compute.skypilot_transports`.
 
 Settings (``[tool.substrax.compute.backends.skypilot]``):
 
-- ``outputs_bucket`` (required): the bucket URI the runs' outputs go to, such as
-  ``gs://avitai-runs``.
-- ``buckets``: the bucket URI behind each of a job's mounts, by mount name.
-- ``infra``: where to run, in SkyPilot's ``infra`` syntax, such as ``gcp`` or ``gcp/us-central1``;
-  any enabled cloud when unset.
+- ``bucket`` or ``copy``: the transport's table.
+- ``setup_commands``: commands that prepare the image before the locked environment is synced.
+- ``infra``: where to run, in SkyPilot's ``infra`` syntax, such as ``gcp`` or ``runpod``; any
+  enabled cloud when unset.
 - ``use_spot``: run on spot instances.
 - ``sky``: the ``sky`` command, used to find SkyPilot's interpreter; ``sky`` on ``PATH``.
 - ``sky_python``: SkyPilot's interpreter, when it is not beside the ``sky`` command.
@@ -36,7 +36,7 @@ import shlex
 import shutil
 import subprocess  # nosec B404 - runs SkyPilot's interpreter on the bridge, no shell
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from substrax.compute import skypilot_transports as transports
@@ -51,6 +51,8 @@ from substrax.compute.backend import (
 from substrax.compute.skypilot_transports import (
     BucketSettings,
     BucketTransport,
+    CopySettings,
+    CopyTransport,
     OUTPUTS_PATH,
     SPEC_PATH,
     Transport,
@@ -82,8 +84,9 @@ class SkyPilotSettings:
     """The ``skypilot`` backend's settings; see the module documentation.
 
     Attributes:
-        outputs_bucket: The bucket URI the runs' outputs go to.
-        buckets: The bucket URI behind each mount, by mount name.
+        bucket: Bucket transport's settings; set exactly one of ``bucket`` and ``copy``.
+        copy: Copy transport's settings.
+        setup_commands: Commands run before the locked environment is synced.
         infra: Where to run, in SkyPilot's ``infra`` syntax.
         use_spot: Run on spot instances.
         sky: The ``sky`` command, used to find SkyPilot's interpreter.
@@ -94,8 +97,9 @@ class SkyPilotSettings:
 
     __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
 
-    outputs_bucket: str
-    buckets: Mapping[str, str] = field(default_factory=dict)
+    bucket: BucketSettings | None = None
+    copy: CopySettings | None = None
+    setup_commands: tuple[str, ...] = ()
     infra: str | None = None
     use_spot: bool = False
     sky: str = "sky"
@@ -113,16 +117,16 @@ class SkyPilotBackend:
         """Read the backend's settings.
 
         Args:
-            settings: The settings table; ``outputs_bucket`` is required.
+            settings: The settings table, with exactly one of ``bucket`` and ``copy``.
 
         Raises:
-            ValueError: If a setting is missing, unknown or of the wrong type, or the outputs
-                bucket's scheme has no download tool.
+            ValueError: If a setting is missing, unknown or of the wrong type, or the transport
+                is not exactly one of ``bucket`` and ``copy``, or its own checks fail.
         """
         chosen = read_record(SkyPilotSettings, settings)
         self._runs = backend_state_dir(chosen.state_dir, NAME).resolve()
         self._settings = replace(chosen, state_dir=str(self._runs.parent.parent))
-        self._transport = _transport(self._settings)
+        self._transport = _transport(self._settings, self._runs)
 
     def submit(self, spec: JobSpec, *, project: Path) -> RunHandle:
         """Write the task file, record the launch, and launch it on a cluster of its own.
@@ -281,11 +285,17 @@ class SkyPilotBackend:
         extras = " ".join(f"--extra {shlex.quote(extra)}" for extra in spec.extras)
         setup = [
             "set -e",
+            *self._settings.setup_commands,
+            f"mkdir -p {OUTPUTS_PATH}",
             "command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh",
             UV_ON_PATH,
             f"uv sync --frozen {extras}".rstrip(),
         ]
-        run = [UV_ON_PATH, self._transport.wrap_worker(worker, spec)]
+        run = [
+            UV_ON_PATH,
+            "export PYTHONDONTWRITEBYTECODE=1",
+            self._transport.wrap_worker(worker, spec),
+        ]
         return {
             "name": _cluster_name(run_id),
             "workdir": str(project),
@@ -322,11 +332,14 @@ class SkyPilotBackend:
         return transports.run_tool([*self._bridge(), *arguments])
 
 
-def _transport(settings: SkyPilotSettings) -> Transport:
-    """The run's transport: the buckets the settings name."""
-    return BucketTransport(
-        BucketSettings(outputs_bucket=settings.outputs_bucket, buckets=settings.buckets)
-    )
+def _transport(settings: SkyPilotSettings, runs: Path) -> Transport:
+    """The configured transport; exactly one of ``bucket`` and ``copy`` is set."""
+    if settings.bucket is not None and settings.copy is None:
+        return BucketTransport(settings.bucket, infra=settings.infra)
+    if settings.copy is not None and settings.bucket is None:
+        return CopyTransport(settings.copy, worker_python=settings.worker_python, runs=runs)
+    msg = "configure exactly one transport: [...skypilot.bucket] or [...skypilot.copy]"
+    raise ValueError(msg)
 
 
 def _resources(spec: JobSpec, settings: SkyPilotSettings) -> dict[str, JsonValue]:

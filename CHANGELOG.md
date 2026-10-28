@@ -54,6 +54,13 @@ and uses semantic versioning while the public API stabilizes.
 
   The other inputs cover what differs between repositories: `sync-args`, `docs-sync-args`,
   `python-versions`, `pytest-args`, `test-env`, `import-modules`, `os` and `uv-version`.
+- The `skypilot` backend's copy transport, `[tool.substrax.compute.backends.skypilot.copy]`, for
+  providers that cannot mount buckets, such as RunPod and Vast. SkyPilot copies each mount's
+  local source onto the cluster, read-only, and the worker runs under bubblewrap with the system,
+  the project and the inputs read-only (`network_isolation = true` also takes its network away).
+  `fetch` copies the outputs over rsync and verifies them against manifests of the remote
+  directory taken before and after the copy; the cluster stays up until
+  `SkyPilotBackend.teardown(handle)` or its `lifetime_minutes` timer removes it.
 
 ### Changed
 
@@ -74,7 +81,10 @@ and uses semantic versioning while the public API stabilizes.
   attempting every step and raising an `ExceptionGroup` of the failures, which
   `substrax-compute cancel` reports with exit code 1; a run that already ended is left as it is,
   and `teardown(handle)` removes its cluster. A job status the backend does not know raises
-  instead of reading as failed; `FAILED_DRIVER` reads as failed.
+  instead of reading as failed; `FAILED_DRIVER` reads as failed. The transport's settings move
+  into a table of their own: `outputs_bucket` and `buckets` go under
+  `[tool.substrax.compute.backends.skypilot.bucket]`, and a backend configures exactly one of
+  `bucket` and `copy`.
 
 - substrax's CI is one workflow, `ci.yml`. It calls `python-gates.yml`, adds the Orbax-floor
   checkpoint tests and the derived-status check, and ends in the `required` check. The Quality
