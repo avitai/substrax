@@ -82,13 +82,39 @@ def test_required_fails_unless_every_job_succeeded_or_was_skipped_on_purpose() -
     assert step["with"]["jobs"] == "${{ toJSON(needs) }}"
 
 
+CONDITIONAL = re.compile(
+    r"^\$\{\{ github\.event_name (?P<op>==|!=) '(?P<event>[a-z_]+)' && '(?P<then>[^']*)' \|\| '(?P<else>[^']*)' \}\}$"
+)
+
+
+def _evaluate(expression: str, event: str) -> str:
+    """The value GitHub gives ``${{ github.event_name <op> '<e>' && '<a>' || '<b>' }}`` on ``event``.
+
+    `&&` and `||` return an operand, and '' is falsy, so the expression yields `<a>` only when the
+    comparison holds and `<a>` is non-empty: `cond && '' || 'list'` is `'list'` whatever `cond` is.
+    """
+    match = CONDITIONAL.match(expression)
+    assert match, f"not a conditional this test can evaluate: {expression}"
+    holds = (event == match["event"]) == (match["op"] == "==")
+    return match["then"] if holds and match["then"] else match["else"]
+
+
 def test_a_pull_request_may_skip_nothing() -> None:
     """Only a proven merge or the weekly audit stands jobs down, so a pull request allows no skip."""
     allowed = _ci_jobs()["required"]["steps"][0]["with"]["allowed-skips"]
 
-    assert allowed.startswith("${{ github.event_name == 'pull_request' && '' || ")
-    named = set(re.findall(r"[a-z_-]+", allowed.split("|| ", 1)[1]))
-    assert named == set(_ci_jobs()) - {"already_tested", "required"}
+    assert _evaluate(allowed, "pull_request") == ""
+    for event in ("push", "schedule", "workflow_dispatch"):
+        named = set(re.findall(r"[a-z_-]+", _evaluate(allowed, event)))
+        assert named == set(_ci_jobs()) - {"already_tested", "required"}, event
+
+
+def test_the_evaluator_reads_the_falsy_empty_string_as_github_does() -> None:
+    """The pitfall the allowed-skips expression once had: an empty middle operand never wins."""
+    pitfall = "${{ github.event_name == 'pull_request' && '' || 'gates' }}"
+
+    assert _evaluate(pitfall, "pull_request") == "gates"
+    assert _evaluate(pitfall, "push") == "gates"
 
 
 def test_the_macos_night_calls_the_gates_on_macos_with_the_full_suite() -> None:
