@@ -76,7 +76,7 @@ itself never starts a JAX backend.
 | --- | --- | --- |
 | `local` | this machine, in the project's current environment | nothing |
 | `modal` | Modal, one detached function per run, outputs on a Volume | `substrax[modal]`, a Modal account, and a workspace image builder of 2025.06 or later |
-| `skypilot` | a cluster SkyPilot provisions for the run on any cloud it supports, torn down after it; outputs on a `gs://` or `s3://` bucket | SkyPilot installed as its documentation says (`uv tool install --with pip "skypilot[gcp]"`), and `gcloud` or `aws` for the bucket |
+| `skypilot` | a cluster SkyPilot provisions for the run on any cloud it supports; inputs and outputs on buckets, or copied | SkyPilot installed as its documentation says (`uv tool install --with pip "skypilot[gcp]"`, or the provider's extra), and the transport's tools: `gcloud` or `aws` for buckets, `ssh` and `rsync` for copies |
 
 The Modal image is built in layers keyed on what they depend on: the locked dependencies
 (`Image.uv_sync`), then the project's source, then the project installed without
@@ -97,21 +97,46 @@ file; an interrupted launch is reconciled from them, not submitted again. `cance
 that already ended as it is; otherwise it cancels the request and the job and tears the cluster
 down, attempting every step and reporting each failure (`substrax-compute cancel` exits 1).
 
-The settings under `[tool.substrax.compute.backends.skypilot]`:
+The settings under `[tool.substrax.compute.backends.skypilot]`, all optional:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `outputs_bucket` | required | the `gs://` or `s3://` bucket the runs' outputs go to |
-| `buckets` | `{}` | the bucket behind each of a job's mounts, by mount name |
-| `infra` | any enabled cloud | where to run, in SkyPilot's `infra` syntax: `gcp`, `gcp/us-central1` |
+| `infra` | any enabled cloud | where to run, in SkyPilot's `infra` syntax: `gcp`, `gcp/us-central1`, `runpod` |
 | `use_spot` | `false` | run on spot instances |
+| `setup_commands` | `[]` | commands that prepare the image before the locked environment is synced |
 | `sky` | `"sky"` | the `sky` command, used to find SkyPilot's interpreter beside it |
 | `sky_python` | the `python` beside `sky` | SkyPilot's interpreter |
 | `worker_python` | `"uv run --no-sync python"` | the command that starts Python in the synced environment |
 | `state_dir` | the default state directory | where task files, launch records and cancellations are kept |
 
-SkyPilot mounts the buckets, so the outputs outlive the cluster, which SkyPilot removes when the
-job ends.
+A run's files move one of two ways, configured as exactly one of these tables.
+
+**Bucket transport** (`[...skypilot.bucket]`): SkyPilot mounts the buckets, so the outputs
+outlive the cluster, which SkyPilot removes when the job ends. Providers that cannot mount
+buckets (RunPod, Vast) are refused.
+
+```toml
+[tool.substrax.compute.backends.skypilot.bucket]
+outputs_bucket = "gs://avitai-runs"                # required; gs:// or s3://
+buckets = { datasets = "gs://avitai-datasets" }    # each mount's bucket, by mount name
+```
+
+**Copy transport** (`[...skypilot.copy]`): SkyPilot copies each mount's local source onto the
+cluster, read-only; a writable mount is refused, since a copy cannot be written back. The worker
+runs under bubblewrap, so the image has to provide `bwrap` with working user namespaces: the
+system, the project and the inputs are read-only, `/tmp` and the outputs writable. `fetch`
+copies the outputs over `rsync` and checks them against manifests of the remote directory taken
+before and after; a difference keeps the cluster up. Fetch the outputs before
+`SkyPilotBackend.teardown(handle)`, which removes the cluster, and with it the outputs on it.
+`lifetime_minutes` starts once setup ends; it is not a provisioning deadline or a cost cap.
+
+```toml
+[tool.substrax.compute.backends.skypilot.copy]
+sources = { datasets = "/data/datasets" }   # each mount's local path, by mount name
+disk_size = 60                              # GB
+lifetime_minutes = 60                       # idle time after setup before the cluster removes itself
+network_isolation = false                   # true runs the worker without network access
+```
 
 ## Run handles
 
