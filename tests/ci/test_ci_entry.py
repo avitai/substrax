@@ -142,8 +142,14 @@ def test_every_job_in_ci_uses_the_uv_the_gates_pin() -> None:
     assert set(versions) == {pinned}
 
 
-def test_the_gates_pin_the_audit_lock_action_this_tree_holds() -> None:
-    """A self-pin to an older audit-lock would audit with code this repository has replaced."""
+def test_the_gates_pin_the_audit_lock_action_main_holds() -> None:
+    """The gates audit with the action main holds, so no caller audits with code main replaced.
+
+    The pin is compared with origin/main, not with this tree: a pull request that changes the
+    action can only pin a commit main already has, so it keeps the old pin and passes. Once it
+    merges, this test fails every pull request until one moves the pin to that merge, the same
+    order the stack's checker enforces for every consumer (`audit-lock-pin-is-stale`).
+    """
     security = _load("python-gates.yml")["jobs"]["security"]["steps"]
     pin = next(
         str(step["uses"]) for step in security if "/audit-lock@" in str(step.get("uses", ""))
@@ -158,4 +164,4 @@ def test_the_gates_pin_the_audit_lock_action_this_tree_holds() -> None:
             check=True,
         ).stdout.strip()
 
-    assert tree(pin) == tree("HEAD")
+    assert tree(pin) == tree("origin/main")
