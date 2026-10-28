@@ -114,11 +114,30 @@ def test_lint_is_never_stood_down_for_an_already_tested_tree() -> None:
     condition = _jobs()["lint"].get("if", "")
 
     assert "already-tested" not in condition
+
+
+def test_lint_restores_the_hook_environments_before_running_the_hooks() -> None:
+    """Hook environments are built once per configuration, runner and Python, not every run.
+
+    Without the cache every run installs every hook's environment again; the ``shellcheck-py``
+    hook fetches the ShellCheck binary from GitHub releases, and an HTTP 504 there failed a run.
+    """
+    steps = _steps("lint")
     cache = next(
-        step for step in _steps("lint") if str(step.get("uses", "")).startswith("actions/cache@")
+        index
+        for index, step in enumerate(steps)
+        if str(step.get("uses", "")).startswith("actions/cache@")
+        and step["with"]["path"] == "~/.cache/pre-commit"
     )
-    assert "hashFiles('.pre-commit-config.yaml')" in cache["with"]["key"]
-    assert "runner.os" in cache["with"]["key"]
+    pre_commit = next(
+        i for i, step in enumerate(steps) if "pre-commit run" in str(step.get("run", ""))
+    )
+    key = steps[cache]["with"]["key"]
+
+    assert cache < pre_commit
+    assert "hashFiles('.pre-commit-config.yaml')" in key
+    assert "runner.os" in key
+    assert "inputs.python-versions" in key
 
 
 @pytest.mark.parametrize("job", ["test", "security", "build", "docs"])

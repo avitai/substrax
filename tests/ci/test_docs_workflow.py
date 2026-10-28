@@ -1,10 +1,11 @@
-"""The Documentation workflow builds the site strictly whenever something that can break it changes.
+"""Every pull request builds the documentation strictly from the lock.
 
 Read the Docs installs the ``docs`` extra with pip from ``pyproject.toml`` and does not fail on
-warnings, so ``docs.yml`` is the one strict build from the lock. The site's build tools come from
-the lock, and a relock alone can break that build: mkdocstrings before 1.0.7 with
+warnings, so the shared gates' Docs job is the one strict build from the lock. The site's build
+tools come from the lock, and a relock alone can break that build: mkdocstrings before 1.0.7 with
 pymdown-extensions 12.2 or later fails it (``Highlight.__init__() missing 1 required positional
-argument: 'md'``).
+argument: 'md'``). A path filter that left out the lock once let such a relock through unbuilt, so
+the build runs on every pull request; it takes about twenty seconds.
 """
 
 from __future__ import annotations
@@ -16,23 +17,25 @@ import pytest
 import yaml
 
 
-DOCS_WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "docs.yml"
+WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 
 
-def _triggers() -> dict[str, Any]:
+def _load(name: str) -> dict[str, Any]:
     # BaseLoader keeps every scalar a string, so the `on:` key stays `on` rather than True.
-    return yaml.load(DOCS_WORKFLOW.read_text(), Loader=yaml.BaseLoader)["on"]  # noqa: S506
+    return yaml.load((WORKFLOWS / name).read_text(encoding="utf-8"), Loader=yaml.BaseLoader)  # noqa: S506
 
 
 @pytest.mark.parametrize("event", ["pull_request", "push"])
-def test_a_dependency_change_rebuilds_the_docs(event: str) -> None:
-    paths = _triggers()[event]["paths"]
+def test_ci_runs_on_every_change_with_no_path_filter(event: str) -> None:
+    trigger = _load("ci.yml")["on"][event]
 
-    assert "uv.lock" in paths
-    assert "pyproject.toml" in paths
+    assert "paths" not in trigger
+    assert "paths-ignore" not in trigger
 
 
-def test_both_events_watch_the_same_paths() -> None:
-    triggers = _triggers()
+def test_the_gates_build_the_docs_strictly_from_the_lock() -> None:
+    steps = _load("python-gates.yml")["jobs"]["docs"]["steps"]
+    build = next(step for step in steps if "mkdocs build" in str(step.get("run", "")))
 
-    assert triggers["pull_request"]["paths"] == triggers["push"]["paths"]
+    assert "uv sync --locked" in build["run"]
+    assert "mkdocs build --strict" in build["run"]

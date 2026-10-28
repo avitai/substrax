@@ -11,8 +11,7 @@ own.
 <!-- --8<-- [end:summary] -->
 
 [![CI](https://github.com/avitai/substrax/actions/workflows/ci.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/ci.yml)
-[![Build](https://github.com/avitai/substrax/actions/workflows/build-verification.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/build-verification.yml)
-[![Docs](https://github.com/avitai/substrax/actions/workflows/docs.yml/badge.svg)](https://github.com/avitai/substrax/actions/workflows/docs.yml)
+[![Docs](https://readthedocs.org/projects/substrax/badge/?version=latest)](https://substrax.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/substrax.svg)](https://pypi.org/project/substrax/)
 
 [Documentation](https://substrax.readthedocs.io) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/avitai/substrax/issues)

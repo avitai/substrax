@@ -13,7 +13,9 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 CAP_OVERRIDES = ("--no-cov", "-o addopts", "--override-ini")
-GATE_CONDITION = "needs.already_tested.outputs.skip != 'true'"
+# The test job in python-gates.yml stands down only for a tree its pull request already proved,
+# or on the weekly audit, which runs nothing but the dependency audit.
+GATE_CONDITION = "${{ !inputs.only-security && inputs.already-tested != 'true' }}"
 
 
 def _load_workflow(path: Path) -> dict[str, Any]:
@@ -26,10 +28,17 @@ def _addopts(pyproject: dict[str, Any]) -> str:
     return " ".join(addopts) if isinstance(addopts, list) else addopts
 
 
-def coverage_cap_violations(workflow: dict[str, Any], pyproject: dict[str, Any]) -> list[str]:
-    """Return why the test job would not fail below the coverage floor, if it would not."""
-    job = workflow["jobs"]["test"]
-    command = next(step["run"] for step in job["steps"] if "pytest" in step.get("run", ""))
+def coverage_cap_violations(
+    workflow: dict[str, Any], gates: dict[str, Any], pyproject: dict[str, Any]
+) -> list[str]:
+    """Return why the test job would not fail below the coverage floor, if it would not.
+
+    ``workflow`` is ci.yml, which calls ``gates`` (python-gates.yml) and passes its pytest
+    arguments; the command the test job runs is the gates' pytest line with those arguments.
+    """
+    job = gates["jobs"]["test"]
+    script = next(step["run"] for step in job["steps"] if "pytest" in step.get("run", ""))
+    command = f"{script} {workflow['jobs']['gates']['with'].get('pytest-args', '')}"
     addopts = _addopts(pyproject)
     # A cap on the command line overrides the one in addopts.
     caps = re.findall(r"--cov-fail-under[= ](\d+)", command) or re.findall(
@@ -57,7 +66,10 @@ def test_ci_test_job_fails_below_the_coverage_floor() -> None:
     """The test job runs pytest with a floor of at least 80% on every push and pull request."""
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert coverage_cap_violations(_load_workflow(WORKFLOWS / "ci.yml"), pyproject) == []
+    workflow = _load_workflow(WORKFLOWS / "ci.yml")
+    gates = _load_workflow(WORKFLOWS / "python-gates.yml")
+
+    assert coverage_cap_violations(workflow, gates, pyproject) == []
 
 
 def test_coverage_follows_child_processes() -> None:

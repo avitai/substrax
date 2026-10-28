@@ -24,8 +24,11 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 ACTION = ROOT / ".github" / "actions" / "already-tested"
 GATE_JOB = "already_tested"
 GATE_CONDITION = f"needs.{GATE_JOB}.outputs.skip != 'true'"
-GATED_WORKFLOWS = ("ci.yml", "quality-checks.yml")
+GATE_ANSWER = f"${{{{ needs.{GATE_JOB}.outputs.skip }}}}"
+GATED_WORKFLOWS = ("ci.yml",)
 MACOS_WORKFLOW = "macos.yml"
+# The job that reports on every other job runs whatever they did.
+REPORTING_JOB = "required"
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -63,25 +66,38 @@ def test_no_workflow_run_by_a_push_or_pull_request_uses_macos(path: Path) -> Non
     assert on_macos == [], f"{path.name} runs macOS on a push or pull request: {on_macos}"
 
 
-def _run_jobs(job: dict[str, Any]) -> list[dict[str, Any]]:
-    """The jobs that run for ``job``: itself, or those of the workflow it calls."""
-    called = job.get("uses")
-    if called is None:
-        return [job]
-    return list(_load(ROOT / called.removeprefix("./")).get("jobs", {}).values())
+def _called(job: dict[str, Any]) -> dict[str, Any]:
+    """The workflow ``job`` calls."""
+    return _load(ROOT / str(job["uses"]).removeprefix("./"))
 
 
 def test_the_macos_workflow_runs_nightly_on_demand_and_under_a_runner_cap() -> None:
+    """The night calls the shared gates on macOS: their tests and build take the runner it passes."""
     workflow = _load(WORKFLOWS / MACOS_WORKFLOW)
-    macos_jobs = {name: job for name, job in workflow["jobs"].items() if _on_macos(job)}
-    running = [run for job in macos_jobs.values() for run in _run_jobs(job)]
+    macos_calls = [job for job in workflow["jobs"].values() if _on_macos(job)]
 
     assert _triggers(workflow) == {"schedule", "workflow_dispatch"}
-    assert set(macos_jobs) == {"test", "build"}
-    for job in running:
-        assert int(job["strategy"]["max-parallel"]) <= 2, "a macOS job without a runner cap"
-        assert job["strategy"]["matrix"]["python-version"] == ["3.12", "3.13"]
-    commands = "\n".join(str(step.get("run", "")) for job in running for step in job["steps"])
+    assert len(macos_calls) == 1, "one call runs the gates on macOS"
+    called = _called(macos_calls[0])
+    on_runner = {
+        name: job
+        for name, job in called["jobs"].items()
+        if job.get("runs-on") == "${{ inputs.os }}"
+    }
+    assert set(on_runner) == {"test", "build"}
+    versions = called["on"]["workflow_call"]["inputs"]["python-versions"]["default"]
+    assert json.loads(versions) == ["3.12", "3.13"]
+    assert "python-versions" not in macos_calls[0]["with"]
+    for name, job in on_runner.items():
+        assert int(job["strategy"]["max-parallel"]) <= 2, (
+            f"{name}: a macOS job without a runner cap"
+        )
+        assert (
+            job["strategy"]["matrix"]["python-version"] == "${{ fromJSON(inputs.python-versions) }}"
+        )
+    commands = "\n".join(
+        str(step.get("run", "")) for job in on_runner.values() for step in job["steps"]
+    )
     assert "pytest" in commands
     assert "uv build" in commands
 
@@ -124,11 +140,14 @@ def test_the_gate_compares_only_on_a_push(name: str) -> None:
 
 @pytest.mark.parametrize("name", GATED_WORKFLOWS)
 def test_every_job_that_repeats_the_pull_request_consults_the_gate(name: str) -> None:
+    """A job stands down on the gate itself, or a call hands the gate's answer to the gates."""
     jobs = _load(WORKFLOWS / name)["jobs"]
     ungated = sorted(
         job_name
         for job_name, job in jobs.items()
-        if job_name != GATE_JOB and job.get("if") != GATE_CONDITION
+        if job_name not in {GATE_JOB, REPORTING_JOB}
+        and GATE_CONDITION not in str(job.get("if", ""))
+        and job.get("with", {}).get("already-tested") != GATE_ANSWER
     )
 
     assert ungated == [], f"{name}: these repeat the pull request without the gate: {ungated}"
@@ -237,20 +256,6 @@ def test_the_action_asks_github_which_pull_request_produced_the_commit() -> None
     assert "--pretty=%s" not in script, "a subject names a pull request only after a squash merge"
 
 
-def test_quality_checks_leave_the_suite_to_the_test_job() -> None:
-    """The test job runs the suite on both Python versions; pre-commit's pytest hook would repeat it."""
-    quality = _load(WORKFLOWS / "quality-checks.yml")["jobs"]["quality"]
-    pre_commit = next(step for step in quality["steps"] if "pre-commit run" in str(step.get("run")))
-    test = _load(WORKFLOWS / "ci.yml")["jobs"]["test"]
-
-    assert "pytest" in pre_commit["env"]["SKIP"].split(",")
-    assert (
-        test["strategy"]["matrix"]["python-version"]
-        == quality["strategy"]["matrix"]["python-version"]
-    )
-    assert any("pytest" in str(step.get("run", "")) for step in test["steps"])
-
-
 def test_every_uv_cache_is_pruned_before_it_is_saved() -> None:
     """A saved uv cache holds only what uv built, not every wheel it downloaded.
 
@@ -277,26 +282,3 @@ def test_every_uv_cache_is_pruned_before_it_is_saved() -> None:
 
     assert checked, "no setup-uv step found; the contract is reading the wrong files"
     assert unpruned == [], f"setup-uv steps saving an unpruned cache: {unpruned}"
-
-
-def test_quality_restores_the_pre_commit_hook_environments_before_running_them() -> None:
-    """Hook environments are built once per configuration and Python, not downloaded every run.
-
-    Without the cache every Quality run installs every hook's environment again; the
-    ``shellcheck-py`` hook fetches the ShellCheck binary from GitHub releases, and an HTTP 504 there
-    failed a run.
-    """
-    steps = _load(WORKFLOWS / "quality-checks.yml")["jobs"]["quality"]["steps"]
-    cache = next(
-        index
-        for index, step in enumerate(steps)
-        if step.get("uses", "").startswith("actions/cache@")
-        and step.get("with", {}).get("path") == "~/.cache/pre-commit"
-    )
-    pre_commit = next(i for i, step in enumerate(steps) if "pre-commit run" in step.get("run", ""))
-    key = steps[cache]["with"]["key"]
-
-    assert cache < pre_commit
-    assert "hashFiles('.pre-commit-config.yaml')" in key
-    assert "matrix.python-version" in key
-    assert "runner.os" in key
