@@ -40,6 +40,12 @@ and uses semantic versioning while the public API stabilizes.
   naming the vulnerability service and pointing at pip-audit's own error, instead of a
   `FileNotFoundError` for the missing report. pip-audit exits 1 both on an advisory and on a
   service error, such as an OSV `500`, and only the first writes a report.
+- The `audit-lock` action audits a lock that holds git-sourced packages. The export carried
+  hashes, which put pip-audit in hash-checking mode, where the first requirement without one
+  ended the audit before any package was checked. The export now omits them. pip-audit then
+  reports each git-sourced package as not auditable, and the action names it in the log and the
+  step summary, and audits the rest. The hashes checked nothing, since pip-audit downloads no
+  package here. On datarax's lock, the advisories found and the verdict are unchanged.
 
 ## [0.1.22] - 2026-10-10
 
