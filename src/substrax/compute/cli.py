@@ -12,7 +12,8 @@ substrax-compute cancel RUN_ID
 ``run`` submits the job, follows its log, waits for it and fetches its outputs; with ``--detach``
 it returns once the job is submitted, and the other commands find the run again by the id it
 prints. Fetched outputs go to ``--into``, or under the state directory, never into the project.
-Exit codes: 0 for success, 1 for a run that did not succeed, 2 for a refused command.
+Exit codes: 0 for success, 1 for a run that did not succeed or a stored run ``status`` cannot
+read, 2 for a refused command.
 """
 
 from __future__ import annotations
@@ -28,9 +29,9 @@ from substrax.compute.backend import (
     RunHandle,
     RunState,
     RunStore,
+    StoredRuns,
 )
 from substrax.compute.config import (
-    ComputeConfig,
     parse_accelerator,
     read_compute_config,
     require_locked_substrax,
@@ -83,11 +84,16 @@ def _run(arguments: argparse.Namespace, store: RunStore) -> int:
 
 
 def _status(arguments: argparse.Namespace, store: RunStore) -> int:
-    handles = [store.load(arguments.run_id)] if arguments.run_id else store.handles()
-    for handle in handles:
+    if arguments.run_id:
+        stored = StoredRuns(handles=(store.load(arguments.run_id),), unreadable={})
+    else:
+        stored = store.read_all()
+    for handle in stored.handles:
         state = _backend_for(handle).status(handle)
         sys.stdout.write(f"{handle.run_id}  {handle.backend}  {handle.job}  {state}\n")
-    return _SUCCESS
+    for path, reason in stored.unreadable.items():
+        sys.stderr.write(f"substrax-compute: {path}: {reason}\n")
+    return _UNSUCCESSFUL if stored.unreadable else _SUCCESS
 
 
 def _logs(arguments: argparse.Namespace, store: RunStore) -> int:
@@ -119,12 +125,8 @@ def _finish(backend: ComputeBackend, handle: RunHandle, into: Path | None) -> in
 
 
 def _backend_for(handle: RunHandle) -> ComputeBackend:
-    """Rebuild the backend of a stored run with the settings its project configures now."""
-    project = Path(handle.project)
-    config = (
-        read_compute_config(project) if (project / "pyproject.toml").is_file() else ComputeConfig()
-    )
-    return load_backend(handle.backend, config.backends.get(handle.backend, {}))
+    """Recover every provider from the settings bound to this run."""
+    return load_backend(handle.backend, handle.settings)
 
 
 def _destination(into: Path | None) -> Path:

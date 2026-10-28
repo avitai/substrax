@@ -48,6 +48,7 @@ def test_a_run_that_finishes_between_the_status_checks_reads_as_finished(
         job="job",
         project=str(tmp_path),
         submitted_at=datetime.now(UTC),
+        settings={},
         details={"pid": "1", "run_dir": str(run_dir)},
     )
 

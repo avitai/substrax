@@ -34,7 +34,7 @@ import sys
 import threading
 import time
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
 
@@ -133,7 +133,8 @@ class ModalBackend:
             ValueError: If a setting is missing, unknown or of the wrong type.
         """
         self._settings = read_record(ModalSettings, settings)
-        self._cancelled = backend_state_dir(self._settings.state_dir, NAME) / "cancelled"
+        self._cancelled = backend_state_dir(self._settings.state_dir, NAME).resolve() / "cancelled"
+        self._settings = replace(self._settings, state_dir=str(self._cancelled.parents[2]))
 
     def submit(self, spec: JobSpec, *, project: Path) -> RunHandle:
         """Build the image and spawn the worker in a detached app.
@@ -145,7 +146,7 @@ class ModalBackend:
         Returns:
             The run's handle.
         """
-        run = new_run(spec, project)
+        run = new_run(spec, project, settings=dump_record(self._settings))
         root, run_id = run.project, run.run_id
         app = modal.App(f"{root.name}-{spec.name}")
         worker = app.function(
