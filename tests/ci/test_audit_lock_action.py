@@ -475,24 +475,24 @@ class TestSubstraxAuditsItsOwnLock:
         # BaseLoader keeps every scalar a string, so the `on:` key stays `on` rather than True.
         return yaml.load(path.read_text(), Loader=yaml.BaseLoader)  # noqa: S506
 
-    def test_the_security_workflow_runs_the_action_after_setup_uv(self) -> None:
-        workflow = self.load(self.WORKFLOWS / "security.yml")
-        steps = workflow["jobs"]["security"]["steps"]
+    def test_the_shared_gates_run_the_action_after_setup_uv_on_every_audit_event(self) -> None:
+        """The audit runs in python-gates.yml's Security job, under the events ci.yml runs on.
+
+        Bandit after the audit is held to its own rules in ``test_python_gates.py``.
+        """
+        steps = self.load(self.WORKFLOWS / "python-gates.yml")["jobs"]["security"]["steps"]
         uses = [str(step.get("uses", "")) for step in steps]
 
-        assert "./.github/actions/audit-lock" in uses
+        audit = next(
+            i
+            for i, use in enumerate(uses)
+            if use.startswith("avitai/substrax/.github/actions/audit-lock@")
+        )
         setup_uv = next(i for i, use in enumerate(uses) if use.startswith("astral-sh/setup-uv@"))
-        assert setup_uv < uses.index("./.github/actions/audit-lock")
-        assert {"push", "pull_request", "schedule"} <= set(workflow["on"])
-
-    def test_bandit_runs_whatever_the_audit_found_and_its_failure_fails_the_job(self) -> None:
-        """A failed audit would skip Bandit, and the job would report one scan's verdict, not two."""
-        steps = self.load(self.WORKFLOWS / "security.yml")["jobs"]["security"]["steps"]
-        bandit = next(step for step in steps if "bandit " in step.get("run", ""))
-
-        assert bandit.get("if") == "${{ !cancelled() }}"
-        assert "continue-on-error" not in bandit
-        assert "||" not in bandit["run"], "a captured exit status can hide bandit's failure"
+        assert setup_uv < audit
+        assert {"push", "pull_request", "schedule"} <= set(
+            self.load(self.WORKFLOWS / "ci.yml")["on"]
+        )
 
     def test_no_workflow_runs_pip_audit_on_an_environment(self) -> None:
         runs = [
