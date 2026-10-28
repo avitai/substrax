@@ -67,9 +67,11 @@ Publishing an existing GitHub Release also runs the PyPI upload path.
    gh workflow run publish.yml --ref vX.Y.Z -f target=github-release -f version_tag=vX.Y.Z
    ```
 
-   The workflow runs CI on the tagged commit, then checks that the tag exists and that the run's
-   ref is that tag, since CI built the run's ref. It then creates the GitHub Release with
-   generated release notes and publishes CI's distributions to PyPI.
+   The workflow runs CI on the tagged commit, then checks that the version of the distributions
+   CI built matches the tag: the run's ref must be `refs/tags/v<version>` and `version_tag` the
+   same tag, since CI built the run's ref. It then creates the GitHub Release with generated
+   release notes and publishes CI's distributions to PyPI. A published GitHub Release and a
+   `target=pypi` run stop on the same check.
 
 ## Manual Release Recovery
 

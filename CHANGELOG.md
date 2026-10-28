@@ -104,10 +104,11 @@ and uses semantic versioning while the public API stabilizes.
   the packages only the `mlflow` and `wandb` extras resolve.
 - **Breaking (release process):** `publish.yml` runs the whole of `ci.yml` on the commit it
   releases and publishes the distributions the gates' Build job built and checked, the artifact
-  `python-package-distributions`, in place of a build of its own. A `target=github-release` run
-  must be started from its tag (`gh workflow run publish.yml --ref vX.Y.Z ...`) and stops
-  otherwise, since CI builds the run's ref. Every action in every workflow and composite action
-  is pinned by commit, which a test checks.
+  `python-package-distributions`, in place of a build of its own. Before anything reaches PyPI, a
+  release checks that version against the tag: the run must be on `refs/tags/v<version>`, which a
+  `target=github-release` run is only when started from its tag (`gh workflow run publish.yml
+  --ref vX.Y.Z ...`), and its `version_tag` must name the same tag. Every action in every
+  workflow and composite action is pinned by commit, which a test checks.
 
 ### Fixed
 
