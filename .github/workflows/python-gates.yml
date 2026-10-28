@@ -235,17 +235,39 @@ jobs:
           uv build --python "$PYTHON"
           uvx --from twine==7.0.0 twine check --strict dist/*
 
-      - name: Install the wheel in a clean environment and import it
+      - name: Install the wheel in a clean environment
         env:
           PYTHON: ${{ matrix.python-version }}
-          PACKAGE: ${{ inputs.package }}
-          MODULES: ${{ inputs.import-modules }}
         run: |
           uv venv --python "$PYTHON" "$RUNNER_TEMP/clean"
           VIRTUAL_ENV="$RUNNER_TEMP/clean" uv pip install dist/*.whl
-          for module in ${MODULES:-$PACKAGE}; do
-            "$RUNNER_TEMP/clean/bin/python" -c "import importlib, sys; importlib.import_module(sys.argv[1])" "$module"
-          done
+
+      # Isolated (-I), so the repository's root, where a flat-layout package sits, is not on the
+      # path and the wheel is what imports. The distribution is named in pyproject.toml, which may
+      # differ from the import name.
+      - name: Import the wheel and check its version
+        env:
+          PACKAGE: ${{ inputs.package }}
+          MODULES: ${{ inputs.import-modules }}
+        run: |
+          # MODULES is a list of module names, split on purpose.
+          # shellcheck disable=SC2086
+          "$RUNNER_TEMP/clean/bin/python" -I - "$PACKAGE" $MODULES <<'PY'
+          import importlib
+          import importlib.metadata
+          import sys
+          import tomllib
+
+          package, *modules = sys.argv[1:]
+          for module in modules or [package]:
+              importlib.import_module(module)
+          with open("pyproject.toml", "rb") as pyproject:
+              distribution = tomllib.load(pyproject)["project"]["name"]
+          declared = getattr(importlib.import_module(package), "__version__", None)
+          installed = importlib.metadata.version(distribution)
+          if declared is not None and declared != installed:
+              sys.exit(f"{package}.__version__ is {declared}, but {distribution} {installed} is installed")
+          PY
 
   docs:
     name: Docs
