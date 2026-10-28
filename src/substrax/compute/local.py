@@ -21,7 +21,7 @@ import signal
 import subprocess  # nosec B404 - runs ps to confirm a pid is still this run's worker
 import time
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from substrax.compute.backend import (
@@ -34,7 +34,7 @@ from substrax.compute.backend import (
 )
 from substrax.compute.spec import JobSpec
 from substrax.compute.worker import JobManifest, MANIFEST_NAME, read_manifest
-from substrax.records import read_record, UNKNOWN_FIELDS_REFUSED
+from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.typing import JsonValue
 
 
@@ -77,7 +77,8 @@ class LocalBackend:
         """
         chosen = read_record(LocalSettings, settings or {})
         self._python = chosen.python
-        self._runs = backend_state_dir(chosen.state_dir, NAME)
+        self._runs = backend_state_dir(chosen.state_dir, NAME).resolve()
+        self._settings = replace(chosen, state_dir=str(self._runs.parent.parent))
 
     def submit(self, spec: JobSpec, *, project: Path) -> RunHandle:
         """Start the worker on ``spec`` in the background and return its handle.
@@ -89,7 +90,7 @@ class LocalBackend:
         Returns:
             The run's handle.
         """
-        run = new_run(spec, project)
+        run = new_run(spec, project, settings=dump_record(self._settings))
         root, run_dir = run.project, stage_run(self._runs, run)
         argv = [
             *self._interpreter(root),

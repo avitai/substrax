@@ -89,6 +89,15 @@ which the serialized worker requires, and which `uv sync` is told to use so a pr
 the backend writes a task file and runs `sky launch`, `sky queue -o json`, `sky logs`,
 `sky cancel` and `sky down`.
 
+## Run handles
+
+A run's handle records the backend settings it was submitted with (`RunHandle.settings`), and
+`status`, `logs`, `fetch` and `cancel` rebuild the backend from them, never from the project's
+current configuration; a backend passes them to `new_run(spec, project, settings=...)`. Handles
+are of version 2. One of another version is refused: `substrax-compute status RUN_ID` exits 2,
+and `substrax-compute status` lists every run it can read, names each record it cannot with the
+reason, and exits 1.
+
 ## Adding a provider
 
 A backend is any object that satisfies `ComputeBackend` and is built from its settings table.

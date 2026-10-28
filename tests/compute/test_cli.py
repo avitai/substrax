@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import textwrap
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 
-from substrax.compute.backend import STATE_DIR_ENV
+from substrax.compute import cli
+from substrax.compute.backend import new_run, RunHandle, RunState, RunStore, STATE_DIR_ENV
 from substrax.compute.cli import main
+from substrax.compute.spec import JobSpec, Task
+from substrax.typing import JsonValue
 
 
 @pytest.fixture
@@ -132,3 +137,70 @@ def test_a_project_that_does_not_lock_substrax_is_refused_before_submitting(
 
     assert code == 2
     assert "substrax is not in" in capsys.readouterr().err
+
+
+_SAVED = JobSpec(
+    name="saved", timeout_seconds=10, tasks=(Task(name="t", argv=("true",), timeout_seconds=5),)
+)
+
+
+class _RecordingBackend:
+    """A backend the CLI rebuilds for a stored run; it records the settings it was given."""
+
+    def __init__(self, name: str, settings: Mapping[str, JsonValue], built: list[object]) -> None:
+        built.append((name, settings))
+
+    def status(self, handle: RunHandle) -> RunState:
+        del handle
+        return RunState.SUCCEEDED
+
+
+def _record_backends(monkeypatch: pytest.MonkeyPatch) -> list[object]:
+    built: list[object] = []
+    monkeypatch.setattr(
+        cli, "load_backend", lambda name, settings: _RecordingBackend(name, settings, built)
+    )
+    return built
+
+
+@pytest.mark.parametrize("backend_name", ["skypilot", "local", "modal", "third-party"])
+def test_a_stored_run_is_recovered_with_the_settings_it_was_submitted_with(
+    project: Path, monkeypatch: pytest.MonkeyPatch, backend_name: str
+) -> None:
+    """Editing a project's provider settings must not redirect an existing run."""
+    settings: dict[str, JsonValue] = {"state_dir": "/original/state"}
+    handle = new_run(_SAVED, project, settings=settings).handle(backend_name, {"id": "owned"})
+    RunStore().save(handle)
+    (project / "pyproject.toml").write_text("[tool.substrax.compute]\n", "utf-8")
+    built = _record_backends(monkeypatch)
+
+    assert main(["status", handle.run_id]) == 0
+    assert built == [(backend_name, settings)]
+
+
+def test_listing_names_each_unsupported_record_and_still_lists_the_rest(
+    project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """One record an older substrax wrote does not hide the runs that can still be read."""
+    handle = new_run(_SAVED, project, settings={}).handle("local", {"pid": "1"})
+    store = RunStore()
+    store.save(handle)
+    old = store.root / "saved-20260901T000000Z-0000.json"
+    old.write_text(json.dumps({"schema_version": 1, "run_id": "saved-old"}), "utf-8")
+    _record_backends(monkeypatch)
+
+    code = main(["status"])
+
+    captured = capsys.readouterr()
+    assert code == 1
+    assert f"{handle.run_id}  local  saved  succeeded" in captured.out
+    assert str(old) in captured.err
+    assert "version 1" in captured.err
+
+
+def test_new_run_binds_typed_settings(project: Path) -> None:
+    """Every provider uses the same required typed settings field."""
+    run = new_run(_SAVED, project, settings={"state_dir": "/original"})
+    handle = run.handle("local", {"pid": "123"})
+    assert handle.settings == {"state_dir": "/original"}
+    assert handle.schema_version == 2

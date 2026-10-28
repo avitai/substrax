@@ -35,7 +35,7 @@ import shlex
 import subprocess  # nosec B404 - runs the sky and bucket command line tools, no shell
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from substrax.compute.backend import (
@@ -48,7 +48,7 @@ from substrax.compute.backend import (
 )
 from substrax.compute.spec import Accelerator, JobSpec
 from substrax.compute.worker import MANIFEST_NAME, read_manifest
-from substrax.records import read_record, UNKNOWN_FIELDS_REFUSED
+from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.typing import JsonValue
 
 
@@ -113,7 +113,8 @@ class SkyPilotBackend:
         """
         self._settings = read_record(SkyPilotSettings, settings)
         _downloader(self._settings.outputs_bucket)
-        self._runs = backend_state_dir(self._settings.state_dir, NAME)
+        self._runs = backend_state_dir(self._settings.state_dir, NAME).resolve()
+        self._settings = replace(self._settings, state_dir=str(self._runs.parent.parent))
 
     def submit(self, spec: JobSpec, *, project: Path) -> RunHandle:
         """Write the task file and launch it on a cluster of its own.
@@ -125,7 +126,7 @@ class SkyPilotBackend:
         Returns:
             The run's handle, once the job is submitted on the cluster.
         """
-        run = new_run(spec, project)
+        run = new_run(spec, project, settings=dump_record(self._settings))
         root, run_id, run_dir = run.project, run.run_id, stage_run(self._runs, run)
         task = run_dir / "task.yaml"  # YAML is a superset of JSON
         task.write_text(json.dumps(self._task(spec, root, run_id, run_dir), indent=2), "utf-8")

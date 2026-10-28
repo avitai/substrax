@@ -57,6 +57,15 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Changed
 
+- **Breaking:** a run handle records the backend settings it was submitted with
+  (`RunHandle.settings`, required), and `substrax-compute` rebuilds the backend from them, never
+  from the project's current configuration, so editing a project no longer redirects its earlier
+  runs. A backend passes its validated settings to `new_run(spec, project, settings=...)`.
+  Handles are of version 2, and a version-1 handle is refused, since it holds no settings to
+  rebuild its backend from: remove the records of runs submitted before this release from the
+  state directory's `compute/runs/`. `substrax-compute status` lists every run it can read,
+  names each record it cannot with the reason, and exits 1. `RunStore.handles()` is replaced by
+  `RunStore.read_all()`, which returns both.
 - substrax's CI is one workflow, `ci.yml`. It calls `python-gates.yml`, adds the Orbax-floor
   checkpoint tests and the derived-status check, and ends in the `required` check. The Quality
   Checks, Security, Documentation and Build Verification workflows are folded into it, so a pull

@@ -23,7 +23,7 @@ from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.typing import JsonValue
 
 
-HANDLE_VERSION = 1
+HANDLE_VERSION = 2
 SPEC_NAME = "spec.json"
 """The file a staged run's spec is written to."""
 STATE_DIR_ENV = "SUBSTRAX_STATE_DIR"
@@ -56,6 +56,7 @@ class RunHandle:
         job: The job's name.
         project: The project root it was submitted from.
         submitted_at: When it was submitted, in UTC.
+        settings: Frozen provider configuration used for every recovery operation.
         details: The provider's own references to the run, such as an app or cluster id.
     """
 
@@ -67,6 +68,7 @@ class RunHandle:
     job: str
     project: str
     submitted_at: datetime
+    settings: Mapping[str, JsonValue]
     details: Mapping[str, str] = field(default_factory=dict)
 
 
@@ -78,11 +80,13 @@ class NewRun:
         run_id: The run's id, from :func:`new_run_id`.
         spec: The job.
         project: The resolved project root.
+        settings: Frozen provider configuration used to construct the run handle.
     """
 
     run_id: str
     spec: JobSpec
     project: Path
+    settings: Mapping[str, JsonValue]
 
     def handle(self, backend: str, details: Mapping[str, str]) -> RunHandle:
         """The handle of this run, submitted now.
@@ -100,6 +104,7 @@ class NewRun:
             job=self.spec.name,
             project=str(self.project),
             submitted_at=datetime.now(UTC),
+            settings=self.settings,
             details=details,
         )
 
@@ -181,17 +186,23 @@ def backend_state_dir(state_dir: str | None, backend: str) -> Path:
     return root / "compute" / backend
 
 
-def new_run(spec: JobSpec, project: Path) -> NewRun:
+def new_run(spec: JobSpec, project: Path, *, settings: Mapping[str, JsonValue]) -> NewRun:
     """Start submitting a run of ``spec`` from ``project``.
 
     Args:
         spec: The job.
         project: The project root.
+        settings: Validated provider settings to freeze into the handle.
 
     Returns:
         The run, named by :func:`new_run_id`.
     """
-    return NewRun(run_id=new_run_id(spec.name), spec=spec, project=project.resolve())
+    return NewRun(
+        run_id=new_run_id(spec.name),
+        spec=spec,
+        project=project.resolve(),
+        settings=json.loads(json.dumps(settings)),
+    )
 
 
 def stage_run(runs: Path, run: NewRun) -> Path:
@@ -248,21 +259,60 @@ class RunStore:
         if not path.is_file():
             msg = f"no run {run_id!r} in {self.root}"
             raise KeyError(msg)
-        return read_record(RunHandle, json.loads(path.read_text(encoding="utf-8")))
+        return _read_handle(path)
 
-    def handles(self) -> list[RunHandle]:
-        """Every kept handle, newest first.
+    def read_all(self) -> StoredRuns:
+        """Every kept handle, newest first, and each record that cannot be read, with the reason.
+
+        A record an older substrax wrote, or a damaged one, is named on its own rather than
+        hiding the runs that can still be read.
 
         Returns:
-            The handles.
+            The readable handles and the unreadable records.
         """
-        if not self.root.is_dir():
-            return []
-        found = [
-            read_record(RunHandle, json.loads(path.read_text(encoding="utf-8")))
-            for path in self.root.glob("*.json")
-        ]
-        return sorted(found, key=lambda handle: handle.submitted_at, reverse=True)
+        handles: list[RunHandle] = []
+        unreadable: dict[Path, str] = {}
+        for path in sorted(self.root.glob("*.json")) if self.root.is_dir() else []:
+            try:
+                handles.append(_read_handle(path))
+            except ValueError as error:
+                unreadable[path] = str(error)
+        handles.sort(key=lambda handle: handle.submitted_at, reverse=True)
+        return StoredRuns(handles=tuple(handles), unreadable=unreadable)
 
     def _path(self, run_id: str) -> Path:
         return self.root / f"{run_id}.json"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StoredRuns:
+    """What a :class:`RunStore` holds: the handles it can read, and why it cannot read the rest.
+
+    Attributes:
+        handles: The readable handles, newest first.
+        unreadable: Each record that cannot be read, by path, with the reason.
+    """
+
+    handles: tuple[RunHandle, ...]
+    unreadable: Mapping[Path, str]
+
+
+def _read_handle(path: Path) -> RunHandle:
+    """Read one stored handle; one of another handle version is refused, never reinterpreted.
+
+    Args:
+        path: The record.
+
+    Returns:
+        The handle.
+
+    Raises:
+        ValueError: If the record is of another handle version; its JSON and its fields raise
+            ``ValueError`` subclasses too (``json.JSONDecodeError``, pydantic's validation error).
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    version = data.get("schema_version") if isinstance(data, dict) else None
+    if version != HANDLE_VERSION:
+        msg = f"run handle version {version} cannot be read; this substrax reads {HANDLE_VERSION}"
+        raise ValueError(msg)
+    return read_record(RunHandle, data)
