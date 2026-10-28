@@ -27,18 +27,49 @@ and uses semantic versioning while the public API stabilizes.
   ```
 
   substrax's own tests run the hook over its tree, in place of its `test_dependency_updates.py`.
+- The reusable workflow `.github/workflows/python-gates.yml`: the engineering guide's Required
+  gates, defined once for every stack repository.
+  - Lint: the lock check, `pyright --warnings` and every pre-commit hook.
+  - Test: pytest with the repository's coverage floor and an 80% floor on changed lines.
+  - Security: the `audit-lock` action, then Bandit.
+  - Build: `uv build`, `twine check --strict` and a clean-install import.
+  - Docs: a strict docs build on every pull request.
+
+  Every action is pinned by commit and one uv version is pinned for all. A repository calls it at
+  the job level, pinned by commit, and ends its own `ci.yml` with one `required` job that needs
+  every job, the check its main-branch ruleset requires:
+
+  ```yaml
+  gates:
+    needs: already_tested
+    uses: avitai/substrax/.github/workflows/python-gates.yml@<commit>
+    with:
+      package: <import name>
+      already-tested: ${{ needs.already_tested.outputs.skip }}
+      only-security: ${{ github.event_name == 'schedule' }}
+  ```
+
+  The other inputs cover what differs between repositories: `sync-args`, `docs-sync-args`,
+  `python-versions`, `pytest-args`, `test-env`, `import-modules`, `os` and `uv-version`.
 
 ### Changed
+
+- substrax's CI is one workflow, `ci.yml`. It calls `python-gates.yml`, adds the Orbax-floor
+  checkpoint tests and the derived-status check, and ends in the `required` check. The Quality
+  Checks, Security, Documentation and Build Verification workflows are folded into it, so a pull
+  request no longer runs pyright seven times or checks the build twice. A merge no longer repeats
+  Security and the build, Lint runs on main so the pre-commit cache is saved there, and the weekly
+  audit and a merge's run no longer cancel each other. The macOS night calls the same gates on
+  `macos-14`.
 
 - The `audit-lock` action audits each export against both of pip-audit's vulnerability services,
   PyPI and OSV, and counts the advisories of both: either can lack one the other reports. On a
   datarax lock OSV reported 16 advisories where PyPI reported 13, among them nbconvert
   CVE-2026-114140 (high). An advisory both services report is one finding, and an ignore naming
   any alias either service gives covers it.
-- The Security workflow audits substrax's own lock with the `audit-lock` action, covering every
-  extra, and Quality Checks no longer runs pip-audit. Both ran pip-audit on an environment synced
-  with the `dev` and `test` extras, which never held the packages only the `mlflow` and `wandb`
-  extras resolve.
+- substrax's CI audits its own lock with the `audit-lock` action, covering every extra, and no
+  longer runs pip-audit on an environment synced with the `dev` and `test` extras, which never held
+  the packages only the `mlflow` and `wandb` extras resolve.
 
 ### Fixed
 
