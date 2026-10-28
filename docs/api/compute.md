@@ -85,9 +85,33 @@ builder 2025.06 or later, set for the workspace in Modal's dashboard under Setti
 config; an older builder fails the build with `Image builder version <= 2024.10 requires modal
 to be specified in your pyproject.toml file`. The image runs the Python this interpreter runs,
 which the serialized worker requires, and which `uv sync` is told to use so a project's own
-`python-preference` cannot choose another. SkyPilot is never imported:
-the backend writes a task file and runs `sky launch`, `sky queue -o json`, `sky logs`,
-`sky cancel` and `sky down`.
+`python-preference` cannot choose another.
+
+### SkyPilot
+
+SkyPilot is never imported into the project's environment. Every operation (launch, queue, logs,
+cancel, teardown) runs `substrax/compute/sky_sdk.py` in SkyPilot's own interpreter, which calls
+SkyPilot's public SDK (0.11.1) and reads its native request and queue records. Before a launch
+waits for provisioning, it writes the run's intent and SkyPilot's request id beside the task
+file; an interrupted launch is reconciled from them, not submitted again. `cancel` leaves a run
+that already ended as it is; otherwise it cancels the request and the job and tears the cluster
+down, attempting every step and reporting each failure (`substrax-compute cancel` exits 1).
+
+The settings under `[tool.substrax.compute.backends.skypilot]`:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `outputs_bucket` | required | the `gs://` or `s3://` bucket the runs' outputs go to |
+| `buckets` | `{}` | the bucket behind each of a job's mounts, by mount name |
+| `infra` | any enabled cloud | where to run, in SkyPilot's `infra` syntax: `gcp`, `gcp/us-central1` |
+| `use_spot` | `false` | run on spot instances |
+| `sky` | `"sky"` | the `sky` command, used to find SkyPilot's interpreter beside it |
+| `sky_python` | the `python` beside `sky` | SkyPilot's interpreter |
+| `worker_python` | `"uv run --no-sync python"` | the command that starts Python in the synced environment |
+| `state_dir` | the default state directory | where task files, launch records and cancellations are kept |
+
+SkyPilot mounts the buckets, so the outputs outlive the cluster, which SkyPilot removes when the
+job ends.
 
 ## Run handles
 
@@ -139,3 +163,5 @@ class TestMyBackend(BackendContract):
 ::: substrax.compute.modal_backend
 
 ::: substrax.compute.skypilot_backend
+
+::: substrax.compute.skypilot_transports
