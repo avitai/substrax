@@ -1,0 +1,8 @@
+- id: no-dependabot-config
+  name: no Dependabot configuration
+  description: >-
+    Dependency updates arrive through pull requests the maintainers open, never from a bot.
+    Dependabot alerts stay on; they open nothing.
+  entry: Dependabot opens version-update pull requests; delete the configuration
+  language: fail
+  files: ^\.github/dependabot\.ya?ml$
