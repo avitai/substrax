@@ -32,7 +32,9 @@ and uses semantic versioning while the public API stabilizes.
   - Lint: the lock check, `pyright --warnings` and every pre-commit hook.
   - Test: pytest with the repository's coverage floor and an 80% floor on changed lines.
   - Security: the `audit-lock` action, then Bandit.
-  - Build: `uv build`, `twine check --strict` and a clean-install import.
+  - Build: `uv build`, `twine check --strict` and a clean-install import, isolated so the wheel
+    imports rather than the source tree, that fails when the package's `__version__` differs from
+    the installed distribution's.
   - Docs: a strict docs build on every pull request.
 
   Every action is pinned by commit and one uv version is pinned for all. A repository calls it at

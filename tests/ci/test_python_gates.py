@@ -8,7 +8,11 @@ at the job level, pinned by commit, so every rule here holds for every caller.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess  # nosec B404
+import venv
 from pathlib import Path
 from typing import Any
 
@@ -195,13 +199,130 @@ def test_bandit_runs_whatever_the_audit_found_and_its_failure_fails_the_job() ->
     assert _env(bandit)["PACKAGE"] == "${{ inputs.package }}"
 
 
-def test_the_build_is_checked_and_imports_from_a_clean_environment() -> None:
+def _import_check() -> dict[str, Any]:
+    check = next(
+        (step for step in _steps("build") if "importlib.metadata" in str(step.get("run", ""))),
+        None,
+    )
+    assert check is not None, "the build job has no step that checks the installed version"
+    return check
+
+
+def test_the_build_is_checked_and_installed_in_a_clean_environment_before_the_import() -> None:
+    steps = _steps("build")
     runs = _runs("build")
+    install = next(
+        i for i, step in enumerate(steps) if "uv pip install" in str(step.get("run", ""))
+    )
 
     assert "uv build" in runs
     assert "twine check --strict" in runs
-    smoke = next(step for step in _steps("build") if "uv pip install" in str(step.get("run", "")))
-    assert _env(smoke)["MODULES"] == "${{ inputs.import-modules }}"
+    assert install < steps.index(_import_check())
+    assert _env(_import_check()) == {
+        "PACKAGE": "${{ inputs.package }}",
+        "MODULES": "${{ inputs.import-modules }}",
+    }
+
+
+def _run_import_check(
+    tmp_path: Path,
+    *,
+    declared: str | None,
+    installed: str = "1.0",
+    modules: str = "",
+    source_version: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run the build job's import check, as the runner does, against a fake installed wheel.
+
+    ``fakepkg`` declares ``declared`` as ``__version__`` (none when None) and is installed as the
+    distribution ``fake-dist`` at ``installed``, the name the project's ``pyproject.toml`` gives.
+    ``source_version`` puts a ``fakepkg`` source tree with that version in the project directory,
+    where a flat-layout repository keeps its package.
+    """
+    runner = tmp_path / "runner"
+    clean = runner / "clean"
+    venv.EnvBuilder(with_pip=False, symlinks=True).create(clean)
+    purelib = Path(
+        subprocess.run(  # noqa: S603  # nosec B603 - the venv's python with fixed arguments
+            [
+                clean / "bin" / "python",
+                "-c",
+                "import sysconfig; print(sysconfig.get_path('purelib'))",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    )
+    (purelib / "fakepkg").mkdir()
+    (purelib / "fakepkg" / "__init__.py").write_text(
+        "" if declared is None else f'__version__ = "{declared}"\n', encoding="utf-8"
+    )
+    metadata = purelib / f"fake_dist-{installed}.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text(
+        f"Metadata-Version: 2.1\nName: fake-dist\nVersion: {installed}\n", encoding="utf-8"
+    )
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text('[project]\nname = "fake-dist"\n', encoding="utf-8")
+    if source_version is not None:
+        (project / "fakepkg").mkdir()
+        (project / "fakepkg" / "__init__.py").write_text(
+            f'__version__ = "{source_version}"\n', encoding="utf-8"
+        )
+
+    # The runner's default shell for a `run:` step.
+    bash = [shutil.which("bash") or "bash", "--noprofile", "--norc", "-eo", "pipefail", "-c"]
+    return subprocess.run(  # noqa: S603  # nosec B603 - bash running the workflow's own step
+        [*bash, str(_import_check()["run"])],
+        cwd=project,
+        env={**os.environ, "RUNNER_TEMP": str(runner), "PACKAGE": "fakepkg", "MODULES": modules},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_the_import_check_passes_a_version_that_matches_the_installed_metadata(
+    tmp_path: Path,
+) -> None:
+    result = _run_import_check(tmp_path, declared="1.0")
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_import_check_fails_a_version_the_installed_metadata_contradicts(
+    tmp_path: Path,
+) -> None:
+    result = _run_import_check(tmp_path, declared="0.9", installed="1.0")
+
+    assert result.returncode != 0
+    assert "0.9" in result.stderr
+    assert "1.0" in result.stderr
+    assert "fake-dist" in result.stderr
+
+
+def test_the_import_check_passes_a_package_that_declares_no_version(tmp_path: Path) -> None:
+    """Four stack packages declare no ``__version__``; the metadata is then the only version."""
+    result = _run_import_check(tmp_path, declared=None)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_import_check_fails_a_listed_module_that_does_not_import(tmp_path: Path) -> None:
+    result = _run_import_check(tmp_path, declared="1.0", modules="fakepkg fakepkg.missing")
+
+    assert result.returncode != 0
+    assert "fakepkg.missing" in result.stderr
+
+
+def test_the_import_check_reads_the_installed_wheel_not_the_source_tree(tmp_path: Path) -> None:
+    """The check runs in the repository's root, where a flat-layout package would shadow the wheel."""
+    result = _run_import_check(tmp_path, declared="1.0", source_version="9.9")
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_the_docs_build_strictly_with_no_path_filter() -> None:
