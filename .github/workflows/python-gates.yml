@@ -269,6 +269,15 @@ jobs:
               sys.exit(f"{package}.__version__ is {declared}, but {distribution} {installed} is installed")
           PY
 
+      # publish.yml releases these, the distributions every check above passed.
+      - name: Upload the distributions
+        if: ${{ matrix.python-version == fromJSON(inputs.python-versions)[0] }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
   docs:
     name: Docs
     needs: lint

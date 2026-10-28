@@ -34,7 +34,8 @@ and uses semantic versioning while the public API stabilizes.
   - Security: the `audit-lock` action, then Bandit.
   - Build: `uv build`, `twine check --strict` and a clean-install import, isolated so the wheel
     imports rather than the source tree, that fails when the package's `__version__` differs from
-    the installed distribution's.
+    the installed distribution's. The first Python leg uploads `dist/` as the artifact
+    `python-package-distributions`, which a repository's `publish.yml` releases.
   - Docs: a strict docs build on every pull request.
 
   Every action is pinned by commit and one uv version is pinned for all. A repository calls it at

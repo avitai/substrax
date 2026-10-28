@@ -224,6 +224,30 @@ def test_the_build_is_checked_and_installed_in_a_clean_environment_before_the_im
     }
 
 
+def test_the_first_python_leg_uploads_the_distributions_a_release_publishes() -> None:
+    """A repository's ``publish.yml`` releases the distributions CI built and checked, by this name.
+
+    One leg uploads, since an artifact name is unique within a run, and only after the import check,
+    so a release never carries distributions that failed it.
+    """
+    steps = _steps("build")
+    upload = next(
+        (
+            step
+            for step in steps
+            if str(step.get("uses", "")).startswith("actions/upload-artifact@")
+        ),
+        None,
+    )
+
+    assert upload is not None, "the build job uploads no distributions"
+    assert steps.index(_import_check()) < steps.index(upload)
+    assert upload["if"] == "${{ matrix.python-version == fromJSON(inputs.python-versions)[0] }}"
+    assert upload["with"]["name"] == "python-package-distributions"
+    assert upload["with"]["path"] == "dist/"
+    assert upload["with"]["if-no-files-found"] == "error"
+
+
 def _run_import_check(
     tmp_path: Path,
     *,
