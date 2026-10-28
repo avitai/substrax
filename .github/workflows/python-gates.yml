@@ -1,0 +1,279 @@
+name: Python gates
+
+# The engineering guide's Required gates, defined once for every stack repository. A repository
+# calls this workflow from its ci.yml, pinned by commit:
+#
+#   gates:
+#     uses: avitai/substrax/.github/workflows/python-gates.yml@<commit>
+#     with:
+#       package: <import name>
+#
+# and ends its ci.yml with one `required` job that needs every job, the check its main-branch
+# ruleset requires. Concurrency is the caller's: inside a called workflow `github.workflow` names
+# the caller, so a group set here would cancel the caller. A local action would resolve in the
+# caller's checkout, so substrax's own actions are named in full and pinned by commit.
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: The import name. Bandit scans src/<package>; the clean install imports it.
+        type: string
+        required: true
+      python-versions:
+        description: JSON list of the Python versions the tests and the build run on.
+        type: string
+        default: '["3.12", "3.13"]'
+      sync-args:
+        description: The extras and groups every job installs from the lock.
+        type: string
+        default: --extra dev --extra test
+      docs-sync-args:
+        description: The extras and groups the docs build installs from the lock.
+        type: string
+        default: --extra docs
+      pytest-args:
+        description: Arguments to pytest; the coverage floor comes from the repository's config.
+        type: string
+        default: ""
+      test-env:
+        description: KEY=VALUE lines the test job exports beside the JAX settings it always sets.
+        type: string
+        default: ""
+      import-modules:
+        description: Space-separated modules the clean install imports; the package when empty.
+        type: string
+        default: ""
+      os:
+        description: The runner the tests and the build run on; macOS only from a nightly caller.
+        type: string
+        default: ubuntu-latest
+      already-tested:
+        description: The caller's already-tested output; 'true' stands down work its pull request ran.
+        type: string
+        default: ""
+      only-security:
+        description: Run only the dependency audit, for a caller's weekly schedule.
+        type: boolean
+        default: false
+      uv-version:
+        description: The uv every job installs, one version across the stack.
+        type: string
+        default: "0.13.1"
+
+jobs:
+  lint:
+    name: Lint
+    # Never stood down for an already-tested tree: a merge saves the pre-commit cache main must
+    # hold, which every pull request restores.
+    if: ${{ !inputs.only-security }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      - name: Install the environment from the lock
+        env:
+          PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
+          SYNC_ARGS: ${{ inputs.sync-args }}
+        run: |
+          uv python install "$PYTHON"
+          uv venv --python "$PYTHON"
+          uv lock --check
+          # SYNC_ARGS is a list of flags, split on purpose.
+          # shellcheck disable=SC2086
+          uv sync --locked $SYNC_ARGS
+
+      - name: Pyright
+        run: uv run --no-sync pyright --warnings
+
+      - name: Restore the pre-commit hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ fromJSON(inputs.python-versions)[0] }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Pre-commit
+        env:
+          # The test job runs the suite, Security runs Bandit with its report, and pyright ran above.
+          SKIP: pytest,bandit,pyright
+        run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: Test (Python ${{ matrix.python-version }}, ${{ inputs.os }})
+    needs: lint
+    if: ${{ !inputs.only-security && inputs.already-tested != 'true' }}
+    runs-on: ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      # At most two runners at a time, so a macOS night leaves the other repositories' jobs room.
+      max-parallel: 2
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+    env:
+      JAX_PLATFORMS: cpu
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+      TF_CPP_MIN_LOG_LEVEL: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The changed-line coverage floor diffs against origin/main.
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      - name: Install the environment from the lock
+        env:
+          PYTHON: ${{ matrix.python-version }}
+          SYNC_ARGS: ${{ inputs.sync-args }}
+        run: |
+          uv python install "$PYTHON"
+          uv venv --python "$PYTHON"
+          # shellcheck disable=SC2086
+          uv sync --locked $SYNC_ARGS
+
+      - name: Export the caller's test environment
+        if: ${{ inputs.test-env != '' }}
+        env:
+          TEST_ENV: ${{ inputs.test-env }}
+        run: printf '%s\n' "$TEST_ENV" >> "$GITHUB_ENV"
+
+      - name: Run the tests
+        env:
+          PYTEST_ARGS: ${{ inputs.pytest-args }}
+        run: |
+          # shellcheck disable=SC2086
+          uv run --no-sync pytest $PYTEST_ARGS --cov-report=xml
+
+      # The package-wide floor lets a pull request add an untested module; this holds the lines a
+      # pull request changes to 80%, from the coverage the run above measured.
+      - name: Coverage on changed lines (at least 80%)
+        if: ${{ github.event_name == 'pull_request' && matrix.python-version == fromJSON(inputs.python-versions)[0] }}
+        run: uvx --from diff-cover==10.6.0 diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --show-uncovered
+
+  security:
+    name: Security
+    if: ${{ inputs.already-tested != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      - name: Install the environment from the lock
+        env:
+          PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
+          SYNC_ARGS: ${{ inputs.sync-args }}
+        run: |
+          uv python install "$PYTHON"
+          uv venv --python "$PYTHON"
+          # shellcheck disable=SC2086
+          uv sync --locked $SYNC_ARGS
+
+      # Every extra the lock resolves, in groups that respect [tool.uv] conflicts, each audited by
+      # a pinned pip-audit with a fresh advisory cache.
+      - name: Audit the locked dependencies
+        uses: avitai/substrax/.github/actions/audit-lock@66ea9c185db08074b91e1da55a5c34748ec19a67
+
+      # Bandit reports whatever the audit found, so a red job names every scan that failed.
+      - name: Bandit
+        if: ${{ !cancelled() }}
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          uv run --no-sync bandit -r "src/$PACKAGE" -c pyproject.toml -ll
+          uv run --no-sync bandit -r "src/$PACKAGE" -c pyproject.toml -f json -o bandit-report.json -q
+
+      - name: Upload the Bandit report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  build:
+    name: Build (Python ${{ matrix.python-version }}, ${{ inputs.os }})
+    needs: lint
+    if: ${{ !inputs.only-security && inputs.already-tested != 'true' }}
+    runs-on: ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      - name: Build the distributions
+        env:
+          PYTHON: ${{ matrix.python-version }}
+        run: |
+          uv python install "$PYTHON"
+          uv build --python "$PYTHON"
+          uvx --from twine==7.0.0 twine check --strict dist/*
+
+      - name: Install the wheel in a clean environment and import it
+        env:
+          PYTHON: ${{ matrix.python-version }}
+          PACKAGE: ${{ inputs.package }}
+          MODULES: ${{ inputs.import-modules }}
+        run: |
+          uv venv --python "$PYTHON" "$RUNNER_TEMP/clean"
+          VIRTUAL_ENV="$RUNNER_TEMP/clean" uv pip install dist/*.whl
+          for module in ${MODULES:-$PACKAGE}; do
+            "$RUNNER_TEMP/clean/bin/python" -c "import importlib, sys; importlib.import_module(sys.argv[1])" "$module"
+          done
+
+  docs:
+    name: Docs
+    needs: lint
+    if: ${{ !inputs.only-security && inputs.already-tested != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      # Every pull request builds the site from the lock: a relock alone can break it.
+      - name: Build the docs strictly
+        env:
+          PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
+          DOCS_SYNC_ARGS: ${{ inputs.docs-sync-args }}
+        run: |
+          if [ ! -f mkdocs.yml ]; then
+            echo "No mkdocs.yml: nothing to build."
+            exit 0
+          fi
+          uv python install "$PYTHON"
+          uv venv --python "$PYTHON"
+          # shellcheck disable=SC2086
+          uv sync --locked $DOCS_SYNC_ARGS
+          uv run --no-sync mkdocs build --strict --clean
