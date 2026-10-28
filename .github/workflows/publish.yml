@@ -76,7 +76,17 @@ jobs:
                   return Parser().parsestr(archive.extractfile(info).read().decode())["Version"]
 
 
-          versions = sorted({version(path) for path in Path("dist").iterdir()})
+          # Publishing uploads dist/*, every visible file, so each must be a distribution checked
+          # here; a hidden one, such as the .gitignore uv build writes, is never uploaded.
+          files = sorted(path for path in Path("dist").iterdir() if not path.name.startswith("."))
+          wheels = [path for path in files if path.name.endswith(".whl")]
+          sdists = [path for path in files if path.name.endswith(".tar.gz")]
+          others = [path.name for path in files if path not in wheels + sdists]
+          if others:
+              sys.exit(f"dist/ holds files that are no distribution: {others}")
+          if not wheels or not sdists:
+              sys.exit(f"a release ships a wheel and an sdist, as the gates' Build makes, not {[path.name for path in files]}")
+          versions = sorted({version(path) for path in files})
           if len(versions) != 1:
               sys.exit(f"the distributions should carry one version, not {versions}")
           tag, ref = f"v{versions[0]}", os.environ["RUN_REF"]

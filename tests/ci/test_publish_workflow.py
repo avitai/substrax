@@ -49,13 +49,36 @@ def test_a_release_runs_ci_on_the_released_commit_first() -> None:
     assert _jobs()["validate"]["uses"] == "./.github/workflows/ci.yml"
 
 
+def _builds(step: dict[str, Any]) -> bool:
+    """Whether a step builds distributions; a comment line, in shell or Python, runs nothing."""
+    commands = [
+        line for line in str(step.get("run", "")).splitlines() if not line.lstrip().startswith("#")
+    ]
+    return bool(BUILDS.search(" ".join([str(step.get("uses", "")), *commands])))
+
+
+@pytest.mark.parametrize(
+    ("step", "builds"),
+    [
+        ({"run": "uv build\ntwine check dist/*"}, True),
+        ({"run": "python -m build --sdist"}, True),
+        ({"uses": "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"}, True),
+        ({"run": "  # the .gitignore uv build writes\nls dist"}, False),
+    ],
+)
+def test_a_build_step_is_told_from_a_comment_naming_one(
+    step: dict[str, Any], *, builds: bool
+) -> None:
+    assert _builds(step) is builds
+
+
 def test_the_publishing_workflow_builds_nothing_itself() -> None:
     """A release ships the distributions CI built and checked, not a second build of its own."""
     building = [
         f"{name}: {step.get('uses', step.get('run', ''))}"
         for name, job in _jobs().items()
         for step in job.get("steps", [])
-        if BUILDS.search(f"{step.get('uses', '')} {step.get('run', '')}")
+        if _builds(step)
     ]
 
     assert building == []
@@ -114,19 +137,25 @@ def test_every_release_checks_the_distributions_ci_built_against_its_tag() -> No
     assert download["with"] == {"name": ARTIFACT, "path": "dist/"}
 
 
-def _distributions(directory: Path, wheel: str, sdist: str) -> None:
-    """Write a wheel and an sdist whose metadata hold the given versions, as CI's Build does."""
+def _distributions(directory: Path, wheel: str, sdist: str | None) -> Path:
+    """Write ``dist/`` as ``uv build`` does: a wheel, an sdist and the ``.gitignore`` it adds."""
     dist = directory / "dist"
     dist.mkdir()
+    # uv build writes this into its output directory; publishing uploads only dist/*, so a
+    # hidden file is never a distribution.
+    (dist / ".gitignore").write_text("*")
     with zipfile.ZipFile(dist / f"substrax-{wheel}-py3-none-any.whl", "w") as archive:
         archive.writestr(
             f"substrax-{wheel}.dist-info/METADATA", f"Name: substrax\nVersion: {wheel}\n"
         )
+    if sdist is None:
+        return dist
     info = f"Name: substrax\nVersion: {sdist}\n".encode()
     with tarfile.open(dist / f"substrax-{sdist}.tar.gz", "w:gz") as archive:
         member = tarfile.TarInfo(f"substrax-{sdist}/PKG-INFO")
         member.size = len(info)
         archive.addfile(member, io.BytesIO(info))
+    return dist
 
 
 def _check_release(directory: Path, **env: str) -> subprocess.CompletedProcess[str]:
@@ -197,7 +226,27 @@ def test_a_release_with_no_distributions_stops(tmp_path: Path) -> None:
     result = _check_release(tmp_path, RUN_REF="refs/tags/v0.1.23")
 
     assert result.returncode != 0
-    assert "[]" in result.stderr
+    assert "a wheel and an sdist" in result.stderr
+
+
+def test_a_release_missing_its_sdist_stops(tmp_path: Path) -> None:
+    """The gates' Build makes both, and PyPI receives both."""
+    _distributions(tmp_path, "0.1.23", None)
+
+    result = _check_release(tmp_path, RUN_REF="refs/tags/v0.1.23")
+
+    assert result.returncode != 0
+    assert "a wheel and an sdist" in result.stderr
+
+
+def test_a_file_publishing_would_upload_that_is_no_distribution_stops(tmp_path: Path) -> None:
+    """Publishing uploads every visible file in dist/, so each must be a checked distribution."""
+    (_distributions(tmp_path, "0.1.23", "0.1.23") / "notes.txt").write_text("not a package")
+
+    result = _check_release(tmp_path, RUN_REF="refs/tags/v0.1.23")
+
+    assert result.returncode != 0
+    assert "notes.txt" in result.stderr
 
 
 def test_publish_pypi_waits_for_the_version_check_and_manual_release_creation() -> None:
