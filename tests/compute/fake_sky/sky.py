@@ -1,8 +1,8 @@
-"""A stand-in for SkyPilot's ``sky`` command, running each task's ``run`` script locally.
+"""A stand-in for SkyPilot's public SDK, running each task's ``run`` script locally.
 
 State lives under ``$FAKE_SKY_ROOT``: a bucket ``gs://NAME`` is ``buckets/NAME``, and a cluster is
 ``clusters/<name>`` holding its job's pid, log and exit code. Paths the task mounts are rewritten
-to their local directories in the script. ``--down`` removes the cluster once its job ends, as
+to their local directories in the script. The launch ``down`` flag removes the cluster once its job ends, as
 SkyPilot's autodown does, so a finished run is known only from its bucket.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import io
 import json
 import os
 import shlex
@@ -17,7 +18,9 @@ import shutil
 import signal
 import sys
 import time
+import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(os.environ["FAKE_SKY_ROOT"])
@@ -31,7 +34,7 @@ def cluster_dir(name: str) -> Path:
     return ROOT / "clusters" / name
 
 
-def launch(arguments: argparse.Namespace) -> int:
+def launch_command(arguments: argparse.Namespace) -> int:
     task = json.loads(Path(arguments.task).read_text())
     local: dict[str, str] = {}
     for remote, source in task["file_mounts"].items():
@@ -62,6 +65,18 @@ def launch(arguments: argparse.Namespace) -> int:
     return 0
 
 
+class Task:
+    @staticmethod
+    def from_yaml(path: str) -> str:
+        return path
+
+
+def launch(task: str, *, cluster_name: str, retry_until_up: bool, down: bool) -> str:
+    assert not retry_until_up
+    launch_command(argparse.Namespace(task=task, cluster=cluster_name, down=down))
+    return _request("launch", [1, None])
+
+
 def _ended(cluster: Path) -> bool:
     return (cluster / "exit").exists() or (cluster / "cancelled").exists()
 
@@ -74,7 +89,7 @@ def _gone(name: str) -> bool:
     return down and _ended(cluster) and (cluster / "logged").exists()
 
 
-def queue(arguments: argparse.Namespace) -> int:
+def queue_command(arguments: argparse.Namespace) -> int:
     records = {}
     for name in arguments.clusters:
         cluster = cluster_dir(name)
@@ -90,6 +105,60 @@ def queue(arguments: argparse.Namespace) -> int:
         records[name] = [{"job_id": 1, "status": status}]
     sys.stdout.write(json.dumps(records, indent=2) + "\n")
     return 0
+
+
+def queue(cluster: str) -> str:
+    """Return native SDK-style records for the adapter contract."""
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        queue_command(argparse.Namespace(clusters=[cluster]))
+    text = output.getvalue()
+    start = text.index("{")
+    jobs = json.loads(text[start:]).get(cluster, [])
+    return _request("queue", jobs)
+
+
+def _request(operation: str, result: object) -> str:
+    requests = ROOT / "requests"
+    requests.mkdir(parents=True, exist_ok=True)
+    identity = "request-" + uuid.uuid4().hex
+    (requests / identity).write_text(json.dumps({"operation": operation, "result": result}))
+    return identity
+
+
+def api_cancel(*, request_ids: list[str]) -> str:
+    for identity in request_ids:
+        assert (ROOT / "requests" / identity).is_file()
+    return _request("api_cancel", request_ids)
+
+
+def get(request: str) -> object:
+    """Resolve a persistent request identifier, never the result itself."""
+    record = json.loads((ROOT / "requests" / request).read_text())
+    result = record["result"]
+    if record["operation"] == "queue":
+        for job in result:
+            job["status"] = SimpleNamespace(value=job["status"])
+    return result
+
+
+def tail_logs(cluster_name: str, job_id: int, follow: bool, *, preload_content: bool) -> object:
+    assert not preload_content
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        logs(argparse.Namespace(cluster=cluster_name, job_id=job_id, follow=follow))
+    return iter([output.getvalue(), None])
+
+
+def cancel(cluster_name: str, *, job_ids: list[int]) -> str:
+    assert job_ids == [1]
+    cancel_command(argparse.Namespace(cluster=cluster_name))
+    return _request("cancel", None)
+
+
+def down(cluster_name: str) -> str:
+    down_command(argparse.Namespace(cluster=cluster_name))
+    return _request("down", None)
 
 
 def logs(arguments: argparse.Namespace) -> int:
@@ -109,7 +178,7 @@ def logs(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def cancel(arguments: argparse.Namespace) -> int:
+def cancel_command(arguments: argparse.Namespace) -> int:
     cluster = cluster_dir(arguments.cluster)
     (cluster / "cancelled").touch()
     with contextlib.suppress(ProcessLookupError):
@@ -117,43 +186,6 @@ def cancel(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def down(arguments: argparse.Namespace) -> int:
+def down_command(arguments: argparse.Namespace) -> int:
     shutil.rmtree(cluster_dir(arguments.cluster), ignore_errors=True)
     return 0
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(prog="sky")
-    commands = parser.add_subparsers(required=True)
-    p = commands.add_parser("launch")
-    p.add_argument("task")
-    p.add_argument("-c", "--cluster", required=True)
-    p.add_argument("-d", "--detach-run", action="store_true")
-    p.add_argument("--down", action="store_true")
-    p.add_argument("-y", "--yes", action="store_true")
-    p.set_defaults(command=launch)
-    p = commands.add_parser("queue")
-    p.add_argument("clusters", nargs="+")
-    p.add_argument("-o", "--output", choices=["json"], required=True)
-    p.set_defaults(command=queue)
-    p = commands.add_parser("logs")
-    p.add_argument("cluster")
-    p.add_argument("job_id")
-    p.add_argument("--follow", action="store_true")
-    p.add_argument("--no-follow", dest="follow", action="store_false")
-    p.set_defaults(command=logs)
-    p = commands.add_parser("cancel")
-    p.add_argument("cluster")
-    p.add_argument("-a", "--all", action="store_true")
-    p.add_argument("-y", "--yes", action="store_true")
-    p.set_defaults(command=cancel)
-    p = commands.add_parser("down")
-    p.add_argument("cluster")
-    p.add_argument("-y", "--yes", action="store_true")
-    p.set_defaults(command=down)
-    arguments = parser.parse_args()
-    return arguments.command(arguments)
-
-
-if __name__ == "__main__":
-    sys.exit(main())

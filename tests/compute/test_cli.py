@@ -198,6 +198,29 @@ def test_listing_names_each_unsupported_record_and_still_lists_the_rest(
     assert "version 1" in captured.err
 
 
+def test_cleanup_error_group_is_reported_without_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every cleanup failure stays visible with a documented unsuccessful exit."""
+
+    def cancel(arguments: object, store: object) -> None:
+        del arguments, store
+        raise ExceptionGroup(
+            "cleanup",
+            [
+                RuntimeError("queue unavailable"),
+                ExceptionGroup("teardown", [RuntimeError("down failed")]),
+            ],
+        )
+
+    monkeypatch.setattr(cli, "_cancel", cancel)
+    assert main(["cancel", "owned-run"]) == 1
+    error = capsys.readouterr().err
+    assert "queue unavailable" in error
+    assert "down failed" in error
+    assert "Traceback" not in error
+
+
 def test_new_run_binds_typed_settings(project: Path) -> None:
     """Every provider uses the same required typed settings field."""
     run = new_run(_SAVED, project, settings={"state_dir": "/original"})

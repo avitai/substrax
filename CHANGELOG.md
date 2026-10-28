@@ -66,6 +66,16 @@ and uses semantic versioning while the public API stabilizes.
   state directory's `compute/runs/`. `substrax-compute status` lists every run it can read,
   names each record it cannot with the reason, and exits 1. `RunStore.handles()` is replaced by
   `RunStore.read_all()`, which returns both.
+- **Breaking:** the `skypilot` backend runs SkyPilot through its public SDK, in SkyPilot's own
+  interpreter (`sky_python`, by default the `python` beside the `sky` command), and reads its
+  native request and queue records instead of the `sky` command's output. A launch records its
+  intent and SkyPilot's request id before it waits, so an interrupted one is reconciled rather
+  than submitted again. `cancel` cancels that request and the job and tears the cluster down,
+  attempting every step and raising an `ExceptionGroup` of the failures, which
+  `substrax-compute cancel` reports with exit code 1; a run that already ended is left as it is,
+  and `teardown(handle)` removes its cluster. A job status the backend does not know raises
+  instead of reading as failed; `FAILED_DRIVER` reads as failed.
+
 - substrax's CI is one workflow, `ci.yml`. It calls `python-gates.yml`, adds the Orbax-floor
   checkpoint tests and the derived-status check, and ends in the `required` check. The Quality
   Checks, Security, Documentation and Build Verification workflows are folded into it, so a pull

@@ -12,8 +12,8 @@ substrax-compute cancel RUN_ID
 ``run`` submits the job, follows its log, waits for it and fetches its outputs; with ``--detach``
 it returns once the job is submitted, and the other commands find the run again by the id it
 prints. Fetched outputs go to ``--into``, or under the state directory, never into the project.
-Exit codes: 0 for success, 1 for a run that did not succeed or a stored run ``status`` cannot
-read, 2 for a refused command.
+Exit codes: 0 for success, 1 for unsuccessful execution or cleanup, or a stored run ``status``
+cannot read, 2 for a refused command.
 """
 
 from __future__ import annotations
@@ -56,10 +56,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     store = RunStore()
     try:
         return arguments.command(arguments, store)
+    except ExceptionGroup as error:
+        for message in _failure_messages(error):
+            sys.stderr.write(f"substrax-compute: {message}\n")
+        return _UNSUCCESSFUL
     except (LookupError, FileNotFoundError, ValueError) as error:
         message = error.args[0] if isinstance(error, KeyError) and error.args else str(error)
         sys.stderr.write(f"substrax-compute: {message}\n")
         return _REFUSED
+
+
+def _failure_messages(error: Exception) -> list[str]:
+    """Retain each cleanup cause without an unhandled exception traceback."""
+    if isinstance(error, ExceptionGroup):
+        return [message for child in error.exceptions for message in _failure_messages(child)]
+    return [str(error)]
 
 
 def _run(arguments: argparse.Namespace, store: RunStore) -> int:
