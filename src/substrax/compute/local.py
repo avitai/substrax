@@ -184,7 +184,7 @@ class LocalBackend:
         (Path(handle.details["run_dir"]) / _CANCELLED).touch()
         pid = int(handle.details["pid"])
         if _is_worker(pid, handle.run_id):
-            # The worker leads its own process group, which its tasks inherit.
+            # The worker handles TERM and reaps the separate task process group.
             os.killpg(pid, signal.SIGTERM)
 
     def _interpreter(self, project: Path) -> list[str]:
