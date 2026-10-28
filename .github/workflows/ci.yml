@@ -115,4 +115,6 @@ jobs:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           jobs: ${{ toJSON(needs) }}
-          allowed-skips: ${{ github.event_name == 'pull_request' && '' || 'gates, checkpoint-orbax-floor, derive-status' }}
+          # `&&` and `||` return an operand and '' is falsy, so the non-empty value is the middle one:
+          # `cond && '' || 'list'` would give 'list' on a pull request too.
+          allowed-skips: ${{ github.event_name != 'pull_request' && 'gates, checkpoint-orbax-floor, derive-status' || '' }}
