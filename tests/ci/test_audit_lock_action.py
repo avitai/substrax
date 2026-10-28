@@ -150,6 +150,14 @@ class TestFindings:
 
         assert audit.findings([pypi, osv], {}) == [("pkg", "1.0", "PYSEC-1")]
 
+    def test_a_requirement_pip_audit_skipped_is_listed_once_with_its_reason(
+        self, audit: ModuleType
+    ) -> None:
+        reason = "URL requirements cannot be pinned to a specific package version"
+        report = {"dependencies": [{"name": "mfapy", "skip_reason": reason}], "fixes": []}
+
+        assert audit.skipped([report, report]) == [("mfapy", reason)]
+
     def test_an_ignore_no_advisory_matches_is_stale(self, audit: ModuleType) -> None:
         report = _report(("pkg", [_vuln("PYSEC-1", "CVE-1")]))
 
@@ -246,6 +254,9 @@ class TestMain:
         exports = [call for call in self.calls(project) if call.startswith("uv ")]
         assert len(exports) == 2
         assert all("export --frozen --all-groups --no-emit-project" in call for call in exports)
+        # A hashed export puts pip-audit in hash-checking mode, where a git-sourced requirement
+        # (it has no hash) aborts the whole audit; unhashed, pip-audit skips it and audits the rest.
+        assert all("--no-hashes" in call for call in exports)
         assert "--extra a --extra c" in exports[0]
         assert "--extra b --extra c" in exports[1]
 
@@ -343,6 +354,26 @@ class TestMain:
         assert self.run(audit) == 0
 
         assert "advisory:" not in capsys.readouterr().out
+
+    @pytest.mark.usefixtures("project")
+    def test_a_requirement_pip_audit_skips_is_named_and_does_not_fail_the_audit(
+        self,
+        audit: ModuleType,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        reason = "URL requirements cannot be pinned to a specific package version"
+        report = _report(("pkg", []))
+        report["dependencies"].append({"name": "mfapy", "skip_reason": reason})
+        self.report(tmp_path, monkeypatch, report)
+        summary = tmp_path / "summary.md"
+        monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+
+        assert self.run(audit) == 0
+
+        assert f"not audited: mfapy ({reason})" in capsys.readouterr().out
+        assert f"- not audited: mfapy ({reason})" in summary.read_text()
 
     def test_a_stale_ignore_fails_the_audit(
         self, audit: ModuleType, project: Path, capsys: pytest.CaptureFixture[str]

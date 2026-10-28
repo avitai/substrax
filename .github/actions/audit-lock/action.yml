@@ -5,8 +5,9 @@ description: >-
   holds only the extras it installed) against both its PyPI and OSV services, with a fresh advisory
   cache. Fails on an advisory the
   project's [tool.substrax.audit-lock.ignore] table (advisory id -> reason) does not name, and on
-  an entry of that table no advisory matches any more. Needs uv on PATH: run astral-sh/setup-uv
-  before this action.
+  an entry of that table no advisory matches any more. A requirement pip-audit cannot audit, such
+  as a git-sourced package, is named in the log and the step summary. Needs uv on PATH: run
+  astral-sh/setup-uv before this action.
 inputs:
   pip-audit-version:
     description: The pip-audit release to run, through uvx, isolated from the project

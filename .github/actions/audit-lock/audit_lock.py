@@ -13,7 +13,8 @@ count: either one can lack an advisory the other reports.
 
 The run fails on an advisory the project's ``[tool.substrax.audit-lock.ignore]`` table does not
 name by id or alias, and on an entry of that table no advisory matches any more, so the table
-cannot outlive its reasons.
+cannot outlive its reasons. A requirement pip-audit cannot audit, such as a git-sourced package
+with no release for the advisory services to know, is named in the log and the summary.
 
 Usage, from the project root (``uv`` and ``uvx`` on PATH):
     python3 audit_lock.py --pip-audit-version 2.10.1
@@ -165,6 +166,28 @@ def stale_ignores(reports: Iterable[Mapping[str, Any]], ignored: Mapping[str, st
     return sorted(identifier for identifier in ignored if identifier not in named)
 
 
+def skipped(reports: Iterable[Mapping[str, Any]]) -> list[tuple[str, str]]:
+    """Requirements pip-audit did not audit, each with the reason it gave.
+
+    A git-sourced requirement is one: pip-audit cannot pin it to a release the advisory services
+    know, so it reports it with a ``skip_reason`` and audits the rest of the export.
+
+    Args:
+        reports: pip-audit JSON reports.
+
+    Returns:
+        Sorted, de-duplicated (package, reason) pairs.
+    """
+    return sorted(
+        {
+            (dependency["name"], dependency["skip_reason"])
+            for report in reports
+            for dependency in report["dependencies"]
+            if dependency.get("skip_reason")
+        }
+    )
+
+
 def _tool(name: str) -> str:
     """The path of ``name`` on PATH, or an exit that names the setup step it needs."""
     path = shutil.which(name)
@@ -183,12 +206,17 @@ def _label(group: Sequence[str]) -> str:
 def _audit_group(
     group: Sequence[str], project_dir: Path, work_dir: Path, pip_audit_version: str
 ) -> list[Mapping[str, Any]]:
-    """Export one group of extras from the lock and return each service's pip-audit JSON report."""
+    """Export one group of extras from the lock and return each service's pip-audit JSON report.
+
+    The export carries no hashes: they would put pip-audit in hash-checking mode, where a
+    git-sourced requirement, which has none, aborts the whole audit. pip-audit never downloads a
+    package here (``--disable-pip --no-deps``), so the hashes check nothing.
+    """
     requirements = work_dir / "requirements.txt"
     extras = [argument for extra in group for argument in ("--extra", extra)]
     subprocess.run(  # noqa: S603  # nosec B603 - uv with fixed arguments
-        [_tool("uv"), "export", "--frozen", "--all-groups", "--no-emit-project", *extras,
-         "--output-file", str(requirements)],
+        [_tool("uv"), "export", "--frozen", "--all-groups", "--no-emit-project", "--no-hashes",
+         *extras, "--output-file", str(requirements)],
         cwd=project_dir, check=True, stdout=subprocess.DEVNULL,
     )  # fmt: skip
     reports: list[Mapping[str, Any]] = []
@@ -214,11 +242,15 @@ def _audit_group(
 
 
 def _summary(
-    groups: Sequence[Sequence[str]], unignored: Sequence[tuple[str, str, str]], stale: Sequence[str]
+    groups: Sequence[Sequence[str]],
+    unignored: Sequence[tuple[str, str, str]],
+    stale: Sequence[str],
+    not_audited: Sequence[tuple[str, str]],
 ) -> str:
     """The Markdown the run appends to the GitHub step summary."""
     lines = ["## Lockfile audit", ""]
     lines += [f"- audited extras: {_label(group)}" for group in groups]
+    lines += [f"- not audited: {name} ({reason})" for name, reason in not_audited]
     lines += ["", f"{len(unignored)} advisories not ignored, {len(stale)} stale ignores", ""]
     lines += [
         f"- advisory: {name} {version} {identifier}" for name, version, identifier in unignored
@@ -252,8 +284,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
     unignored = findings(reports, ignored)
     stale = stale_ignores(reports, ignored)
+    not_audited = skipped(reports)
     for group in groups:
         print(f"audited extras: {_label(group)}")
+    for name, reason in not_audited:
+        print(f"not audited: {name} ({reason})")
     for name, version, identifier in unignored:
         print(f"advisory: {name} {version} {identifier}")
     for identifier in stale:
@@ -261,7 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with Path(summary_path).open("a", encoding="utf-8") as summary:
-            summary.write(_summary(groups, unignored, stale))
+            summary.write(_summary(groups, unignored, stale, not_audited))
     return 1 if unignored or stale else 0
 
 
