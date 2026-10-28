@@ -14,6 +14,19 @@ and uses semantic versioning while the public API stabilizes.
   workflow on scarce runners stands down on a quiet night. Only a scheduled run compares; a manual
   run, a failed lookup or a first night always runs. Consumers pin it by commit, as with
   `already-tested`. substrax's own macOS workflow uses it in place of its inline comparison.
+- A `.pre-commit-hooks.yaml` with the hook `no-dependabot-config`, which fails while
+  `.github/dependabot.yml` or `.github/dependabot.yaml` is tracked. It uses pre-commit's `fail`
+  language, so it runs no code and installs nothing. A repository whose CI runs pre-commit adds it
+  in place of its own `test_dependency_updates.py`, pinned by commit:
+
+  ```yaml
+  - repo: https://github.com/avitai/substrax
+    rev: <commit>
+    hooks:
+      - id: no-dependabot-config
+  ```
+
+  substrax's own tests run the hook over its tree, in place of its `test_dependency_updates.py`.
 
 ### Changed
 
