@@ -31,7 +31,14 @@ also runs the PyPI upload path.
    uv run twine check dist/*
    ```
 
-5. Commit the version and changelog updates, and merge them to `main`.
+5. Commit the version and changelog updates on a branch and open a pull request. `main` accepts
+   only a pull request whose `required` check passed, merged by rebase:
+
+   ```bash
+   gh pr create --base main --fill
+   gh pr merge --rebase   # once `required` has passed
+   ```
+
 6. Run the macOS workflow on the release commit and wait for it to pass. No push or pull request
    runs on macOS, so this is the release's macOS check.
 
@@ -40,12 +47,16 @@ also runs the PyPI upload path.
    gh run watch "$(gh run list --workflow macos.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
    ```
 
-7. Create and push an annotated tag from the exact release commit.
+7. Create and push an annotated tag on the release commit `main` holds. A rebase merge gives
+   the release commit a new SHA, so the tag is made on `main` after a fast-forward pull, and only
+   the tag is pushed: `main` itself changes only through pull requests.
 
    ```bash
+   git switch main
+   git pull --ff-only
    target_sha=$(git rev-parse HEAD)
    git tag -a vX.Y.Z -m "substrax X.Y.Z"
-   git push origin main vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
 8. In GitHub Actions, manually run `Publish to PyPI` with:
