@@ -1,7 +1,7 @@
 """Native preservation composes newest and best without competing deletion loops."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import jax.numpy as jnp
 import pytest
@@ -63,3 +63,19 @@ def test_nonfinite_ranking_cannot_replace_a_valid_checkpoint(tmp_path: Path, sco
             store.save(2, {"data_iterator": {"position": 2}}, metrics={"score": score})
         assert store.list_steps() == [1]
         assert store.best_step("score") == 1
+
+
+@pytest.mark.parametrize("best", [None, ("score", "min")])
+def test_negative_retention_is_refused_before_publication(tmp_path: Path, best: Any) -> None:
+    with (
+        pytest.raises(ValueError, match=r"non-negative|max_to_keep"),
+        OrbaxCheckpointStore(tmp_path, max_to_keep=-1, best=best) as store,
+    ):
+        store.save(0, {"data_iterator": {"position": 0}}, metrics={"score": 1.0})
+    assert not (tmp_path / "0").exists()
+
+
+@pytest.mark.parametrize("best", [("", "min"), ("score", "sideways")])
+def test_best_configuration_is_validated_before_storage(tmp_path: Path, best: Any) -> None:
+    with pytest.raises(ValueError, match="best"):
+        OrbaxCheckpointStore(tmp_path, best=best)

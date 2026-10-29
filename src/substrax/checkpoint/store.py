@@ -232,11 +232,13 @@ class OrbaxCheckpointStore:
                 the newest tied checkpoint. Unscored steps qualify only for newest retention.
 
         Raises:
-            ValueError: If ``directory`` is empty or whitespace-only, or ``best`` does not
-                name a metric and a valid mode.
+            ValueError: If ``directory`` is empty or whitespace-only, ``max_to_keep`` is
+                negative, or ``best`` does not name a metric and a valid mode.
         """
         if not str(directory).strip():
             raise ValueError("Checkpoint directory cannot be empty")
+        if max_to_keep is not None and max_to_keep < 0:
+            raise ValueError("max_to_keep must be non-negative or None")
         if best is not None and (not best[0].strip() or best[1] not in ("min", "max")):
             raise ValueError("best requires a nonempty metric and mode 'min' or 'max'")
         self.directory = Path(directory).resolve()
