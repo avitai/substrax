@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -205,7 +206,8 @@ class OrbaxCheckpointStore:
     """Orbax-backed :class:`CheckpointStore`.
 
     Wraps :class:`orbax.checkpoint.CheckpointManager` with step-int addressing and
-    retention by ``max_to_keep``. The manager is opened on first use, so constructing a
+    retention by ``max_to_keep`` and optional ``best`` preservation. The manager is opened
+    on first use, so constructing a
     store writes nothing; the directory appears with the first save. The store doubles as
     a context manager so backend resources are released deterministically::
 
@@ -218,20 +220,28 @@ class OrbaxCheckpointStore:
         directory: str | Path,
         *,
         max_to_keep: int | None = 5,
+        best: tuple[str, BestMode] | None = None,
     ) -> None:
         """Remember where the checkpoints live and how many to keep.
 
         Args:
             directory: Directory the checkpoints are stored under; created on the first save.
             max_to_keep: How many of the newest steps Orbax retains; ``None`` keeps every one.
+            best: Also preserve one best checkpoint for this metric and mode. Preservation
+                composes Orbax's native newest and best policies. Tied best values preserve
+                the newest tied checkpoint. Unscored steps qualify only for newest retention.
 
         Raises:
-            ValueError: If ``directory`` is empty or whitespace-only.
+            ValueError: If ``directory`` is empty or whitespace-only, or ``best`` does not
+                name a metric and a valid mode.
         """
         if not str(directory).strip():
             raise ValueError("Checkpoint directory cannot be empty")
+        if best is not None and (not best[0].strip() or best[1] not in ("min", "max")):
+            raise ValueError("best requires a nonempty metric and mode 'min' or 'max'")
         self.directory = Path(directory).resolve()
         self.max_to_keep = max_to_keep
+        self.best = best
         self._manager: ocp.CheckpointManager | None = None
 
     def __enter__(self) -> Self:
@@ -245,7 +255,31 @@ class OrbaxCheckpointStore:
     def _open(self) -> ocp.CheckpointManager:
         """The Orbax manager, opened on first use."""
         if self._manager is None:
-            options = ocp.CheckpointManagerOptions(max_to_keep=self.max_to_keep, create=True)
+            if self.best is None:
+                options = ocp.CheckpointManagerOptions(max_to_keep=self.max_to_keep, create=True)
+            else:
+                metric, mode = self.best
+
+                def score(values: PyTree) -> float:
+                    return float(values[metric])
+
+                policies = ocp.checkpoint_managers.AnyPreservationPolicy(
+                    (
+                        ocp.checkpoint_managers.LatestN(n=self.max_to_keep),
+                        ocp.checkpoint_managers.BestN(
+                            get_metric_fn=score,
+                            reverse=mode == "min",
+                            n=1,
+                            keep_checkpoints_without_metrics=False,
+                        ),
+                    )
+                )
+                # Orbax's public best_fn option also enables metric persistence. Without
+                # it, even a custom BestN policy loses its scores when the store reopens.
+                # The explicit preservation_policy remains the sole deletion authority.
+                options = ocp.CheckpointManagerOptions(
+                    preservation_policy=policies, best_fn=score, best_mode=mode, create=True
+                )
             self._manager = ocp.CheckpointManager(self.directory, options=options)
             logger.info("Opened OrbaxCheckpointStore at %s", self.directory)
         return self._manager
@@ -317,6 +351,17 @@ class OrbaxCheckpointStore:
         )
         return _RECORDED_DTYPES.validate_python(restored[DTYPES_ITEM], strict=True)
 
+    def _checkpoint_metrics(
+        self, metrics: Mapping[str, float] | None
+    ) -> tuple[dict[str, float], dict[str, float] | None]:
+        """Admit the ranking metric and retain all record metrics separately."""
+        checked = {name: float(value) for name, value in (metrics or {}).items()}
+        if self.best is None or self.best[0] not in checked:
+            return checked, None
+        if not math.isfinite(checked[self.best[0]]):
+            raise ValueError("best checkpoint metric must be finite")
+        return checked, checked
+
     def save(
         self,
         step: int,
@@ -345,7 +390,8 @@ class OrbaxCheckpointStore:
 
         Raises:
             ValueError: If ``step`` is negative, ``items`` is empty or names an unknown item,
-                or ``extra`` shadows a reserved key.
+                ``extra`` shadows a reserved key, or the configured ranking metric is
+                non-finite.
             CheckpointNotWrittenError: If ``step`` is already written and ``overwrite`` is
                 false, if it is below the latest step, or if Orbax declines the write.
         """
@@ -355,13 +401,14 @@ class OrbaxCheckpointStore:
         checked_extra = check_extra(extra)
         latest = self._admit_write(step, overwrite=overwrite)
 
+        checked_metrics, ranked_metrics = self._checkpoint_metrics(metrics)
         metadata = CheckpointMetadata(
             step=step,
             epoch=epoch,
             items=names,
             libraries=library_versions(),
             producer=producer,
-            metrics={name: float(value) for name, value in (metrics or {}).items()},
+            metrics=checked_metrics,
             extra=checked_extra,
             created_at=now_iso(),
         )
@@ -372,7 +419,7 @@ class OrbaxCheckpointStore:
             **{DTYPES_ITEM: ocp.args.JsonSave(dtypes)},
         )
         manager = self._open()
-        written = manager.save(step, args=args, force=True)
+        written = manager.save(step, args=args, metrics=ranked_metrics, force=True)
         manager.wait_until_finished()
         if not written:
             raise CheckpointNotWrittenError(step=step, latest_step=latest, reason="rejected")

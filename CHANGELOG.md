@@ -7,6 +7,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `OrbaxCheckpointStore(..., best=(metric, mode))` preserves the newest
+  `max_to_keep` checkpoints plus one best checkpoint through Orbax's native
+  preservation policies. Ranking survives reopen, unscored checkpoints use
+  newest retention only, and nonfinite ranking metrics are refused before
+  publication. Tied best scores preserve the newest tie.
+
 ## [0.1.23] - 2026-10-28
 
 ### Added

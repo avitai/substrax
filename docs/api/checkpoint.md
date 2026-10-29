@@ -46,6 +46,23 @@ latest is refused, and a step Orbax declines raises. Every refusal is a
 created before the first save, and `resolve_checkpoint_dir` picks a run's directory without
 creating it.
 
+Preserve the newest checkpoints and one best checkpoint with a single native
+Orbax preservation policy:
+
+```python
+with OrbaxCheckpointStore("checkpoints", max_to_keep=5, best=("loss", "min")) as store:
+    store.save(100, {"model": nnx.state(model)}, metrics={"loss": 0.42})
+```
+
+This retains the newest five plus the best if it is older. `max_to_keep=None`
+keeps every checkpoint. Equal best scores preserve the newest tie. A save without
+the configured metric qualifies for newest retention only; a nonfinite value for
+that metric is refused before writing or pruning. Other metrics remain in the
+checkpoint record. Configure the policy from the first save and use the same
+policy on reopen: Orbax's ranking records are persisted when best preservation
+is configured. Keep-all, best preservation and physical deletion are owned by
+the store; callers must not run a competing pruning loop.
+
 A checkpoint whose metadata names another format, another producer or another version number is
 refused with `UnsupportedCheckpointError` naming what it holds, rather than read as this one.
 
