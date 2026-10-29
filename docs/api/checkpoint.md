@@ -63,6 +63,32 @@ policy on reopen: Orbax's ranking records are persisted when best preservation
 is configured. Keep-all, best preservation and physical deletion are owned by
 the store; callers must not run a competing pruning loop.
 
+`save` returns only after native persistence completes. To overlap persistence
+with computation, keep the same store alive and use `save_async`:
+
+```python
+with OrbaxCheckpointStore("checkpoints", max_to_keep=5) as store:
+    store.save_async(100, {"model": nnx.state(model)}, extra={"run": {"label": "trial"}})
+    # Orbax has captured arrays; a subsequent update may donate their buffers.
+    train_step(model, batch)
+    store.wait_until_finished()
+```
+
+The async return value is a submitted path, not a completed artifact. Native
+Orbax owns blocking capture, background persistence and failure propagation.
+Nested JSON metadata is validated and detached before submission. Reads,
+subsequent saves, `close` and context exit wait for pending persistence; callers
+must observe completion before publishing or using a submitted checkpoint.
+Storage errors propagate through the completion boundary. Reconstruct the run
+after a failed save rather than assuming it is resumable in memory. Earlier
+completed steps remain available when a later, distinct step fails.
+
+Invalid metadata is refused before replacement deletes an existing step.
+`overwrite=True` still deletes that step before writing its replacement; a
+storage failure after deletion does not restore it. Prefer distinct increasing
+steps for recovery checkpoints. An unused store's wait and close operations do
+not create its directory.
+
 A checkpoint whose metadata names another format, another producer or another version number is
 refused with `UnsupportedCheckpointError` naming what it holds, rather than read as this one.
 

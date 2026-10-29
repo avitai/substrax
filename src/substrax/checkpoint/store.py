@@ -287,6 +287,7 @@ class OrbaxCheckpointStore:
         return self._manager
 
     def _steps(self) -> list[int]:
+        self.wait_until_finished()
         if self._manager is None and not self.directory.exists():
             return []
         return sorted(int(step) for step in self._open().all_steps())
@@ -364,7 +365,7 @@ class OrbaxCheckpointStore:
             raise ValueError("best checkpoint metric must be finite")
         return checked, checked
 
-    def save(
+    def save(  # noqa: DOC502  # admission errors are raised by save_async
         self,
         step: int,
         items: Mapping[str, PyTree],
@@ -375,7 +376,7 @@ class OrbaxCheckpointStore:
         extra: Mapping[str, JsonValue] | None = None,
         overwrite: bool = False,
     ) -> Path:
-        """Write ``items`` at ``step`` with a metadata record and every array's dtype.
+        """Write ``items`` at ``step`` and wait for completed native persistence.
 
         Args:
             step: Non-negative step the checkpoint is addressed by.
@@ -392,17 +393,63 @@ class OrbaxCheckpointStore:
 
         Raises:
             ValueError: If ``step`` is negative, ``items`` is empty or names an unknown item,
-                ``extra`` shadows a reserved key, or the configured ranking metric is
+                ``extra`` is not valid JSON or shadows a reserved key, or the ranking metric is
                 non-finite.
             CheckpointNotWrittenError: If ``step`` is already written and ``overwrite`` is
                 false, if it is below the latest step, or if Orbax declines the write.
         """
+        path = self.save_async(
+            step,
+            items,
+            epoch=epoch,
+            metrics=metrics,
+            producer=producer,
+            extra=extra,
+            overwrite=overwrite,
+        )
+        self.wait_until_finished()
+        logger.info("Saved checkpoint step %s with items %s", step, tuple(items))
+        return path
+
+    def save_async(
+        self,
+        step: int,
+        items: Mapping[str, PyTree],
+        *,
+        epoch: int | None = None,
+        metrics: Mapping[str, float] | None = None,
+        producer: Producer | None = None,
+        extra: Mapping[str, JsonValue] | None = None,
+        overwrite: bool = False,
+    ) -> Path:
+        """Capture ``items`` natively, then persist in Orbax's background worker.
+
+        Keep this store open until :meth:`wait_until_finished` or :meth:`close` completes.
+        The returned path identifies a submitted save, not completed publication. Orbax owns
+        the blocking capture needed before donating arrays to a subsequent update.
+
+        Args:
+            step: Non-negative step the checkpoint is addressed by.
+            items: Named pytrees to capture.
+            epoch: The epoch the step falls in.
+            metrics: Scalar metrics recorded for best preservation.
+            producer: The library writing the checkpoint.
+            extra: Caller-owned JSON metadata.
+            overwrite: Replace an existing step instead of refusing it. Invalid metadata is
+                refused before deletion; a later storage failure is not rolled back.
+
+        Returns:
+            The submitted checkpoint's directory. Completion must be observed before use.
+
+        Raises:
+            ValueError: If the step, items, metadata or configured ranking metric is invalid.
+            CheckpointNotWrittenError: If the write is refused by admission or Orbax.
+        """
         if step < 0:
             raise ValueError("Step must be a non-negative integer")
         names = check_item_names(items)
-        checked_extra = check_extra(extra)
-        latest = self._admit_write(step, overwrite=overwrite)
-
+        # Detach nested JSON before native persistence runs in the background.
+        checked_extra = _JSON_OBJECT.validate_python(check_extra(extra), strict=True)
         checked_metrics, ranked_metrics = self._checkpoint_metrics(metrics)
         metadata = CheckpointMetadata(
             step=step,
@@ -420,13 +467,24 @@ class OrbaxCheckpointStore:
             **{METADATA_ITEM: ocp.args.JsonSave(metadata.to_dict())},
             **{DTYPES_ITEM: ocp.args.JsonSave(dtypes)},
         )
+        # Replacement admission can delete an existing step. Validate and capture
+        # caller metadata before allowing that mutation.
+        latest = self._admit_write(step, overwrite=overwrite)
         manager = self._open()
         written = manager.save(step, args=args, metrics=ranked_metrics, force=True)
-        manager.wait_until_finished()
         if not written:
             raise CheckpointNotWrittenError(step=step, latest_step=latest, reason="rejected")
-        logger.info("Saved checkpoint step %s with items %s", step, names)
+        logger.info("Started checkpoint step %s with items %s", step, names)
         return self.directory / str(step)
+
+    def wait_until_finished(self) -> None:
+        """Observe native completion and propagate pending write errors without opening a store.
+
+        Reads and subsequent write admission also drain the preceding save. An asynchronous
+        caller can overlap computation with persistence, then explicitly observe completion.
+        """
+        if self._manager is not None:
+            self._manager.wait_until_finished()
 
     def _refuse_dtype_changes(
         self,
@@ -627,7 +685,7 @@ class OrbaxCheckpointStore:
         logger.info("Deleted checkpoint step %s", step)
 
     def close(self) -> None:
-        """Close the Orbax manager, if one was opened."""
+        """Wait for pending native writes and release the manager, propagating errors."""
         if self._manager is not None:
             self._manager.close()
             self._manager = None
