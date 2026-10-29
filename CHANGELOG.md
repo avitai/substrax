@@ -18,6 +18,10 @@ and uses semantic versioning while the public API stabilizes.
   of discarding the error.
 - The same action no longer reads a pull request with no checks as proven: such a merge, and one
   whose pull request has checks past the first 100, runs its jobs.
+- `python-gates.yml` runs Bandit once, as the engineering guide's gate (`-ll`). A second run that
+  only wrote `bandit-report.json` used Bandit's default threshold, so a Low finding the gate passes
+  would fail the Security job; the report and its artifact are gone, and the job log lists each
+  finding.
 
 ## [0.1.23] - 2026-10-28
 
