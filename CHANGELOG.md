@@ -7,6 +7,18 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- The `already-tested` action reads a merged pull request's checks on a private repository. It
+  asked `gh pr view --json statusCheckRollup`, whose query also reads each check's workflow run,
+  which a token reads there only with `actions: read`; the lookup failed, and every merge to
+  txpert-nnx repeated its pull request's work. The action now sends its own `checks.graphql`, which
+  reads only check conclusions and status states, so the calling job needs `contents`,
+  `pull-requests`, `checks` and `statuses` read. A lookup that fails says why in the log instead
+  of discarding the error.
+- The same action no longer reads a pull request with no checks as proven: such a merge, and one
+  whose pull request has checks past the first 100, runs its jobs.
+
 ## [0.1.23] - 2026-10-28
 
 ### Added

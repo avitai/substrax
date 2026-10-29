@@ -1,0 +1,71 @@
+{
+  "recorded": "avitai/txpert-nnx #22 at 509ed38, read with pull-requests, checks and statuses read",
+  "response": {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "oid": "509ed3811cc94ad2f2dcf538c424d5dab49dce13",
+                  "statusCheckRollup": {
+                    "contexts": {
+                      "pageInfo": {
+                        "hasNextPage": false
+                      },
+                      "nodes": [
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Tree already tested",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Lint",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Security",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Test (Python 3.12, ubuntu-latest)",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Build (Python 3.12, ubuntu-latest)",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Docs",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "required",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
