@@ -164,10 +164,35 @@ def test_an_unanswered_gate_leaves_the_work_running(name: str) -> None:
         assert "outputs.skip != 'false'" not in text, f"{job_name} runs only on an explicit false"
 
 
-def _unproven(checks: list[dict[str, str]]) -> int:
+ROLLUPS = Path(__file__).parent / "fixtures" / "check_rollup"
+NO_JQ = pytest.mark.skipif(
+    shutil.which("jq") is None, reason="jq, present on GitHub's runners, is absent"
+)
+
+
+def _recorded(fixture: str) -> dict[str, Any]:
+    """A response of the action's ``checks.graphql``, recorded from a real pull request."""
+    return json.loads((ROLLUPS / f"{fixture}.json").read_text())["response"]
+
+
+def _rollup(response: dict[str, Any]) -> dict[str, Any]:
+    return response["data"]["repository"]["pullRequest"]["commits"]["nodes"][0]["commit"][
+        "statusCheckRollup"
+    ]
+
+
+def _with_contexts(nodes: list[dict[str, str]], *, more: bool = False) -> dict[str, Any]:
+    """The recorded private-repository response, holding ``nodes`` as its checks instead."""
+    response = _recorded("private_repository_check_runs")
+    contexts = _rollup(response)["contexts"]
+    contexts["nodes"], contexts["pageInfo"]["hasNextPage"] = nodes, more
+    return response
+
+
+def _unproven(response: dict[str, Any]) -> int:
     result = subprocess.run(  # noqa: S603  # nosec B603 - jq on a fixed program and fixture
         [shutil.which("jq") or "jq", "-f", str(ACTION / "unproven.jq")],
-        input=json.dumps({"statusCheckRollup": checks}),
+        input=json.dumps(response),
         capture_output=True,
         text=True,
         check=True,
@@ -175,24 +200,83 @@ def _unproven(checks: list[dict[str, str]]) -> int:
     return int(result.stdout)
 
 
-@pytest.mark.skipif(shutil.which("jq") is None, reason="jq, present on GitHub's runners, is absent")
+def _run(conclusion: str) -> dict[str, str]:
+    return {
+        "__typename": "CheckRun",
+        "name": "a job",
+        "status": "COMPLETED",
+        "conclusion": conclusion,
+    }
+
+
+@NO_JQ
 @pytest.mark.parametrize(
-    ("checks", "unproven"),
+    "fixture", ["private_repository_check_runs", "check_runs_and_a_commit_status"]
+)
+def test_a_pull_request_whose_every_check_passed_is_proven(fixture: str) -> None:
+    """Read from real responses: check runs, and a commit status, which carries a state."""
+    assert _unproven(_recorded(fixture)) == 0
+
+
+@NO_JQ
+@pytest.mark.parametrize(
+    ("nodes", "unproven"),
     [
-        ([{"conclusion": "SUCCESS"}, {"conclusion": "SKIPPED"}, {"conclusion": "NEUTRAL"}], 0),
-        ([{"state": "SUCCESS"}], 0),  # a commit status carries state, not conclusion
-        ([{"conclusion": "SUCCESS"}, {"conclusion": ""}], 1),  # still running
-        ([{"conclusion": "SUCCESS"}, {"conclusion": "CANCELLED"}], 1),
-        ([{"conclusion": "ACTION_REQUIRED"}], 1),
-        ([{"conclusion": "FAILURE"}, {"conclusion": "TIMED_OUT"}], 2),
-        ([{"state": "PENDING"}], 1),
+        ([_run("SUCCESS"), _run("SKIPPED"), _run("NEUTRAL")], 0),
+        ([{"__typename": "StatusContext", "context": "docs", "state": "SUCCESS"}], 0),
+        ([_run("SUCCESS"), {**_run(""), "status": "IN_PROGRESS", "conclusion": None}], 1),
+        ([_run("SUCCESS"), _run("CANCELLED")], 1),
+        ([_run("ACTION_REQUIRED")], 1),
+        ([_run("FAILURE"), _run("TIMED_OUT")], 2),
+        ([{"__typename": "StatusContext", "context": "docs", "state": "PENDING"}], 1),
     ],
 )
 def test_a_check_that_did_not_succeed_keeps_the_merge_tested(
-    checks: list[dict[str, str]], unproven: int
+    nodes: list[dict[str, str]], unproven: int
 ) -> None:
     """Only SUCCESS, SKIPPED and NEUTRAL count as proven; pending and cancelled do not."""
-    assert _unproven(checks) == unproven
+    assert _unproven(_with_contexts(nodes)) == unproven
+
+
+@NO_JQ
+def test_checks_beyond_the_first_page_keep_the_merge_tested() -> None:
+    """The query reads 100 checks; one it did not read is not proven."""
+    assert _unproven(_with_contexts([_run("SUCCESS")], more=True)) > 0
+
+
+@NO_JQ
+def test_a_pull_request_with_no_check_proves_nothing() -> None:
+    """A merge whose pull request ran no check repeats nothing, so its tree is tested on main."""
+    assert _unproven(_with_contexts([])) > 0
+    response = _with_contexts([])
+    response["data"]["repository"]["pullRequest"]["commits"]["nodes"][0]["commit"][
+        "statusCheckRollup"
+    ] = None
+    assert _unproven(response) > 0
+
+
+def test_the_checks_query_reads_no_workflow_run() -> None:
+    """A workflow run needs `actions: read` on a private repository; check results need only
+    `checks` and `statuses`. `gh pr view --json statusCheckRollup` asks for the workflow run and
+    fails there with "Resource not accessible by integration" (txpert-nnx, 2026-10-29)."""
+    query = (ACTION / "checks.graphql").read_text()
+
+    assert "conclusion" in query
+    assert "state" in query
+    assert "workflowRun" not in query
+    assert "checkSuite" not in query
+
+
+def test_the_action_reads_the_checks_through_its_own_query_and_shows_a_failure() -> None:
+    step = yaml.safe_load((ACTION / "action.yml").read_text())["runs"]["steps"][0]
+    script = step["run"]
+    lookup = next(line for line in script.splitlines() if "gh api graphql" in line)
+
+    assert "gh pr view" not in script
+    assert step["env"]["CHECKS"].endswith("/checks.graphql")
+    assert 'query=@"$CHECKS"' in lookup
+    assert "2>/dev/null" not in lookup, "a failed lookup says why in the log"
+    assert '-f "$UNPROVEN"' in script, "the count is the tested jq program"
 
 
 PULLS = Path(__file__).parent / "fixtures" / "commit_pulls"

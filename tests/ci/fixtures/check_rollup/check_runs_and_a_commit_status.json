@@ -1,0 +1,100 @@
+{
+  "recorded": "avitai/substrax #67 at f1d43bd: check runs and the Read the Docs commit status",
+  "response": {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "commits": {
+            "nodes": [
+              {
+                "commit": {
+                  "oid": "f1d43bdd7ccc12401064208eb3e7a9e5dfd6d398",
+                  "statusCheckRollup": {
+                    "contexts": {
+                      "pageInfo": {
+                        "hasNextPage": false
+                      },
+                      "nodes": [
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Tree already tested",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Lint",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Security",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Test (Python 3.12, ubuntu-latest)",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Test (Python 3.13, ubuntu-latest)",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Build (Python 3.12, ubuntu-latest)",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Build (Python 3.13, ubuntu-latest)",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Gates / Docs",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Checkpoint tests on the Orbax floor",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "Derived status matches the README",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "CheckRun",
+                          "name": "required",
+                          "status": "COMPLETED",
+                          "conclusion": "SUCCESS"
+                        },
+                        {
+                          "__typename": "StatusContext",
+                          "context": "docs/readthedocs.org:substrax",
+                          "state": "SUCCESS"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
