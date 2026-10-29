@@ -9,6 +9,11 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Added
 
+- `create_optimizer` uses native Optax finite-gradient skipping without a
+  give-up path. Rejected gradients hold inner optimizer/schedule state while
+  NNX attempts advance. Configured clipping stays inside the guarded chain;
+  no default clipping value is selected. Raw `create_transformation` remains
+  unguarded; optimizer checkpoints require fresh matching templates.
 - `OrbaxCheckpointStore(..., best=(metric, mode))` preserves the newest
   `max_to_keep` checkpoints plus one best checkpoint through Orbax's native
   preservation policies. Ranking survives reopen, unscored checkpoints use

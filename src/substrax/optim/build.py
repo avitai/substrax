@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import jax.numpy as jnp
 import optax
 from flax import nnx
 
 from substrax.optim.config import OptimizerConfig
 from substrax.optim.filters import mask_callable, weight_decay_mask
+
+
+# Optax saturates its int32 rejection counter. This limit cannot be exceeded,
+# so apply_if_finite never gives up and applies an invalid gradient.
+_NEVER_APPLY_NON_FINITE = int(jnp.iinfo(jnp.int32).max)
 
 
 def create_transformation(  # noqa: DOC502
@@ -40,7 +46,12 @@ def create_transformation(  # noqa: DOC502
 
 
 def create_optimizer[M: nnx.Module](model: M, config: OptimizerConfig) -> nnx.Optimizer[M]:
-    """Build an ``nnx.Optimizer`` over ``create_transformation`` for ``config.wrt``.
+    """Build a native optimizer that skips non-finite gradients without giving up.
+
+    Optax owns rejection and holds the inner optimizer state and its schedule count.
+    NNX's attempted-update count still advances. Configured clipping is inside the
+    guarded transformation; no clip is selected by default. This checks gradients,
+    not the loss, mutable model state or the resulting optimizer/parameter state.
 
     Args:
         model: The model the optimizer updates.
@@ -49,7 +60,10 @@ def create_optimizer[M: nnx.Module](model: M, config: OptimizerConfig) -> nnx.Op
     Returns:
         The optimizer; step it with ``optimizer.update(model, grads)``.
     """
-    return nnx.Optimizer(model, create_transformation(model, config), wrt=config.wrt)
+    transformation = optax.apply_if_finite(
+        create_transformation(model, config), max_consecutive_errors=_NEVER_APPLY_NON_FINITE
+    )
+    return nnx.Optimizer(model, transformation, wrt=config.wrt)
 
 
 def _base_transformation(

@@ -42,7 +42,8 @@ def model() -> KnobModel:
 
 
 def _params(model: nnx.Module) -> dict[str, Any]:
-    return jax.tree.map(np.asarray, nnx.to_pure_dict(nnx.state(model, nnx.Param)))
+    # Independent host snapshots remain valid after native buffer donation.
+    return jax.tree.map(np.array, nnx.to_pure_dict(nnx.state(model, nnx.Param)))
 
 
 def _grads_like(model: nnx.Module, fill: Callable[[jax.Array], jax.Array]) -> Any:
@@ -401,3 +402,189 @@ class TestCurrentLearningRate:
         optimizer = create_optimizer(model, OptimizerConfig(learning_rate=1e-3))
 
         assert optimizer.wrt is nnx.Param
+
+
+class TestFiniteSkipping:
+    @pytest.mark.parametrize("invalid", [float("nan"), float("inf"), float("-inf")])
+    def test_rejected_gradients_hold_parameters_and_allow_recovery(
+        self, model: KnobModel, invalid: float
+    ) -> None:
+        optimizer = create_optimizer(model, OptimizerConfig(learning_rate=1e-3))
+        reference_model = KnobModel(rngs=nnx.Rngs(0))
+        reference = nnx.Optimizer(reference_model, optax.adam(1e-3), wrt=nnx.Param)
+        optimizer.update(model, _unit_grads(model))
+        reference.update(reference_model, _unit_grads(reference_model))
+        before = _params(model)
+
+        for _ in range(3):
+            optimizer.update(model, _grads_like(model, lambda p: jnp.full_like(p, invalid)))
+            for actual, expected in zip(
+                jax.tree.leaves(_params(model)), jax.tree.leaves(before), strict=True
+            ):
+                np.testing.assert_array_equal(actual, expected)
+
+        optimizer.update(model, _unit_grads(model))
+        reference.update(reference_model, _unit_grads(reference_model))
+        _assert_params_close(model, reference_model)
+        assert int(optimizer.step[...]) == 5
+
+    def test_rejection_counter_saturates_without_enabling_give_up(self, model: KnobModel) -> None:
+        optimizer = create_optimizer(model, OptimizerConfig(learning_rate=1e-3))
+        maximum = jnp.iinfo(jnp.int32).max
+        # Seed the native public state near the boundary instead of taking billions
+        # of steps. Optax's finite-limit control below must actually give up.
+        optimizer.opt_state.notfinite_count[...] = jnp.asarray(maximum - 1, jnp.int32)
+        before = _params(model)
+        invalid = _grads_like(model, lambda p: jnp.full_like(p, jnp.nan))
+        for _ in range(3):
+            optimizer.update(model, invalid)
+            assert int(optimizer.opt_state.notfinite_count[...]) == maximum
+            assert not bool(optimizer.opt_state.last_finite[...])
+            for actual, expected in zip(
+                jax.tree.leaves(_params(model)), jax.tree.leaves(before), strict=True
+            ):
+                np.testing.assert_array_equal(actual, expected)
+        optimizer.update(model, _unit_grads(model))
+        assert int(optimizer.opt_state.notfinite_count[...]) == 0
+        assert bool(optimizer.opt_state.last_finite[...])
+
+        control = optax.apply_if_finite(optax.sgd(0.1), max_consecutive_errors=1)
+        state = control.init(jnp.asarray(1.0))
+        first, state = control.update(jnp.asarray(jnp.nan), state)
+        second, _ = control.update(jnp.asarray(jnp.nan), state)
+        assert isinstance(first, jax.Array)
+        assert isinstance(second, jax.Array)
+        assert float(first) == 0.0
+        assert bool(jnp.isnan(second))
+
+    def test_skips_hold_the_inner_schedule_and_state_under_configured_clipping(
+        self, model: KnobModel
+    ) -> None:
+        schedule = optax.piecewise_constant_schedule(0.01, {1: 2.0})
+        optimizer = create_optimizer(
+            model, OptimizerConfig(learning_rate=schedule, gradient_clip_norm=1.0)
+        )
+        optimizer.update(model, _unit_grads(model))
+        before = jax.tree.map(np.asarray, nnx.state(optimizer.opt_state.inner_state))
+        for _ in range(3):
+            optimizer.update(model, _grads_like(model, lambda p: jnp.full_like(p, jnp.nan)))
+            assert float(current_learning_rate(optimizer)) == pytest.approx(0.01)
+            for actual, expected in zip(
+                jax.tree.leaves(nnx.state(optimizer.opt_state.inner_state)),
+                jax.tree.leaves(before),
+                strict=True,
+            ):
+                np.testing.assert_array_equal(actual, expected)
+        optimizer.update(model, _unit_grads(model))
+        assert float(current_learning_rate(optimizer)) == pytest.approx(0.02)
+        assert int(optimizer.step[...]) == 5
+
+    @pytest.mark.parametrize("clip", [None, 1.0])
+    def test_large_finite_gradients_need_explicit_clipping_to_protect_moments(
+        self, model: KnobModel, clip: float | None
+    ) -> None:
+        optimizer = create_optimizer(
+            model, OptimizerConfig(learning_rate=1e-3, gradient_clip_norm=clip)
+        )
+        optimizer.update(model, _grads_like(model, lambda p: jnp.full_like(p, 1e30)))
+        assert bool(optimizer.opt_state.last_finite[...])
+        inner_finite = all(
+            bool(jnp.all(jnp.isfinite(leaf)))
+            for leaf in jax.tree.leaves(nnx.state(optimizer.opt_state.inner_state))
+        )
+        assert inner_finite == (clip is not None)
+
+    @pytest.mark.parametrize("graph", [False, True])
+    def test_donated_jit_skips_and_recovers_without_retracing(
+        self, model: KnobModel, graph: bool
+    ) -> None:
+        optimizer = create_optimizer(
+            model, OptimizerConfig(optimizer_type="sgd", learning_rate=0.1)
+        )
+        before = _params(model)
+        traces: list[int] = []
+
+        @nnx.jit(graph=graph, graph_updates=False, donate_argnums=0)
+        def run(bundle: tuple[KnobModel, nnx.Optimizer[KnobModel]], value: jax.Array) -> None:
+            traces.append(1)
+            current, owned = bundle
+            owned.update(current, _grads_like(current, lambda p: jnp.full_like(p, value)))
+
+        for value in (1.0, float("nan"), float("inf"), 2.0):
+            run((model, optimizer), jnp.asarray(value, jnp.float32))
+        assert traces == [1]
+        assert int(optimizer.step[...]) == 4
+        for actual, initial in zip(
+            jax.tree.leaves(_params(model)), jax.tree.leaves(before), strict=True
+        ):
+            np.testing.assert_allclose(actual, initial - 0.3, rtol=1e-6, atol=1e-7)
+
+    def test_scan_accumulates_attempts_but_not_rejected_updates(self, model: KnobModel) -> None:
+        optimizer = create_optimizer(
+            model, OptimizerConfig(optimizer_type="sgd", learning_rate=0.1)
+        )
+        before = _params(model)
+
+        @nnx.scan(in_axes=(nnx.Carry, 0), out_axes=(nnx.Carry, 0))
+        def run(
+            bundle: tuple[KnobModel, nnx.Optimizer[KnobModel]], value: jax.Array
+        ) -> tuple[tuple[KnobModel, nnx.Optimizer[KnobModel]], jax.Array]:
+            current, owned = bundle
+            owned.update(current, _grads_like(current, lambda p: jnp.full_like(p, value)))
+            return bundle, owned.opt_state.last_finite[...]
+
+        _, accepted = run((model, optimizer), jnp.asarray([1.0, jnp.nan, 2.0]))
+        np.testing.assert_array_equal(accepted, [True, False, True])
+        assert int(optimizer.step[...]) == 3
+        for actual, initial in zip(
+            jax.tree.leaves(_params(model)), jax.tree.leaves(before), strict=True
+        ):
+            np.testing.assert_allclose(actual, initial - 0.3, rtol=1e-6, atol=1e-7)
+
+    def test_vmap_keeps_each_members_rejection_and_recovery_independent(self) -> None:
+        @nnx.vmap(in_axes=0, out_axes=0)
+        def create(seed: jax.Array) -> tuple[KnobModel, nnx.Optimizer[KnobModel]]:
+            member = KnobModel(rngs=nnx.Rngs(seed))
+            owned = create_optimizer(
+                member, OptimizerConfig(optimizer_type="sgd", learning_rate=0.1)
+            )
+            return member, owned
+
+        models, optimizers = create(jax.random.split(jax.random.key(0), 3))
+        before = _params(models)
+
+        @nnx.vmap(in_axes=(0, 0, 0), out_axes=0)
+        def update(
+            member: KnobModel, owned: nnx.Optimizer[KnobModel], value: jax.Array
+        ) -> jax.Array:
+            owned.update(member, _grads_like(member, lambda p: jnp.full_like(p, value)))
+            return owned.opt_state.last_finite[...]
+
+        first = update(models, optimizers, jnp.asarray([1.0, jnp.nan, jnp.inf]))
+        second = update(models, optimizers, jnp.asarray([2.0, 3.0, 4.0]))
+        np.testing.assert_array_equal(first, [True, False, False])
+        np.testing.assert_array_equal(second, [True, True, True])
+        for actual, initial in zip(
+            jax.tree.leaves(_params(models)), jax.tree.leaves(before), strict=True
+        ):
+            offsets = np.asarray([0.3, 0.3, 0.4]).reshape((3,) + (1,) * (actual.ndim - 1))
+            np.testing.assert_allclose(actual, initial - offsets, rtol=1e-6, atol=1e-7)
+
+    @pytest.mark.parametrize(("gradient", "derivative"), [(1.0, 5.88), (float("nan"), 6.0)])
+    def test_differentiating_a_guarded_update_preserves_the_parameter_derivative(
+        self, gradient: float, derivative: float
+    ) -> None:
+        def after(initial: jax.Array) -> jax.Array:
+            model = KnobModel(rngs=nnx.Rngs(0))
+            model.probe.kernel[...] = jnp.full_like(model.probe.kernel[...], initial)
+            optimizer = create_optimizer(
+                model,
+                OptimizerConfig(optimizer_type="adamw", learning_rate=0.1, weight_decay=0.2),
+            )
+            optimizer.update(model, _grads_like(model, lambda p: jnp.full_like(p, gradient)))
+            return jnp.sum(model.probe.kernel[...])
+
+        # Six kernel entries: accepted decoupled decay differentiates to
+        # 6 * (1 - 0.1 * 0.2); rejection leaves the identity derivative, 6.
+        actual = jax.jit(jax.grad(after))(jnp.asarray(1.0))
+        assert float(actual) == pytest.approx(derivative, rel=1e-6)
