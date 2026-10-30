@@ -7,6 +7,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `substrax.testing.report(value)` takes what `json.dumps` takes, as the `print(json.dumps(value))`
+  it replaces did. 0.1.24 typed `value` as `JsonValue`, whose `list` and `dict` are invariant, so
+  a type checker refused a correctly typed caller passing a `dict[str, str]` or a `list[bool]`. A
+  value JSON cannot hold still raises `TypeError`, and nothing is written.
+
 ## [0.1.24] - 2026-10-30
 
 ### Changed
