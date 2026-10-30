@@ -114,11 +114,13 @@ def test_a_relative_environment_directory_raises_and_names_the_variable() -> Non
 
 
 _IMPORT_PROBE = """
-    import json, os
+    import os
     os.chdir({cwd!r})
     import substrax.artifacts
     {action}
-    print(json.dumps({{"temp": os.listdir({temp!r}), "cwd": os.listdir({cwd!r})}}))
+    listed = {{"temp": os.listdir({temp!r}), "cwd": os.listdir({cwd!r})}}
+    from substrax.testing import report
+    report(listed)
 """
 
 
@@ -130,7 +132,7 @@ def _probe(tmp_path: Path, action: str) -> dict[str, list[str]]:
     return (
         run_python(program, env={"TMPDIR": str(temp)}, timeout=180.0)
         .check()
-        .last_json_as(dict[str, list[str]])
+        .report_as(dict[str, list[str]])
     )
 
 

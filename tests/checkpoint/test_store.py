@@ -421,11 +421,11 @@ class TestCrossTopologyRestore:
     """
 
     def test_a_two_device_save_restores_onto_one_device_templates(self, tmp_path: Path) -> None:
-        saved = _run_child("save", tmp_path, runtime=_cpu_devices(2)).check().last_json_as(_Saved)
+        saved = _run_child("save", tmp_path, runtime=_cpu_devices(2)).check().report_as(_Saved)
         assert saved["saved_on"] == [{"platform": "cpu", "id": 1}]
 
         restored = (
-            _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().last_json_as(_Restored)
+            _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().report_as(_Restored)
         )
 
         assert restored["devices"] == [_CPU_0]
@@ -465,7 +465,7 @@ class TestCrossTopologyRestore:
         measures placement rather than a shared device set. It also pins the documented
         template-free behaviour: arrays come back as stored, or not at all.
         """
-        _run_child("save", tmp_path, runtime=_cpu_devices(2)).check().last_json()
+        _run_child("save", tmp_path, runtime=_cpu_devices(2)).check().report_as(_Saved)
 
         completed = _run_child(
             "restore", tmp_path, runtime=_cpu_devices(1), extra=("--without-templates",)
@@ -485,11 +485,11 @@ class TestCrossTopologyRestore:
             pytest.skip("no CUDA device visible to jax")
 
         cuda = JaxRuntime(platforms=("cuda",))
-        saved = _run_child("save", tmp_path, runtime=cuda).check().last_json_as(_Saved)
+        saved = _run_child("save", tmp_path, runtime=cuda).check().report_as(_Saved)
         assert [d["platform"] for d in saved["saved_on"]] == ["gpu"]
 
         restored = (
-            _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().last_json_as(_Restored)
+            _run_child("restore", tmp_path, runtime=_cpu_devices(1)).check().report_as(_Restored)
         )
 
         assert restored["restored_on"] == [_CPU_0]

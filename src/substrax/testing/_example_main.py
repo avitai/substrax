@@ -1,10 +1,10 @@
-"""The child side of ``run_example``: load an example by path, call its ``main()``, print the result.
+"""The child side of ``run_example``: load an example by path, call its ``main()``, report the result.
 
 ``run_example`` runs this file as a script with the example's path as its only argument. The
 example then sees what a script run would show it, apart from ``__name__``: its own directory first
 on ``sys.path`` (unless ``PYTHONSAFEPATH`` is set), no command-line arguments, and a module
-registered in ``sys.modules``, which ``dataclasses`` reads. The value ``main()`` returns is printed
-as JSON on the last line of standard output.
+registered in ``sys.modules``, which ``dataclasses`` reads. The value ``main()`` returns is sent
+to the parent with ``substrax.testing.report``, so nothing the example prints can corrupt it.
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
 from typing import cast
+
+from substrax.testing.child_report import report
 
 
 _MODULE_NAME = "_substrax_example"
@@ -73,7 +75,7 @@ def to_json(summary: object) -> str:
 
 
 def main(argv: list[str]) -> None:
-    """Run the example named by ``argv`` and print what its ``main()`` returns.
+    """Run the example named by ``argv`` and report what its ``main()`` returns.
 
     Args:
         argv: The example's path, alone.
@@ -85,8 +87,7 @@ def main(argv: list[str]) -> None:
         sys.path[0] = str(path.parent)
     sys.argv = [str(path)]
     summary = load_example(path).main()
-    # A leading newline keeps the JSON on its own line after output without a trailing newline.
-    sys.stdout.write(f"\n{to_json(summary)}\n")
+    report(json.loads(to_json(summary)))
 
 
 def _scalar(value: object) -> object:

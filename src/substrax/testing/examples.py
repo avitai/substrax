@@ -113,7 +113,7 @@ def run_example(  # noqa: DOC503
         )
     except subprocess.TimeoutExpired as error:
         raise ExampleTimeoutError(example, timeout, _decoded(error.stderr)) from error
-    summary = result.last_json() if call_main and result.returncode == 0 else None
+    summary = result.report_json() if call_main and result.returncode == 0 else None
     return ExampleRun(path=example, result=result, summary=summary)
 
 

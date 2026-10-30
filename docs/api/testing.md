@@ -9,21 +9,28 @@ from substrax.runtime import JaxRuntime
 from substrax.testing import run_python
 
 result = run_python(
-    "import json, jax; print(json.dumps(jax.device_count()))",
+    "import jax; from substrax.testing import report; report(jax.device_count())",
     runtime=JaxRuntime(cpu_devices=8),
     timeout=120,
 )
-assert result.check().last_json() == 8
+assert result.check().report_as(int) == 8
 ```
 
 `run_python` runs this interpreter on code or a script. The child's environment drops every
 `JAX_*` and `XLA_*` variable the parent inherited, then applies `env` and the `runtime`. Unless
 either of them chooses otherwise, the child runs on the CPU backend without preallocation, so a
 test never starts an accelerator it did not ask for. `check()` raises `ChildFailedError` with
-the end of the child's standard error, and `last_json()` parses the last line the child printed.
-`last_json_as(shape)` parses it as a value of `shape`, a `TypedDict` or a type such as
-`dict[str, list[str]]`, validated by pydantic in strict JSON mode, so a test reads a structured
-report with its fields typed and a report of another shape fails naming the field.
+the end of the child's standard error.
+
+The child sends its result with `report(value)`. `run_python` names a file in the child's
+`SUBSTRAX_CHILD_REPORT` variable, a file only that child knows, so nothing the child or a library
+prints can corrupt the result, even a C++ library writing to standard output after it. A child
+reports once, and a second `report` raises. `report_as(shape)` reads the result as a value of
+`shape`, a `TypedDict` or a type such as `dict[str, list[str]]`, validated by pydantic in strict
+JSON mode, so a test reads a structured report with its fields typed and a report of another
+shape fails naming the field. `report_json()` returns the decoded JSON for a caller that narrows
+it itself. Both raise `ValueError` for a child that sent no report. A child that checks which
+modules an import loaded measures before it imports `report`.
 `cuda_is_visible()` asks a child on the CUDA backend whether jax sees a GPU.
 
 ## Counting traces
