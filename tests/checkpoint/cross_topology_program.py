@@ -10,13 +10,12 @@ different environments (``JAX_NUM_CPU_DEVICES``, ``JAX_PLATFORMS``)::
 ``save`` places every array on the last visible device and writes one checkpoint
 whose ``model`` item is an NNX module's state and whose ``data_iterator`` item is a
 mixed-leaf dictionary. ``restore`` reads both back, onto templates built in this
-process by default. Each mode prints one JSON object as the last line of stdout;
+process by default. Each mode reports one JSON object with ``substrax.testing.report``;
 the parent test compares the two sides.
 """
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -27,6 +26,7 @@ import numpy as np
 from flax import nnx
 
 from substrax.checkpoint import OrbaxCheckpointStore
+from substrax.testing import report
 
 
 STEP = 1
@@ -152,7 +152,7 @@ def restore(directory: Path, *, with_templates: bool) -> dict[str, Any]:
 
 
 def main(argv: list[str]) -> None:
-    """Dispatch on the mode argument and print the JSON result."""
+    """Dispatch on the mode argument and report the JSON result."""
     mode, directory = argv[1], Path(argv[2])
     if mode == "save":
         result = save(directory)
@@ -160,7 +160,7 @@ def main(argv: list[str]) -> None:
         result = restore(directory, with_templates="--without-templates" not in argv[3:])
     else:
         raise SystemExit(f"unknown mode {mode!r}; expected 'save' or 'restore'")
-    sys.stdout.write(json.dumps(result) + "\n")
+    report(result)
 
 
 if __name__ == "__main__":

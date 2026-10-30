@@ -6,6 +6,7 @@ import dataclasses
 import json
 import subprocess  # nosec B404
 import sys
+import tempfile
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from pathlib import Path
 from pydantic import TypeAdapter
 
 from substrax.runtime import child_environment, JaxRuntime
+from substrax.testing.child_report import REPORT_PATH_ENV
 from substrax.typing import JsonValue
 
 
@@ -29,6 +31,8 @@ class ChildResult:
         returncode: Its exit code.
         stdout: Everything it wrote to standard output.
         stderr: Everything it wrote to standard error.
+        report: The JSON text the child sent with ``substrax.testing.report``; ``None`` when it
+            sent none.
         seconds: Wall-clock seconds from start to exit.
     """
 
@@ -36,6 +40,7 @@ class ChildResult:
     returncode: int
     stdout: str
     stderr: str
+    report: str | None
     seconds: float
 
     def check(self) -> ChildResult:
@@ -52,25 +57,21 @@ class ChildResult:
             raise ChildFailedError(self)
         return self
 
-    def last_json(self) -> JsonValue:
-        """Parse the last non-empty line of standard output as JSON.
+    def report_json(self) -> JsonValue:  # noqa: DOC502  # raised by _report_text
+        """Decode the child's report as JSON, for a caller that narrows it itself.
 
         Returns:
-            The decoded value; a caller narrows it to the shape it expects.
+            The decoded value.
 
         Raises:
-            ValueError: If the child wrote no output, or its last line is not JSON.
+            ValueError: If the child sent no report.
         """
-        line = self._last_line()
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError as error:
-            raise ValueError(f"the child's last line of output is not JSON: {line!r}") from error
+        return json.loads(self._report_text())
 
-    def last_json_as[T](self, shape: type[T]) -> T:  # noqa: DOC502  # raised by _last_line and pydantic
-        """Parse the last non-empty line of standard output as JSON of ``shape``.
+    def report_as[T](self, shape: type[T]) -> T:  # noqa: DOC502  # raised by _report_text and pydantic
+        """Decode the child's report as a value of ``shape``.
 
-        The line is validated by pydantic in strict JSON mode, so a value of another type is
+        The report is validated by pydantic in strict JSON mode, so a value of another type is
         refused rather than converted (an integer is accepted where ``shape`` has a float, as
         JSON does not tell them apart).
 
@@ -81,25 +82,26 @@ class ChildResult:
             The decoded value, of ``shape``.
 
         Raises:
-            ValueError: If the child wrote no output.
-            pydantic.ValidationError: If the line is not JSON, or not a value of ``shape``; the
-                message names the offending field.
+            ValueError: If the child sent no report.
+            pydantic.ValidationError: If the report is not a value of ``shape``; the message names
+                the offending field.
         """
-        return TypeAdapter(shape).validate_json(self._last_line(), strict=True)
+        return TypeAdapter(shape).validate_json(self._report_text(), strict=True)
 
-    def _last_line(self) -> str:
-        """The last non-empty line of standard output.
+    def _report_text(self) -> str:
+        """The JSON text the child reported.
 
         Returns:
-            The line.
+            The text.
 
         Raises:
-            ValueError: If the child wrote no output.
+            ValueError: If the child sent no report.
         """
-        lines = [line for line in self.stdout.splitlines() if line.strip()]
-        if not lines:
-            raise ValueError(f"the child wrote no output to parse as JSON: {self.argv[:2]}")
-        return lines[-1]
+        if self.report is None:
+            raise ValueError(
+                f"the child wrote no report with substrax.testing.report: {self.argv[:2]}"
+            )
+        return self.report
 
 
 class ChildFailedError(AssertionError):
@@ -143,6 +145,10 @@ def run_python(  # noqa: DOC502
     ``runtime`` or ``env`` chooses them, the child runs on the CPU backend without preallocation,
     so a test never starts an accelerator it did not ask for.
 
+    The child sends its result with ``substrax.testing.report``, to a file this call creates and
+    names in ``SUBSTRAX_CHILD_REPORT``, and the result's ``report_as`` reads it. Whatever the child
+    or its libraries print stays in ``stdout``, so it cannot corrupt the report.
+
     Args:
         program: Code to run with ``-c``, or the path of a script.
         *args: Arguments passed to the program.
@@ -166,22 +172,28 @@ def run_python(  # noqa: DOC502
         else (sys.executable, str(program))
     )
     argv = (*command, *args)
-    started = time.perf_counter()
-    completed = subprocess.run(  # noqa: S603  # nosec B603  # this interpreter and the caller's program; no shell
-        argv,
-        env=child_env,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
+    with tempfile.TemporaryDirectory(prefix="substrax-child-") as directory:
+        report_path = Path(directory) / "report.json"
+        child_env[REPORT_PATH_ENV] = str(report_path)
+        started = time.perf_counter()
+        completed = subprocess.run(  # noqa: S603  # nosec B603  # this interpreter and the caller's program; no shell
+            argv,
+            env=child_env,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        seconds = time.perf_counter() - started
+        report = report_path.read_text(encoding="utf-8") if report_path.exists() else None
     return ChildResult(
         argv=argv,
         returncode=completed.returncode,
         stdout=completed.stdout,
         stderr=completed.stderr,
-        seconds=time.perf_counter() - started,
+        report=report,
+        seconds=seconds,
     )
 
 

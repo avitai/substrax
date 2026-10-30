@@ -313,18 +313,21 @@ def test_the_key_fixtures_come_from_seed_42(pytester: pytest.Pytester) -> None:
     _run(pytester).assert_outcomes(passed=2)
 
 
-_IMPORT_PROBE = "import json, sys; import {module}; print(json.dumps('jax' in sys.modules))"
+_IMPORT_PROBE = (
+    "import sys; import {module}; loaded = 'jax' in sys.modules; "
+    "from substrax.testing import report; report(loaded)"
+)
 
 
 @pytest.mark.parametrize("module", ["substrax.testing", "substrax.testing.pytest_plugin"])
 def test_importing_the_testing_package_imports_no_jax(module: str) -> None:
     result = run_python(_IMPORT_PROBE.format(module=module), timeout=180.0)
 
-    assert result.check().last_json() is False
+    assert result.check().report_as(bool) is False
 
 
 def test_the_import_probe_detects_jax() -> None:
     """Control: the same probe reports jax for a subpackage that imports it."""
     result = run_python(_IMPORT_PROBE.format(module="substrax.devices"), timeout=180.0)
 
-    assert result.check().last_json() is True
+    assert result.check().report_as(bool) is True

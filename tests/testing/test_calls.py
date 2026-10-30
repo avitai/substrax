@@ -506,7 +506,7 @@ def test_counts_agree_while_coverage_measures_through_sys_monitoring(tmp_path: P
     (tmp_path / "pkg_under_cover").mkdir()
     (tmp_path / "pkg_under_cover" / "__init__.py").write_text(_SOURCE)
     program = f"""
-import json, sys
+import sys
 sys.path.insert(0, {str(tmp_path)!r})
 import coverage
 # coverage measures through sys.monitoring only without branch measurement before 3.14, and this
@@ -519,12 +519,13 @@ with counted_calls(by_package("pkg_under_cover", named=["pkg_under_cover"])) as 
     pkg_under_cover.branch(3)
 holder = sys.monitoring.get_tool(sys.monitoring.COVERAGE_ID)
 cov.stop()
-print(json.dumps({{"holder": holder, "leaf": counts["pkg_under_cover:leaf"]}}))
+from substrax.testing import report
+report({{"holder": holder, "leaf": counts["pkg_under_cover:leaf"]}})
 """
 
-    report = run_python(program, timeout=120, env={"COVERAGE_CORE": "sysmon"}).check().last_json()
+    result = run_python(program, timeout=120, env={"COVERAGE_CORE": "sysmon"}).check()
 
-    assert report == {"holder": "coverage.py", "leaf": 4}
+    assert result.report_as(dict[str, object]) == {"holder": "coverage.py", "leaf": 4}
 
 
 def test_the_keys_of_a_code_object_name_its_package_and_qualified_name(

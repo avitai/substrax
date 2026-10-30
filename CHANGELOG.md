@@ -7,6 +7,20 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** a `run_python` child sends its result with `substrax.testing.report(value)`, and
+  the parent reads it with `ChildResult.report_as(shape)`, or `report_json()` for a value it
+  narrows itself. `ChildResult.last_json()` and `last_json_as()` are removed. They parsed the last
+  line of standard output, which a library shares with the child: datarax's multi-process tests
+  failed when Gloo wrote
+  `[Gloo] Rank 1 is connected to 1 peer ranks...` after the child's report. The report now goes to
+  a file `run_python` creates and names in `SUBSTRAX_CHILD_REPORT`, which no library writes to.
+  `ChildResult.report` holds the text, or `None` when the child sent none. A child reports once.
+  `run_example` reads `main()`'s summary the same way, so an example's own output no longer
+  reaches it. Move each child's `print(json.dumps(value))` to `report(value)`, and each
+  `last_json()` to `report_json()` and `last_json_as(shape)` to `report_as(shape)`.
+
 ### Fixed
 
 - The `already-tested` action reads a merged pull request's checks on a private repository. It
