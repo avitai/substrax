@@ -178,6 +178,15 @@ values. A gradient that is zero everywhere is refused unless `allow_zero=True`, 
 ignores what is differentiated passes a finite-difference check. A function with a
 `jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
 
+Both checks accept `eps=None` (JAX's default) or an explicit finite positive step.
+For example, `check_input_gradients(module, loss, x, eps=1e-6)` changes the
+finite-difference displacement without changing comparison tolerances. Reject
+zero, negative, non-finite and boolean steps. Near a domain or activation boundary,
+retain a predeclared step-size sweep and inspect the perturbed evaluations; one
+passing step does not establish smoothness or correctness throughout the domain.
+Module computation attributes still control arithmetic dtype: casting floating
+state does not override a layer explicitly configured to compute in float32.
+
 ## Running examples
 
 `substrax.examples.discover_examples` lists a repository's example scripts, and `run_example` runs

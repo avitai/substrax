@@ -142,3 +142,62 @@ def test_a_module_holding_a_key_is_checked_in_its_parameters() -> None:
     gradient = check_parameter_gradients(_Keyed(), _loss_in_parameters)
 
     np.testing.assert_allclose(_value(gradient, "w"), np.outer(_X, _C), rtol=1e-12)
+
+
+class _LogOffset(nnx.Module):
+    """A valid logarithm whose default central stencil leaves its domain."""
+
+    def __init__(self) -> None:
+        self.offset = nnx.Param(jnp.array(0.0, dtype=jnp.float32))
+
+
+def _log_loss(module: _LogOffset) -> jax.Array:
+    return jnp.log1p(10000.0 * module.offset[...])
+
+
+def _log_input_loss(_module: _LogOffset, value: jax.Array) -> jax.Array:
+    return jnp.log1p(10000.0 * value)
+
+
+@pytest.mark.parametrize("in_parameters", [False, True])
+def test_explicit_step_keeps_a_logarithm_stencil_inside_its_domain(in_parameters: bool) -> None:
+    """Step control checks the unchanged analytic derivative at the valid zero input."""
+    module = _LogOffset()
+    check = (
+        (lambda: check_parameter_gradients(module, _log_loss))
+        if in_parameters
+        else lambda: check_input_gradients(module, _log_input_loss, 0.0)
+    )
+    with pytest.raises(AssertionError):
+        check()
+    if in_parameters:
+        gradient = check_parameter_gradients(module, _log_loss, eps=1e-8)
+        observed = _value(gradient, "offset")
+    else:
+        observed = np.asarray(check_input_gradients(module, _log_input_loss, 0.0, eps=1e-8))
+    np.testing.assert_allclose(observed, 10000.0, rtol=1e-12)
+    assert module.offset[...].dtype == jnp.float32
+    assert float(module.offset[...]) == 0.0
+
+
+@pytest.mark.parametrize("eps", [0.0, -1.0, float("nan"), float("inf"), True])
+@pytest.mark.parametrize("in_parameters", [False, True])
+def test_invalid_finite_difference_steps_are_refused(eps: float, in_parameters: bool) -> None:
+    """A malformed diagnostic must fail before evaluation instead of hiding bad derivatives."""
+    check = (
+        (lambda: check_parameter_gradients(_Affine(), _loss_in_parameters, eps=eps))
+        if in_parameters
+        else lambda: check_input_gradients(_Affine(), _loss_in_input, _X, eps=eps)
+    )
+    with pytest.raises(ValueError, match="finite positive"):
+        check()
+
+
+@pytest.mark.parametrize("eps", [1e-4, 1e-6, 1e-8])
+def test_explicit_steps_still_refuse_an_incorrect_derivative(eps: float) -> None:
+    """Selecting a step never bypasses the comparison in either public checker."""
+    module = _Affine()
+    with pytest.raises(AssertionError):
+        check_parameter_gradients(module, lambda m: jnp.sum(_doubled_tangent(m.w[...])), eps=eps)
+    with pytest.raises(AssertionError):
+        check_input_gradients(module, lambda m, x: jnp.sum(_doubled_tangent(m(x))), _X, eps=eps)
