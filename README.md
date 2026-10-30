@@ -1,9 +1,11 @@
 # Substrax
 
 <!-- --8<-- [start:summary] -->
-**The training plumbing a JAX/Flax NNX project otherwise writes for itself, written once:
-configure the JAX process, find the devices and lay arrays out across them, save and restore
-state, decide when to stop, log the run, and send it to a GPU.**
+**Training, testing and CI infrastructure for JAX/Flax NNX, so a project does not write its
+own.** It configures the JAX process, lays arrays out across devices, builds optimizers, saves and
+restores state, decides when to stop, logs the run and sends it to a GPU. In tests it runs code in
+fresh interpreters, counts compiles and checks gradients. Its CI gates, composite actions and
+pre-commit hooks can be reused from any repository.
 
 Every Avitai JAX package imports this layer instead of carrying its own copy, so each concern has
 one implementation and one test suite. Substrax imports none of those packages, so it works on its
