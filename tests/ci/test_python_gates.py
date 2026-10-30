@@ -198,6 +198,24 @@ def test_bandit_runs_whatever_the_audit_found_and_its_failure_fails_the_job() ->
     assert _env(bandit)["PACKAGE"] == "${{ inputs.package }}"
 
 
+def test_bandit_runs_once_as_the_engineering_guides_gate() -> None:
+    """The guide's gate is one command, ``bandit -r src/ -ll``, and the job runs only that.
+
+    A second run that only wrote a JSON report stated the threshold again and left it at Bandit's
+    default, Low: findings the gate passes failed the step after it. Nothing read the report.
+    """
+    runs = [line.strip() for line in _runs("security").splitlines() if "bandit " in line]
+    uploads = [
+        step["with"]["path"]
+        for step in _steps("security")
+        if str(step.get("uses", "")).startswith("actions/upload-artifact@")
+    ]
+
+    assert len(runs) == 1, runs
+    assert re.search(r"\sbandit -r \"src/\$PACKAGE\" -c pyproject\.toml -ll(\s|$)", runs[0])
+    assert uploads == []
+
+
 def _import_check() -> dict[str, Any]:
     check = next(
         (step for step in _steps("build") if "importlib.metadata" in str(step.get("run", ""))),

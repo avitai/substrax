@@ -1,0 +1,34 @@
+# The checks of a pull request's head commit: each check run's conclusion and each commit status's
+# state. It asks for no workflow run, which a token reads only with `actions: read` on a private
+# repository; check results need only `checks` and `statuses` read.
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      commits(last: 1) {
+        nodes {
+          commit {
+            statusCheckRollup {
+              contexts(first: 100) {
+                pageInfo {
+                  hasNextPage
+                }
+                nodes {
+                  __typename
+                  ... on CheckRun {
+                    name
+                    status
+                    conclusion
+                  }
+                  ... on StatusContext {
+                    context
+                    state
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

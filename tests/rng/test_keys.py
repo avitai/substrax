@@ -153,14 +153,17 @@ class TestFoldInName:
     def test_is_stable_across_interpreters_with_different_hash_seeds(self) -> None:
         program = textwrap.dedent(
             """
-            import json, jax
+            import jax
             from substrax.rng import fold_in_name
+            from substrax.testing import report
             key = fold_in_name(jax.random.key(0), "dropout")
-            print(json.dumps([int(v) for v in jax.random.key_data(key).tolist()]))
+            report([int(v) for v in jax.random.key_data(key).tolist()])
             """
         )
         results = [
-            run_python(program, timeout=120, env={"PYTHONHASHSEED": seed}).check().last_json()
+            run_python(program, timeout=120, env={"PYTHONHASHSEED": seed})
+            .check()
+            .report_as(list[int])
             for seed in ("0", "12345")
         ]
 

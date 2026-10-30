@@ -191,21 +191,13 @@ jobs:
       - name: Audit the locked dependencies
         uses: avitai/substrax/.github/actions/audit-lock@66ea9c185db08074b91e1da55a5c34748ec19a67
 
-      # Bandit reports whatever the audit found, so a red job names every scan that failed.
+      # Bandit runs whatever the audit found, so a red job names every scan that failed. One run,
+      # the engineering guide's gate: its log lists each finding at the threshold it judges.
       - name: Bandit
         if: ${{ !cancelled() }}
         env:
           PACKAGE: ${{ inputs.package }}
-        run: |
-          uv run --no-sync bandit -r "src/$PACKAGE" -c pyproject.toml -ll
-          uv run --no-sync bandit -r "src/$PACKAGE" -c pyproject.toml -f json -o bandit-report.json -q
-
-      - name: Upload the Bandit report
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bandit-report
-          path: bandit-report.json
+        run: uv run --no-sync bandit -r "src/$PACKAGE" -c pyproject.toml -ll
 
   build:
     name: Build (Python ${{ matrix.python-version }}, ${{ inputs.os }})

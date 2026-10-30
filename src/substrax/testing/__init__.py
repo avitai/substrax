@@ -1,7 +1,9 @@
 """Test helpers for JAX packages: fresh-interpreter runs and an opt-in pytest plugin.
 
 ``run_python`` runs code or a script in a child interpreter whose JAX settings the test chooses,
-with everything the parent's shell exported about jax removed, and returns a ``ChildResult``.
+with everything the parent's shell exported about jax removed, and returns a ``ChildResult``. The
+child sends its result with ``report``, on a channel no library writes to, and
+``ChildResult.report_as`` reads it.
 ``cuda_is_visible`` probes the CUDA backend in such a child. ``restored_jax_config`` sets back the
 global jax configuration a block changed. ``TraceCounter`` counts the traces a jitted function
 takes and raises ``RetraceError`` when a block caused an unexpected number. ``run_example`` runs one
@@ -34,6 +36,7 @@ from substrax.testing.child_process import (
     cuda_is_visible,
     run_python,
 )
+from substrax.testing.child_report import report, REPORT_PATH_ENV
 from substrax.testing.examples import (
     ExampleRun,
     ExampleTimeoutError,
@@ -45,6 +48,7 @@ from substrax.testing.traces import RetraceError, TraceCounter
 
 
 __all__ = [
+    "REPORT_PATH_ENV",
     "ChildFailedError",
     "ChildResult",
     "CountingFailedError",
@@ -58,6 +62,7 @@ __all__ = [
     "counted_calls",
     "cuda_is_visible",
     "per_iteration",
+    "report",
     "restored_jax_config",
     "run_example",
     "run_python",

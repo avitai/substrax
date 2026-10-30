@@ -241,15 +241,14 @@ def test_an_example_imports_a_helper_beside_it_in_both_modes(
         repo,
         "pde/uses_helper.py",
         """
-        import json
-
         from _shared import SCALE
 
         def main():
             return {"scale": SCALE}
 
         if __name__ == "__main__":
-            print(json.dumps(main()))
+            from substrax.testing import report
+            report(main())
         """,
     )
 
@@ -257,7 +256,7 @@ def test_an_example_imports_a_helper_beside_it_in_both_modes(
         path, repo_root=repo, output_dir=outputs, timeout=_BUDGET, call_main=call_main
     )
 
-    assert run.result.check().last_json() == {"scale": 3}
+    assert run.result.check().report_as(dict[str, int]) == {"scale": 3}
 
 
 @pytest.mark.parametrize("call_main", [True, False], ids=["main", "script"])
@@ -300,14 +299,14 @@ def test_an_example_sees_no_command_line_arguments_in_either_mode(
         repo,
         "reads_argv.py",
         """
-        import json
         import sys
 
         def main():
             return {"arguments": sys.argv[1:]}
 
         if __name__ == "__main__":
-            print(json.dumps(main()))
+            from substrax.testing import report
+            report(main())
         """,
     )
 
@@ -315,7 +314,7 @@ def test_an_example_sees_no_command_line_arguments_in_either_mode(
         path, repo_root=repo, output_dir=outputs, timeout=_BUDGET, call_main=call_main
     )
 
-    assert run.result.check().last_json() == {"arguments": []}
+    assert run.result.check().report_as(dict[str, list[str]]) == {"arguments": []}
 
 
 @pytest.mark.parametrize("call_main", [True, False], ids=["main", "script"])

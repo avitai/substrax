@@ -39,7 +39,7 @@ Each concern has one home and one test suite:
 | `substrax.artifacts` | Output directories resolved from an argument, `AVITAI_OUTPUT_DIR` or a per-run temporary directory, never the working tree |
 | `substrax.rng` | Keys from an explicit owner (`key_from`, no default seed), streams derived from a seed by name (`rngs_from_seed`), `split_key` and the interpreter-stable `fold_in_name` |
 | `substrax.optim` | `OptimizerConfig` in optax's terms, `create_transformation` and `create_optimizer` over optax with the schedule as the base learning rate and the weight-decay filter as a static mask, `current_learning_rate` read on device, `switch_at` from one transformation to another at a step, `update_with_line_search` for L-BFGS-style optimizers, `with_strong_state_types` |
-| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration and typed JSON reports (`last_json_as`), trace, compile and work counters (`TraceCounter`, `substrax.testing.compiles`, `counted_calls`), value-asserting NNX gradient checks (`substrax.testing.gradients`), example runs, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
+| `substrax.testing` | Opt-in test infrastructure: fresh-interpreter runs with a chosen JAX configuration and typed reports (`report`, `report_as`), trace, compile and work counters (`TraceCounter`, `substrax.testing.compiles`, `counted_calls`), value-asserting NNX gradient checks (`substrax.testing.gradients`), example runs, and a pytest plugin with `x64`, `devices` and `accelerator` markers and jax configuration isolation |
 | `substrax.devices` | `detect_devices()` (platform, device kind, count), `DeviceLike` and `visible_devices()` for typed device parameters, device placement, the batch-size recommendation table |
 | `substrax.mesh` | Device meshes with `Auto` axes by default, mesh rules and partition-spec helpers, sharding strategies (data, FSDP, tensor, pipeline, multi-dimensional) on `flax.nnx.spmd` |
 | `substrax.spmd` | Data-parallel sharding, batch placement from a sharding or a prefix of the batch, `spmd_train_step`, and metric collectives |
@@ -178,8 +178,9 @@ and the threads it starts run, and with `substrax.testing.jax_calls` its compile
 placements, so a test bounds a code path's work per iteration by count instead of time.
 `substrax.testing.gradients` checks a module's
 gradient in its parameters or its input against finite differences in float64 and returns it, so
-a test asserts the gradient's value, not only that it exists. `last_json_as(shape)` reads a child's
-last line of output as JSON validated against a `TypedDict`. `run_example` runs each example in its
+a test asserts the gradient's value, not only that it exists. A child sends its result with
+`report(value)`, on a channel no library writes to, and `report_as(shape)` reads it validated
+against a `TypedDict` or another type. `run_example` runs each example in its
 own interpreter, with its outputs redirected away from the repository.
 
 ```python
@@ -198,9 +199,9 @@ def test_on_two_devices() -> None: ...
 
 
 def test_eight_emulated_devices() -> None:
-    program = "import json, jax; print(json.dumps(jax.device_count()))"
+    program = "import jax; from substrax.testing import report; report(jax.device_count())"
     result = run_python(program, runtime=JaxRuntime(cpu_devices=8), timeout=120)
-    assert result.check().last_json() == 8
+    assert result.check().report_as(int) == 8
 ```
 
 ### Devices

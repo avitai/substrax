@@ -20,6 +20,47 @@ and uses semantic versioning while the public API stabilizes.
   newest retention only, and nonfinite ranking metrics are refused before
   publication. Tied best scores preserve the newest tie.
 
+## [0.1.25] - 2026-10-30
+
+### Fixed
+
+- `substrax.testing.report(value)` takes what `json.dumps` takes, as the `print(json.dumps(value))`
+  it replaces did. 0.1.24 typed `value` as `JsonValue`, whose `list` and `dict` are invariant, so
+  a type checker refused a correctly typed caller passing a `dict[str, str]` or a `list[bool]`. A
+  value JSON cannot hold still raises `TypeError`, and nothing is written.
+
+## [0.1.24] - 2026-10-30
+
+### Changed
+
+- **Breaking:** a `run_python` child sends its result with `substrax.testing.report(value)`, and
+  the parent reads it with `ChildResult.report_as(shape)`, or `report_json()` for a value it
+  narrows itself. `ChildResult.last_json()` and `last_json_as()` are removed. They parsed the last
+  line of standard output, which a library shares with the child: datarax's multi-process tests
+  failed when Gloo wrote
+  `[Gloo] Rank 1 is connected to 1 peer ranks...` after the child's report. The report now goes to
+  a file `run_python` creates and names in `SUBSTRAX_CHILD_REPORT`, which no library writes to.
+  `ChildResult.report` holds the text, or `None` when the child sent none. A child reports once.
+  `run_example` reads `main()`'s summary the same way, so an example's own output no longer
+  reaches it. Move each child's `print(json.dumps(value))` to `report(value)`, and each
+  `last_json()` to `report_json()` and `last_json_as(shape)` to `report_as(shape)`.
+
+### Fixed
+
+- The `already-tested` action reads a merged pull request's checks on a private repository. It
+  asked `gh pr view --json statusCheckRollup`, whose query also reads each check's workflow run,
+  which a token reads there only with `actions: read`; the lookup failed, and every merge to
+  txpert-nnx repeated its pull request's work. The action now sends its own `checks.graphql`, which
+  reads only check conclusions and status states, so the calling job needs `contents`,
+  `pull-requests`, `checks` and `statuses` read. A lookup that fails says why in the log instead
+  of discarding the error.
+- The same action no longer reads a pull request with no checks as proven: such a merge, and one
+  whose pull request has checks past the first 100, runs its jobs.
+- `python-gates.yml` runs Bandit once, as the engineering guide's gate (`-ll`). A second run that
+  only wrote `bandit-report.json` used Bandit's default threshold, so a Low finding the gate passes
+  would fail the Security job; the report and its artifact are gone, and the job log lists each
+  finding.
+
 ## [0.1.23] - 2026-10-28
 
 ### Added
@@ -793,7 +834,9 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/avitai/substrax/compare/v0.1.24...v0.1.25
+[0.1.24]: https://github.com/avitai/substrax/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/avitai/substrax/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/avitai/substrax/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/avitai/substrax/compare/v0.1.20...v0.1.21

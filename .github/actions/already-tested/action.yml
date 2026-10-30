@@ -1,7 +1,9 @@
 name: Tree already tested
 description: >-
   Report whether a push to main carries exactly the tree its pull request tested, with every check
-  of that pull request proven, so the jobs that would repeat the pull request can stand down.
+  of that pull request proven, so the jobs that would repeat the pull request can stand down. On a
+  private repository the calling job grants `contents`, `pull-requests`, `checks` and `statuses`
+  read.
 outputs:
   skip:
     description: "'true' when the pull request tested this tree and every check succeeded; otherwise 'false'"
@@ -13,6 +15,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        CHECKS: ${{ github.action_path }}/checks.graphql
         UNPROVEN: ${{ github.action_path }}/unproven.jq
         PULL_REQUEST: ${{ github.action_path }}/pull_request.jq
         REPOSITORY: ${{ github.repository }}
@@ -22,17 +25,17 @@ runs:
         # A squash merge names its pull request in the subject; a rebase merge keeps each commit's
         # own. GitHub records, for every merged pull request, the commit its merge produced.
         commit=$(git rev-parse HEAD)
-        pull_request=$(gh api "repos/$REPOSITORY/commits/$commit/pulls" 2>/dev/null \
-          | jq -r --arg sha "$commit" -f "$PULL_REQUEST" 2>/dev/null || true)
+        pull_request=$(gh api "repos/$REPOSITORY/commits/$commit/pulls" \
+          | jq -r --arg sha "$commit" -f "$PULL_REQUEST" || true)
         if [ -n "$pull_request" ]; then
           # Every lookup answers "unknown" rather than failing: a pull request that cannot be read
-          # leaves the run green and running. The pull ref outlives the branch, so it resolves
-          # after the merge deleted the branch.
+          # leaves the run green and running, and its error stays in the log. The pull ref outlives
+          # the branch, so it resolves after the merge deleted the branch.
           git fetch --no-tags --depth=1 origin "refs/pull/$pull_request/head" || true
           tree=$(git rev-parse "HEAD^{tree}")
           tested=$(git rev-parse "FETCH_HEAD^{tree}" 2>/dev/null || echo unknown)
-          unproven=$(gh pr view "$pull_request" --json statusCheckRollup --jq "$(grep -v '^#' "$UNPROVEN")" \
-            2>/dev/null || echo unknown)
+          unproven=$(gh api graphql -F owner="${REPOSITORY%/*}" -F repo="${REPOSITORY#*/}" -F number="$pull_request" -F query=@"$CHECKS" \
+            | jq -f "$UNPROVEN" || echo unknown)
           if [ "$tree" = "$tested" ] && [ "$unproven" = "0" ]; then
             skip=true
           fi
