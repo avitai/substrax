@@ -13,17 +13,17 @@ import json
 import os
 from pathlib import Path
 
-from substrax.typing import JsonValue
-
 
 REPORT_PATH_ENV = "SUBSTRAX_CHILD_REPORT"
 
 
-def report(value: JsonValue) -> None:
+def report(value: object) -> None:  # noqa: DOC503  # TypeError is raised by json.dumps
     """Send ``value`` to the parent that started this interpreter with ``run_python``.
 
-    A child reports once. The value is written to a temporary file in the report's directory and
-    moved into place, so the parent reads either the whole value or none of it.
+    It takes what ``json.dumps`` takes, the call it replaces (``print(json.dumps(value))``), and
+    the parent checks the value's shape with ``ChildResult.report_as``. A child reports once. The
+    value is written to a temporary file in the report's directory and moved into place, so the
+    parent reads either the whole value or none of it.
 
     Args:
         value: The child's result, a value JSON can hold.
@@ -31,6 +31,7 @@ def report(value: JsonValue) -> None:
     Raises:
         RuntimeError: If this interpreter was not started by ``run_python``, or has reported
             already.
+        TypeError: If JSON cannot hold ``value``; nothing is written.
     """
     target = os.environ.get(REPORT_PATH_ENV)
     if not target:

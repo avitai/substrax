@@ -268,3 +268,27 @@ def test_report_writes_json_the_parent_reads(
     report({"a": [1, 2]})
 
     assert json.loads(path.read_text(encoding="utf-8")) == {"a": [1, 2]}
+
+
+def test_report_takes_a_typed_value_as_json_dumps_does(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``report(value)`` replaces ``print(json.dumps(value))``, so it takes what ``dumps`` takes."""
+    path = tmp_path / "report.json"
+    monkeypatch.setenv(REPORT_PATH_ENV, str(path))
+    names: dict[str, str] = {"indexed workers=0": "9f2c"}
+
+    report(names)
+
+    assert json.loads(path.read_text(encoding="utf-8")) == names
+
+
+def test_a_value_json_cannot_hold_is_refused_and_leaves_no_report(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(REPORT_PATH_ENV, str(tmp_path / "report.json"))
+
+    with pytest.raises(TypeError, match="set is not JSON serializable"):
+        report({1, 2})
+
+    assert list(tmp_path.iterdir()) == []
