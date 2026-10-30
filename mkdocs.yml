@@ -1,6 +1,6 @@
 site_name: Substrax
 site_url: https://substrax.readthedocs.io
-site_description: The training plumbing a JAX/Flax NNX project otherwise writes for itself
+site_description: Training, testing and CI infrastructure for JAX/Flax NNX
 site_author: Mahdi Shafiei
 
 repo_url: https://github.com/avitai/substrax
