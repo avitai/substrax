@@ -7,6 +7,12 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- The macOS night runs the gates on `macos-15`. GitHub retires the `macos-14` image on
+  2026-11-02 (actions/runner-images#13518), and its scheduled brownouts already cancel jobs that
+  ask for it.
+
 ## [0.1.25] - 2026-10-30
 
 ### Fixed

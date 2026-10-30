@@ -123,7 +123,7 @@ def test_the_macos_night_calls_the_gates_on_macos_with_the_full_suite() -> None:
     gates = _load("macos.yml")["jobs"]["gates"]
 
     assert gates["uses"] == GATES
-    assert gates["with"]["os"] == "macos-14"
+    assert gates["with"]["os"] == "macos-15"
     assert "only-security" not in gates["with"]
     shared = ("package", "pytest-args", "import-modules")
     assert {key: gates["with"][key] for key in shared} == {
