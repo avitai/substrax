@@ -42,4 +42,4 @@ jobs:
       package: substrax
       pytest-args: tests/ -p randomly -v
       import-modules: substrax substrax.devices substrax.mesh substrax.spmd substrax.checkpoint substrax.callbacks substrax.tracking
-      os: macos-14
+      os: macos-15
