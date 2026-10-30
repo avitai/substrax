@@ -9,6 +9,10 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Added
 
+- `check_parameter_gradients(..., wrt=...)` accepts native NNX filters so checks
+  can use the optimizer's actual trainable state. Other state stays fixed in the
+  float64 copy; an empty selection is refused. Comparison tolerances are unchanged.
+
 - `create_optimizer` uses native Optax finite-gradient skipping without a
   give-up path. Rejected gradients hold inner optimizer/schedule state while
   NNX attempts advance. Configured clipping stays inside the guarded chain;

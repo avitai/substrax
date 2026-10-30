@@ -27,15 +27,16 @@ from jax.typing import ArrayLike
 from substrax.nnx_typing import NnxState
 
 
-def check_parameter_gradients[M: nnx.Module](  # noqa: DOC502  # raised by check_grads and _refuse_all_zero
+def check_parameter_gradients[M: nnx.Module](  # noqa: DOC502, DOC503  # propagated checker assertions
     module: M,
     loss: Callable[[M], jax.Array],
     *,
     modes: Sequence[str] = ("fwd", "rev"),
     allow_zero: bool = False,
     eps: float | None = None,
+    wrt: nnx.filterlib.Filter = nnx.Param,
 ) -> NnxState:
-    """Check the gradient of ``loss`` in ``module``'s ``nnx.Param`` leaves, and return it.
+    """Check the gradient of ``loss`` in the selected module state, and return it.
 
     Args:
         module: The module; it is not changed.
@@ -44,17 +45,23 @@ def check_parameter_gradients[M: nnx.Module](  # noqa: DOC502  # raised by check
         allow_zero: Accept a gradient that is zero everywhere; refused otherwise, since a loss
             that does not depend on the parameters passes a finite-difference check.
         eps: Finite-difference step passed to JAX; ``None`` preserves its default.
+        wrt: Native NNX filter selecting differentiated state, as in ``nnx.Optimizer``.
+            All remaining state is held fixed in the float64 copy.
 
     Returns:
-        The gradient, in float64, with the structure of the module's ``nnx.Param`` state.
+        The gradient, in float64, with the structure of the selected state.
 
     Raises:
-        ValueError: If ``eps`` is not a finite positive number or ``None``.
+        ValueError: If ``eps`` is not a finite positive number or ``None``, or ``wrt``
+            selects no state.
         AssertionError: If the gradient differs from finite differences, or is zero everywhere
             and ``allow_zero`` is ``False``.
     """
     _validate_step(eps)
-    graphdef, params, rest = nnx.split(module, nnx.Param, ..., graph=False)
+    graphdef, params, rest = nnx.split(module, wrt, ..., graph=False)
+    if not jax.tree.leaves(params):
+        msg = "wrt must select nonempty state for a gradient check"
+        raise ValueError(msg)
     with jax.enable_x64(True):
         params64, rest64 = _float64(params), _float64(rest)
 

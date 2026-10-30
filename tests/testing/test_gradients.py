@@ -201,3 +201,47 @@ def test_explicit_steps_still_refuse_an_incorrect_derivative(eps: float) -> None
         check_parameter_gradients(module, lambda m: jnp.sum(_doubled_tangent(m.w[...])), eps=eps)
     with pytest.raises(AssertionError):
         check_input_gradients(module, lambda m, x: jnp.sum(_doubled_tangent(m(x))), _X, eps=eps)
+
+
+def test_parameter_filter_checks_selected_gradient_and_preserves_frozen_values() -> None:
+    """The bias derivative is [1.5, -0.25] while the excluded weights stay fixed."""
+    module = _Keyed()
+    before_w = np.asarray(module.w[...]).copy()
+    before_b = np.asarray(module.b[...]).copy()
+    before_key = np.asarray(jax.random.key_data(module.key[...])).copy()
+    gradient = check_parameter_gradients(
+        module, _loss_in_parameters, wrt=nnx.All(nnx.Param, nnx.PathContains("b"))
+    )
+    assert set(gradient) == {"b"}
+    np.testing.assert_allclose(_value(gradient, "b"), [1.5, -0.25], rtol=1e-12)
+    np.testing.assert_array_equal(module.w[...], before_w)
+    np.testing.assert_array_equal(module.b[...], before_b)
+    np.testing.assert_array_equal(jax.random.key_data(module.key[...]), before_key)
+    assert module.w[...].dtype == module.b[...].dtype == jnp.float32
+
+
+def test_filtered_check_still_detects_wrong_selected_derivatives() -> None:
+    """A faulty frozen derivative is irrelevant; selecting it must expose the error."""
+
+    def loss(module: _Affine) -> jax.Array:
+        return jnp.sum(_doubled_tangent(module.w[...])) + jnp.sum(module.b[...])
+
+    module = _Affine()
+    gradient = check_parameter_gradients(module, loss, wrt=nnx.PathContains("b"))
+    np.testing.assert_array_equal(_value(gradient, "b"), [1.0, 1.0])
+    with pytest.raises(AssertionError):
+        check_parameter_gradients(module, loss, wrt=nnx.PathContains("w"))
+    with pytest.raises(AssertionError):
+        check_parameter_gradients(module, loss)
+
+
+@pytest.mark.parametrize("allow_zero", [False, True])
+def test_empty_parameter_selection_is_not_a_gradient_check(allow_zero: bool) -> None:
+    """An unmatched filter must not produce an apparently successful empty result."""
+    with pytest.raises(ValueError, match=r"select.*state"):
+        check_parameter_gradients(
+            _Affine(),
+            _loss_in_parameters,
+            wrt=nnx.PathContains("missing"),
+            allow_zero=allow_zero,
+        )

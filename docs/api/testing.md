@@ -176,6 +176,9 @@ from substrax.testing.gradients import check_input_gradients, check_parameter_gr
 
 gradient = check_parameter_gradients(module, lambda m: loss(m(x), y))  # in its nnx.Param leaves
 input_gradient = check_input_gradients(module, lambda m, v: loss(m(v), y), x)
+selected_gradient = check_parameter_gradients(
+    module, lambda m: loss(m(x), y), wrt=optimizer.wrt
+)
 ```
 
 The check runs on a float64 copy of the module, split in tree mode: a derivative summed over many
@@ -184,6 +187,12 @@ tolerance is 1e-5 in float64 against 2e-3 in float32). The caller's module keeps
 values. A gradient that is zero everywhere is refused unless `allow_zero=True`, since a loss that
 ignores what is differentiated passes a finite-difference check. A function with a
 `jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
+
+The parameter checker accepts the same native NNX `wrt` filter as the optimizer.
+It perturbs only selected state and holds the remainder fixed in its float64 copy;
+it never changes the caller's parameters, frozen state or RNGs. A filter selecting
+no state is refused, including with `allow_zero=True`. A filtered directional check
+does not qualify derivatives with respect to excluded state.
 
 Both checks accept `eps=None` (JAX's default) or an explicit finite positive step.
 For example, `check_input_gradients(module, loss, x, eps=1e-6)` changes the
