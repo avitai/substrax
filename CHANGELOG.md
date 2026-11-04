@@ -13,6 +13,13 @@ and uses semantic versioning while the public API stabilizes.
   2026-11-02 (actions/runner-images#13518), and its scheduled brownouts already cancel jobs that
   ask for it.
 
+### Fixed
+
+- `python-gates` builds each job's environment on the Python the job names, whatever a caller's
+  tracked `.python-version` says. The lint, test, security and docs jobs set `UV_PYTHON`.
+  `uv sync` had replaced the venv `uv venv --python` made with one on the pinned version, so a
+  caller pinning 3.12 ran its "3.13" test leg on 3.12.
+
 ## [0.1.25] - 2026-10-30
 
 ### Fixed

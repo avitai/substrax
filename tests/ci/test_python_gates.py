@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess  # nosec B404
+import sys
 import venv
 from pathlib import Path
 from typing import Any
@@ -364,6 +365,140 @@ def test_the_import_check_reads_the_installed_wheel_not_the_source_tree(tmp_path
     result = _run_import_check(tmp_path, declared="1.0", source_version="9.9")
 
     assert result.returncode == 0, result.stderr
+
+
+# The jobs that install the project's environment, and the Python each installs it on.
+FIRST_PYTHON = "${{ fromJSON(inputs.python-versions)[0] }}"
+ENVIRONMENT_PYTHON = {
+    "lint": FIRST_PYTHON,
+    "test": "${{ matrix.python-version }}",
+    "security": FIRST_PYTHON,
+    "docs": FIRST_PYTHON,
+}
+
+
+def _install_step(job: str) -> dict[str, Any]:
+    return next(step for step in _steps(job) if "uv sync --locked" in str(step.get("run", "")))
+
+
+@pytest.mark.parametrize(("job", "python"), sorted(ENVIRONMENT_PYTHON.items()))
+def test_each_environment_job_names_its_python_once_in_uv_python(job: str, python: str) -> None:
+    """``UV_PYTHON`` on the job is the only place its Python is named.
+
+    A caller's tracked ``.python-version`` is the interpreter request of every uv project command,
+    and ``uv sync`` replaces a venv made on another version, so ``uv venv --python`` alone is
+    undone by the sync after it. ``UV_PYTHON`` applies to every uv command in the job.
+    """
+    install = _install_step(job)
+
+    assert _jobs()[job]["env"]["UV_PYTHON"] == python
+    assert "PYTHON" not in _env(install)
+    assert "--python" not in install["run"]
+
+
+def _running_python() -> str:
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def _resolve(value: str) -> str:
+    """The value a job's ``env`` entry takes on a runner testing the running Python."""
+    known = {
+        "${{ matrix.python-version }}": _running_python(),
+        FIRST_PYTHON: _running_python(),
+        "${{ inputs.sync-args }}": "",
+        "${{ inputs.docs-sync-args }}": "",
+    }
+    if "${{" not in value:
+        return value
+    assert value in known, f"no runner value for {value}"
+    return known[value]
+
+
+def _run_install_step(
+    tmp_path: Path, job: str, *, pinned: str
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    """Run ``job``'s install step, as the runner does, in a project pinning ``pinned``.
+
+    The project has no dependencies, so uv works offline against the running interpreter. A
+    ``uv`` shim first on ``PATH`` stubs the two calls a runner makes over the network or with
+    the docs toolchain: ``uv python install`` and the docs job's ``mkdocs build``. Every other
+    call reaches the real uv.
+    """
+    real_uv = shutil.which("uv")
+    assert real_uv is not None, "the gates need uv on PATH"
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        '[project]\nname = "fixture"\nversion = "0"\nrequires-python = ">=3.10"\n',
+        encoding="utf-8",
+    )
+    (project / ".python-version").write_text(f"{pinned}\n", encoding="utf-8")
+    (project / "mkdocs.yml").write_text("site_name: fixture\n", encoding="utf-8")
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    (shim / "uv").write_text(
+        "#!/usr/bin/env bash\n"
+        'if [ "$1 $2" = "python install" ]; then exit 0; fi\n'
+        'if [ "$1 $2 $3" = "run --no-sync mkdocs" ]; then exit 0; fi\n'
+        f'exec "{real_uv}" "$@"\n',
+        encoding="utf-8",
+    )
+    (shim / "uv").chmod(0o755)
+    # The interpreter under the test's venv, first on PATH so uv finds the running version.
+    base = Path(sys.base_prefix) / "bin"
+    # The runner's own uv settings stay out: substrax's test job sets UV_PYTHON, and an inherited
+    # one would hold the venv's Python whatever the step under test does.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("UV_")}
+    env.pop("VIRTUAL_ENV", None)
+    env.update(
+        PATH=os.pathsep.join([str(shim), str(base), env.get("PATH", "")]),
+        UV_CACHE_DIR=str(tmp_path / "cache"),
+        UV_OFFLINE="1",
+        UV_PYTHON_DOWNLOADS="never",
+    )
+    env.update({key: _resolve(value) for key, value in (_jobs()[job].get("env") or {}).items()})
+    step = _install_step(job)
+    env.update({key: _resolve(value) for key, value in _env(step).items()})
+    locked = subprocess.run(  # noqa: S603  # nosec B603 - uv with fixed arguments
+        [real_uv, "lock", "--python", _running_python()],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert locked.returncode == 0, locked.stderr
+    bash = [shutil.which("bash") or "bash", "--noprofile", "--norc", "-eo", "pipefail", "-c"]
+    result = subprocess.run(  # noqa: S603  # nosec B603 - bash running the workflow's own step
+        [*bash, str(step["run"])],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result, project / ".venv" / "bin" / "python"
+
+
+@pytest.mark.parametrize("job", sorted(ENVIRONMENT_PYTHON))
+def test_each_environment_job_installs_on_its_python_whatever_python_version_says(
+    tmp_path: Path, job: str
+) -> None:
+    """A caller's ``.python-version`` naming another Python does not move the job's venv.
+
+    The fixture pins 3.99, which no runner has: a step whose ``uv sync`` follows the file fails
+    there, and one that holds the job's Python builds its venv on the running interpreter.
+    """
+    result, python = _run_install_step(tmp_path, job, pinned="3.99")
+
+    assert result.returncode == 0, result.stderr
+    version = subprocess.run(  # noqa: S603  # nosec B603 - the venv's python with fixed arguments
+        [python, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert version == _running_python()
 
 
 def test_the_docs_build_strictly_with_no_path_filter() -> None:

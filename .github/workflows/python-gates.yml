@@ -68,6 +68,11 @@ jobs:
     # hold, which every pull request restores.
     if: ${{ !inputs.only-security }}
     runs-on: ubuntu-latest
+    env:
+      # A caller's tracked .python-version is the interpreter request of every uv project
+      # command, and uv sync replaces a venv made on another version, so uv venv --python alone
+      # does not hold. UV_PYTHON applies to every uv command in the job.
+      UV_PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -80,11 +85,10 @@ jobs:
 
       - name: Install the environment from the lock
         env:
-          PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
           SYNC_ARGS: ${{ inputs.sync-args }}
         run: |
-          uv python install "$PYTHON"
-          uv venv --python "$PYTHON"
+          uv python install "$UV_PYTHON"
+          uv venv
           uv lock --check
           # SYNC_ARGS is a list of flags, split on purpose.
           # shellcheck disable=SC2086
@@ -117,6 +121,8 @@ jobs:
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
     env:
+      # UV_PYTHON holds the matrix version through every uv command, as in the lint job.
+      UV_PYTHON: ${{ matrix.python-version }}
       JAX_PLATFORMS: cpu
       XLA_PYTHON_CLIENT_PREALLOCATE: "false"
       TF_CPP_MIN_LOG_LEVEL: "1"
@@ -135,11 +141,10 @@ jobs:
 
       - name: Install the environment from the lock
         env:
-          PYTHON: ${{ matrix.python-version }}
           SYNC_ARGS: ${{ inputs.sync-args }}
         run: |
-          uv python install "$PYTHON"
-          uv venv --python "$PYTHON"
+          uv python install "$UV_PYTHON"
+          uv venv
           # shellcheck disable=SC2086
           uv sync --locked $SYNC_ARGS
 
@@ -166,6 +171,9 @@ jobs:
     name: Security
     if: ${{ inputs.already-tested != 'true' }}
     runs-on: ubuntu-latest
+    env:
+      # UV_PYTHON holds the first listed version through every uv command, as in the lint job.
+      UV_PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -178,11 +186,10 @@ jobs:
 
       - name: Install the environment from the lock
         env:
-          PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
           SYNC_ARGS: ${{ inputs.sync-args }}
         run: |
-          uv python install "$PYTHON"
-          uv venv --python "$PYTHON"
+          uv python install "$UV_PYTHON"
+          uv venv
           # shellcheck disable=SC2086
           uv sync --locked $SYNC_ARGS
 
@@ -275,6 +282,9 @@ jobs:
     needs: lint
     if: ${{ !inputs.only-security && inputs.already-tested != 'true' }}
     runs-on: ubuntu-latest
+    env:
+      # UV_PYTHON holds the first listed version through every uv command, as in the lint job.
+      UV_PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -288,15 +298,14 @@ jobs:
       # Every pull request builds the site from the lock: a relock alone can break it.
       - name: Build the docs strictly
         env:
-          PYTHON: ${{ fromJSON(inputs.python-versions)[0] }}
           DOCS_SYNC_ARGS: ${{ inputs.docs-sync-args }}
         run: |
           if [ ! -f mkdocs.yml ]; then
             echo "No mkdocs.yml: nothing to build."
             exit 0
           fi
-          uv python install "$PYTHON"
-          uv venv --python "$PYTHON"
+          uv python install "$UV_PYTHON"
+          uv venv
           # shellcheck disable=SC2086
           uv sync --locked $DOCS_SYNC_ARGS
           uv run --no-sync mkdocs build --strict --clean
