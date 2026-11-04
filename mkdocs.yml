@@ -79,6 +79,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Comparison: comparison.md
   - API Reference:
       - Runtime: api/runtime.md
       - Artifacts: api/artifacts.md
