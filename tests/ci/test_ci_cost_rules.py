@@ -66,6 +66,13 @@ def test_no_workflow_run_by_a_push_or_pull_request_uses_macos(path: Path) -> Non
     assert on_macos == [], f"{path.name} runs macOS on a push or pull request: {on_macos}"
 
 
+def _cap_on_macos(max_parallel: str) -> int:
+    """The runner cap a job takes when the gates run on macOS: a number, or the one expression."""
+    if max_parallel == "${{ startsWith(inputs.os, 'macos') && 2 || 256 }}":
+        return 2
+    return int(max_parallel)
+
+
 def _called(job: dict[str, Any]) -> dict[str, Any]:
     """The workflow ``job`` calls."""
     return _load(ROOT / str(job["uses"]).removeprefix("./"))
@@ -88,8 +95,9 @@ def test_the_macos_workflow_runs_nightly_on_demand_and_under_a_runner_cap() -> N
     versions = called["on"]["workflow_call"]["inputs"]["python-versions"]["default"]
     assert json.loads(versions) == ["3.12", "3.13"]
     assert "python-versions" not in macos_calls[0]["with"]
+    assert "test-shards" not in macos_calls[0]["with"], "a night runs the suite in one job"
     for name, job in on_runner.items():
-        assert int(job["strategy"]["max-parallel"]) <= 2, (
+        assert _cap_on_macos(job["strategy"]["max-parallel"]) <= 2, (
             f"{name}: a macOS job without a runner cap"
         )
         assert (

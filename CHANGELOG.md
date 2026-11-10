@@ -7,6 +7,15 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `python-gates` runs the tests in shards: a caller's `test-shards` (`"[1, 2, 3, 4]"`) splits the
+  suite into that many pytest-split groups per Python, one job each, every shard of a run ordered
+  by the run's id as its `--randomly-seed`, so each test runs in exactly one shard. A new coverage
+  job combines each Python's shards and holds them to the configured floor and the changed-line
+  floor. The default, `"[1]"`, runs the suite whole, and the shards run all at once except on
+  macOS, which keeps two runners at a time. substrax's own CI runs four shards per Python.
+
 ### Changed
 
 - The macOS night runs the gates on `macos-15`. GitHub retires the `macos-14` image on
