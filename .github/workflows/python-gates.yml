@@ -60,6 +60,12 @@ on:
         description: The uv every job installs, one version across the stack.
         type: string
         default: "0.13.1"
+      test-shards:
+        description: >-
+          JSON list 1..N: the suite runs in N pytest-split groups per Python, one job each, which
+          needs pytest-split and pytest-randomly installed; the default runs it whole.
+        type: string
+        default: "[1]"
 
 jobs:
   lint:
@@ -110,16 +116,18 @@ jobs:
         run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
 
   test:
-    name: Test (Python ${{ matrix.python-version }}, ${{ inputs.os }})
+    name: Test (Python ${{ matrix.python-version }}, ${{ inputs.os }}, shard ${{ matrix.group }})
     needs: lint
     if: ${{ !inputs.only-security && inputs.already-tested != 'true' }}
     runs-on: ${{ inputs.os }}
     strategy:
       fail-fast: false
-      # At most two runners at a time, so a macOS night leaves the other repositories' jobs room.
-      max-parallel: 2
+      # At most two runners at a time on macOS, so a night leaves the other repositories' jobs
+      # room; elsewhere every shard at once (256 is the most jobs a matrix may make).
+      max-parallel: ${{ startsWith(inputs.os, 'macos') && 2 || 256 }}
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
+        group: ${{ fromJSON(inputs.test-shards) }}
     env:
       # UV_PYTHON holds the matrix version through every uv command, as in the lint job.
       UV_PYTHON: ${{ matrix.python-version }}
@@ -129,7 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # The changed-line coverage floor diffs against origin/main.
+          # A test may read main: substrax's own compares a pinned action with origin/main.
           fetch-depth: 0
 
       - name: Set up uv
@@ -157,12 +165,87 @@ jobs:
       - name: Run the tests
         env:
           PYTEST_ARGS: ${{ inputs.pytest-args }}
+          SHARDS: ${{ inputs.test-shards }}
+          GROUP: ${{ matrix.group }}
+          SEED: ${{ github.run_id }}
         run: |
+          splits=$(jq length <<< "$SHARDS")
+          shard=()
+          if [ "$splits" -gt 1 ]; then
+            # pytest-randomly orders the collection before pytest-split assigns it, so every shard
+            # of a run takes the run's id as its seed: one order, each test in exactly one shard.
+            # With no durations file, least_duration balances by test count, as in datarax.
+            shard=(--splits "$splits" --group "$GROUP" --splitting-algorithm least_duration
+              --randomly-seed="$SEED")
+          fi
+          # A shard measures part of the suite: the coverage job holds the floor over all of them.
           # shellcheck disable=SC2086
-          uv run --no-sync pytest $PYTEST_ARGS --cov-report=xml
+          uv run --no-sync pytest $PYTEST_ARGS "${shard[@]}" --cov-fail-under=0 --cov-report=xml
+
+      - name: Hand the shard's coverage to the coverage job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ matrix.python-version }}-${{ matrix.group }}
+          path: .coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  coverage:
+    name: Coverage (Python ${{ matrix.python-version }})
+    needs: test
+    if: ${{ !inputs.only-security && inputs.already-tested != 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+    env:
+      # UV_PYTHON holds the matrix version through every uv command, as in the lint job.
+      UV_PYTHON: ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The changed-line coverage floor diffs against origin/main.
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      - name: Install the environment from the lock
+        env:
+          SYNC_ARGS: ${{ inputs.sync-args }}
+        run: |
+          uv python install "$UV_PYTHON"
+          uv venv
+          # shellcheck disable=SC2086
+          uv sync --locked $SYNC_ARGS
+
+      - name: Download this Python's shards
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-${{ matrix.python-version }}-*
+          path: shards
+
+      # The configured floor ([tool.coverage.report] fail_under) over the whole suite. Every shard
+      # is here: this job runs only when each passed, and a shard with no data fails its upload.
+      - name: Coverage over every shard
+        run: |
+          i=0
+          for data in shards/*/.coverage; do
+            cp "$data" ".coverage.shard$i"
+            i=$((i + 1))
+          done
+          uv run --no-sync coverage combine
+          uv run --no-sync coverage report
+          uv run --no-sync coverage xml
 
       # The package-wide floor lets a pull request add an untested module; this holds the lines a
-      # pull request changes to 80%, from the coverage the run above measured.
+      # pull request changes to 80%, from the coverage the shards measured.
       - name: Coverage on changed lines (at least 80%)
         if: ${{ github.event_name == 'pull_request' && matrix.python-version == fromJSON(inputs.python-versions)[0] }}
         run: uvx --from diff-cover==10.6.0 diff-cover coverage.xml --compare-branch=origin/main --fail-under=80 --show-uncovered

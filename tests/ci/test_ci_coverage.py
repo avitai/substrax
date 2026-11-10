@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import re
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 
@@ -31,29 +33,35 @@ def _addopts(pyproject: dict[str, Any]) -> str:
 def coverage_cap_violations(
     workflow: dict[str, Any], gates: dict[str, Any], pyproject: dict[str, Any]
 ) -> list[str]:
-    """Return why the test job would not fail below the coverage floor, if it would not.
+    """Return why CI would not fail below the coverage floor, if it would not.
 
     ``workflow`` is ci.yml, which calls ``gates`` (python-gates.yml) and passes its pytest
-    arguments; the command the test job runs is the gates' pytest line with those arguments.
+    arguments. The test job's shards each measure part of the suite, so the floor is held where
+    they meet: the coverage job combines each Python's shards and reports them against
+    ``[tool.coverage.report] fail_under``.
     """
-    job = gates["jobs"]["test"]
-    script = next(step["run"] for step in job["steps"] if "pytest" in step.get("run", ""))
+    test, coverage = gates["jobs"]["test"], gates["jobs"]["coverage"]
+    script = next(step["run"] for step in test["steps"] if "pytest" in step.get("run", ""))
     command = f"{script} {workflow['jobs']['gates']['with'].get('pytest-args', '')}"
-    addopts = _addopts(pyproject)
-    # A cap on the command line overrides the one in addopts.
-    caps = re.findall(r"--cov-fail-under[= ](\d+)", command) or re.findall(
-        r"--cov-fail-under[= ](\d+)", addopts
-    )
+    report = "\n".join(step.get("run", "") for step in coverage["steps"]).split("diff-cover")[0]
+    floor = pyproject["tool"]["coverage"]["report"].get("fail_under", 0)
 
     problems = []
-    if not caps or min(int(cap) for cap in caps) < 80:
-        problems.append(f"the pytest coverage floor is {caps}, not at least 80")
+    if float(floor) < 80:
+        problems.append(f"the configured coverage floor is {floor}, not at least 80")
+    if "coverage report" not in report or "--fail-under" in report:
+        problems.append("the coverage job does not report against the configured floor")
+    if coverage.get("needs") != "test":
+        problems.append(f"the coverage job needs {coverage.get('needs')}, not the test job")
     if not {"push", "pull_request"} <= set(workflow["on"]):
         problems.append(f"CI runs on {sorted(workflow['on'])}, not on both push and pull_request")
-    # The one condition the job may carry is the already-tested gate: it stands down only where
-    # the same tree already reported coverage on the pull request that produced it.
-    if job.get("if") not in (None, GATE_CONDITION):
-        problems.append(f"the test job only runs when {job['if']}")
+    # The one condition either job may carry is the already-tested gate: they stand down only
+    # where the same tree already reported coverage on the pull request that produced it.
+    problems += [
+        f"the {name} job only runs when {job['if']}"
+        for name, job in (("test", test), ("coverage", coverage))
+        if job.get("if") not in (None, GATE_CONDITION)
+    ]
     problems += [
         f"the pytest command overrides the floor with {override}"
         for override in CAP_OVERRIDES
@@ -62,14 +70,58 @@ def coverage_cap_violations(
     return problems
 
 
-def test_ci_test_job_fails_below_the_coverage_floor() -> None:
-    """The test job runs pytest with a floor of at least 80% on every push and pull request."""
+def test_ci_fails_below_the_coverage_floor() -> None:
+    """Each Python's shards are held together to a floor of at least 80% on every push and pull
+    request."""
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
     workflow = _load_workflow(WORKFLOWS / "ci.yml")
     gates = _load_workflow(WORKFLOWS / "python-gates.yml")
 
     assert coverage_cap_violations(workflow, gates, pyproject) == []
+
+
+def _lower_the_report(gates: dict[str, Any], pyproject: dict[str, Any]) -> None:
+    del pyproject
+    step = next(
+        s for s in gates["jobs"]["coverage"]["steps"] if "coverage report" in s.get("run", "")
+    )
+    step["run"] = step["run"].replace("coverage report", "coverage report --fail-under=50")
+
+
+def _unhook_the_coverage_job(gates: dict[str, Any], pyproject: dict[str, Any]) -> None:
+    del pyproject
+    gates["jobs"]["coverage"]["needs"] = "lint"
+
+
+def _lower_the_configured_floor(gates: dict[str, Any], pyproject: dict[str, Any]) -> None:
+    del gates
+    pyproject["tool"]["coverage"]["report"]["fail_under"] = 70
+
+
+def _drop_coverage_from_the_shards(gates: dict[str, Any], pyproject: dict[str, Any]) -> None:
+    del pyproject
+    step = next(s for s in gates["jobs"]["test"]["steps"] if "pytest" in s.get("run", ""))
+    step["run"] = step["run"].replace("--cov-report=xml", "--no-cov")
+
+
+@pytest.mark.parametrize(
+    "lose_the_floor",
+    [
+        _lower_the_report,
+        _unhook_the_coverage_job,
+        _lower_the_configured_floor,
+        _drop_coverage_from_the_shards,
+    ],
+)
+def test_each_way_of_losing_the_floor_is_reported(lose_the_floor: Callable[..., None]) -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    workflow = _load_workflow(WORKFLOWS / "ci.yml")
+    gates = _load_workflow(WORKFLOWS / "python-gates.yml")
+
+    lose_the_floor(gates, pyproject)
+
+    assert coverage_cap_violations(workflow, gates, pyproject) != []
 
 
 def test_coverage_follows_child_processes() -> None:

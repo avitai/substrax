@@ -42,6 +42,8 @@ jobs:
     with:
       package: substrax
       pytest-args: tests/ -p randomly -v
+      # Each leg took 6.5 to 11 minutes, nearly all of it pytest.
+      test-shards: "[1, 2, 3, 4]"
       import-modules: substrax substrax.devices substrax.mesh substrax.spmd substrax.checkpoint substrax.callbacks substrax.tracking
       already-tested: ${{ needs.already_tested.outputs.skip }}
       only-security: ${{ github.event_name == 'schedule' }}

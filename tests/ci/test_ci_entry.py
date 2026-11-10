@@ -7,6 +7,7 @@ unless every other job succeeded or was skipped on purpose.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess  # nosec B404
@@ -63,6 +64,14 @@ def test_the_gates_are_called_with_the_merge_gate_and_the_audit_switch() -> None
     assert gates["with"]["already-tested"] == GATE_SKIP
     assert gates["with"]["only-security"] == "${{ github.event_name == 'schedule' }}"
     assert "if" not in gates, "the called jobs decide what stands down"
+
+
+def test_a_pull_request_runs_the_suite_in_four_shards_per_python() -> None:
+    """Each leg took 6.5 to 11 minutes, nearly all of it pytest; four shards a leg, as datarax's
+    (OWN-1109-SUBSTRAX-CI-SHARDS)."""
+    gates = _ci_jobs()["gates"]
+
+    assert json.loads(gates["with"]["test-shards"]) == [1, 2, 3, 4]
 
 
 def test_substraxs_own_checks_stand_down_on_a_proven_merge_and_on_the_schedule() -> None:

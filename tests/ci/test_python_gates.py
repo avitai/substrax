@@ -8,6 +8,7 @@ at the job level, pinned by commit, so every rule here holds for every caller.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -34,8 +35,12 @@ INPUTS = {
     "already-tested",
     "only-security",
     "uv-version",
+    "test-shards",
 }
-JOBS = {"lint", "test", "security", "build", "docs"}
+JOBS = {"lint", "test", "coverage", "security", "build", "docs"}
+# Two runners at a time on macOS, scarce for every repository; elsewhere 256, the most jobs a
+# matrix may make, which is no cap.
+MACOS_CAP = "${{ startsWith(inputs.os, 'macos') && 2 || 256 }}"
 # The stack is a hierarchy built bottom-up from substrax: its shared workflow may use substrax's
 # own actions and third-party actions, never another stack repository's.
 STACK_OWNERS = ("avitai/", "mahdi-shafiei/")
@@ -144,39 +149,141 @@ def test_lint_restores_the_hook_environments_before_running_the_hooks() -> None:
     assert "inputs.python-versions" in key
 
 
-@pytest.mark.parametrize("job", ["test", "security", "build", "docs"])
+@pytest.mark.parametrize("job", ["test", "coverage", "security", "build", "docs"])
 def test_work_a_pull_request_already_proved_stands_down(job: str) -> None:
     assert "inputs.already-tested != 'true'" in _jobs()[job]["if"]
 
 
-@pytest.mark.parametrize("job", ["lint", "test", "build", "docs"])
+@pytest.mark.parametrize("job", ["lint", "test", "coverage", "build", "docs"])
 def test_the_scheduled_audit_runs_security_alone(job: str) -> None:
     assert "!inputs.only-security" in _jobs()[job]["if"]
     assert "only-security" not in _jobs()["security"].get("if", "")
 
 
-@pytest.mark.parametrize("job", ["test", "build"])
-def test_the_matrix_jobs_run_on_the_callers_runner_under_the_macos_cap(job: str) -> None:
+@pytest.mark.parametrize(("job", "cap"), [("test", MACOS_CAP), ("build", "2")])
+def test_the_matrix_jobs_run_on_the_callers_runner_under_the_macos_cap(job: str, cap: str) -> None:
+    """The build has two legs; the tests' shards run all at once except on macOS."""
     spec = _jobs()[job]
 
     assert spec["runs-on"] == "${{ inputs.os }}"
-    assert int(spec["strategy"]["max-parallel"]) <= 2
+    assert spec["strategy"]["max-parallel"] == cap
     assert spec["strategy"]["fail-fast"] == "false"
     assert spec["strategy"]["matrix"]["python-version"] == "${{ fromJSON(inputs.python-versions) }}"
 
 
-def test_the_tests_report_coverage_and_hold_new_lines_to_eighty_percent() -> None:
-    runs = _runs("test")
+def _pytest_step() -> dict[str, Any]:
+    return next(step for step in _steps("test") if "pytest" in str(step.get("run", "")))
 
-    assert "pytest" in runs
-    assert "--cov-report=xml" in runs
-    diff = next(step for step in _steps("test") if "diff-cover" in str(step.get("run", "")))
+
+def test_the_tests_run_in_the_callers_shards() -> None:
+    """One job per Python and shard; a caller that names no shards runs the suite whole."""
+    spec = _jobs()["test"]
+    inputs = _workflow()["on"]["workflow_call"]["inputs"]
+
+    assert json.loads(inputs["test-shards"]["default"]) == [1]
+    assert spec["strategy"]["matrix"]["group"] == "${{ fromJSON(inputs.test-shards) }}"
+    assert "${{ matrix.group }}" in spec["name"]
+    assert (
+        _env(_pytest_step()).items()
+        >= {
+            "SHARDS": "${{ inputs.test-shards }}",
+            "GROUP": "${{ matrix.group }}",
+            "SEED": "${{ github.run_id }}",
+        }.items()
+    )
+
+
+def _pytest_arguments(tmp_path: Path, *, shards: str, group: str) -> list[str]:
+    """The arguments the test step gives pytest, its ``uv`` stubbed to print them one a line."""
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    (shim / "uv").write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\"\n", encoding="utf-8")
+    (shim / "uv").chmod(0o755)
+    env = {
+        "PATH": os.pathsep.join([str(shim), os.environ.get("PATH", "")]),
+        "PYTEST_ARGS": "tests/ -p randomly -v",
+        "SHARDS": shards,
+        "GROUP": group,
+        "SEED": "4242",
+    }
+    bash = [shutil.which("bash") or "bash", "--noprofile", "--norc", "-eo", "pipefail", "-c"]
+    result = subprocess.run(  # noqa: S603  # nosec B603 - bash running the workflow's own step
+        [*bash, str(_pytest_step()["run"])],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.splitlines()
+
+
+def test_a_shard_runs_its_group_of_one_collection_ordered_by_the_runs_seed(tmp_path: Path) -> None:
+    """pytest-randomly orders the collection before pytest-split assigns it, so every shard of a run
+    takes the run's id as its seed: one order, each test in exactly one shard. Separate seeds
+    duplicated 110 tests and dropped 119 in datarax (OWN-1001-SPEED)."""
+    arguments = _pytest_arguments(tmp_path, shards="[1, 2, 3, 4]", group="3")
+
+    assert arguments[:3] == ["run", "--no-sync", "pytest"]
+    assert arguments[3:7] == ["tests/", "-p", "randomly", "-v"]
+    assert " ".join(arguments[7:]).split(" --cov")[0] == (
+        "--splits 4 --group 3 --splitting-algorithm least_duration --randomly-seed=4242"
+    )
+
+
+def test_an_unsharded_run_passes_no_split_or_seed(tmp_path: Path) -> None:
+    """A caller with one shard needs neither pytest-split nor pytest-randomly installed."""
+    arguments = _pytest_arguments(tmp_path, shards="[1]", group="1")
+
+    assert not [argument for argument in arguments if argument.startswith(("--splits", "--group"))]
+    assert not [argument for argument in arguments if argument.startswith("--randomly-seed")]
+
+
+def test_each_shard_reports_its_coverage_for_the_coverage_job_to_hold(tmp_path: Path) -> None:
+    """A shard measures part of the suite, so its own floor is off and its data goes on."""
+    arguments = _pytest_arguments(tmp_path, shards="[1, 2]", group="1")
+    upload = next(
+        step
+        for step in _steps("test")
+        if str(step.get("uses", "")).startswith("actions/upload-artifact@")
+    )
+
+    assert "--cov-fail-under=0" in arguments
+    assert "--cov-report=xml" in arguments
+    assert upload["with"]["name"] == "coverage-${{ matrix.python-version }}-${{ matrix.group }}"
+    assert upload["with"]["path"] == ".coverage"
+    assert upload["with"]["include-hidden-files"] == "true"
+    assert upload["with"]["if-no-files-found"] == "error"
+
+
+def test_the_coverage_job_holds_each_pythons_shards_together_to_the_floors() -> None:
+    """Each Python's shards are combined and reported against the configured floor, and the lines a
+    pull request changes are held to 80% on the first Python, as one unsharded leg held them."""
+    spec = _jobs()["coverage"]
+    download = next(
+        step
+        for step in _steps("coverage")
+        if str(step.get("uses", "")).startswith("actions/download-artifact@")
+    )
+    runs = _runs("coverage")
+    diff = next(step for step in _steps("coverage") if "diff-cover" in str(step.get("run", "")))
+    checkout = next(
+        step
+        for step in _steps("coverage")
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    )
+
+    assert spec["needs"] == "test"
+    assert spec["runs-on"] == "ubuntu-latest"
+    assert spec["strategy"]["matrix"]["python-version"] == "${{ fromJSON(inputs.python-versions) }}"
+    assert download["with"]["pattern"] == "coverage-${{ matrix.python-version }}-*"
+    for command in ("coverage combine", "coverage report", "coverage xml"):
+        assert command in runs, command
+    assert "--fail-under" not in runs.split("diff-cover")[0], "the floor is the configured one"
     assert "--fail-under=80" in diff["run"]
     assert "--compare-branch=origin/main" in diff["run"]
     assert "github.event_name == 'pull_request'" in diff["if"]
-    checkout = next(
-        step for step in _steps("test") if str(step.get("uses", "")).startswith("actions/checkout@")
-    )
+    assert FIRST_PYTHON.removeprefix("${{ ").removesuffix(" }}") in diff["if"]
     assert checkout["with"]["fetch-depth"] == "0"
 
 
@@ -372,6 +479,7 @@ FIRST_PYTHON = "${{ fromJSON(inputs.python-versions)[0] }}"
 ENVIRONMENT_PYTHON = {
     "lint": FIRST_PYTHON,
     "test": "${{ matrix.python-version }}",
+    "coverage": "${{ matrix.python-version }}",
     "security": FIRST_PYTHON,
     "docs": FIRST_PYTHON,
 }
