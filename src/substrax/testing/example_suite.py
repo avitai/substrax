@@ -44,6 +44,7 @@ once per session.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -51,7 +52,12 @@ import pytest
 
 from substrax.examples import discover_examples
 from substrax.notebooks import repository
-from substrax.notebooks.config import example_source, ExamplesConfig, read_examples_config
+from substrax.notebooks.config import (
+    example_source,
+    ExamplesConfig,
+    read_examples_config,
+    refuse_unusable_budget,
+)
 from substrax.notebooks.conformance import check_example, Devices, example_metadata
 from substrax.notebooks.corpus import corpus_problems, is_touched, reaches_every_example
 from substrax.notebooks.pages import compare_with_run
@@ -79,7 +85,7 @@ _SELECTED = pytest.StashKey[frozenset[Path]]()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add ``--examples-changed-since``.
+    """Add ``--examples-changed-since`` and ``--examples-budget-seconds``.
 
     Args:
         parser: pytest's option parser.
@@ -89,6 +95,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         metavar="REF",
         default=None,
         help="run only the examples changed since REF; every one when the library changed",
+    )
+    parser.addoption(
+        "--examples-budget-seconds",
+        metavar="SECONDS",
+        type=float,
+        default=None,
+        help=(
+            "this lane's budget for an example without a budgets entry, in place of the "
+            "settings' budget_seconds; an example's own entry still applies"
+        ),
     )
 
 
@@ -100,14 +116,17 @@ def pytest_configure(config: pytest.Config) -> None:
 
     Raises:
         pytest.UsageError: If pyproject.toml has no ``[tool.substrax.examples]`` table or
-            ``[project]`` ``name``, the table holds settings no run can be held to, or an example
-            is reached through a symlink.
+            ``[project]`` ``name``, the table or ``--examples-budget-seconds`` holds settings no
+            run can be held to, or an example is reached through a symlink.
     """
     config.addinivalue_line(
         "markers", f"{RUN_MARKER}: an example run as its clean notebook and compared with its page"
     )
     try:
-        config.stash[_CONFIG] = read_examples_config(config.rootpath)
+        config.stash[_CONFIG] = _lane_settings(
+            read_examples_config(config.rootpath),
+            lane_budget=config.getoption("--examples-budget-seconds"),
+        )
     except (LookupError, ValueError) as error:
         raise pytest.UsageError(str(error)) from error
     config.stash[_EXAMPLES] = _examples(config.rootpath)
@@ -143,6 +162,30 @@ def _examples(repo_root: Path) -> frozenset[Path]:
         )
         raise pytest.UsageError(msg)
     return frozenset(path.resolve() for path in found)
+
+
+def _lane_settings(  # noqa: DOC502  # the ValueError is raised by refuse_unusable_budget
+    settings: ExamplesConfig, *, lane_budget: float | None
+) -> ExamplesConfig:
+    """The settings with this lane's default budget, as ``--examples-budget-seconds`` gives it.
+
+    A lane changes only the repository default: an example's ``budgets`` entry still applies, as
+    pytest-timeout's command line yields to an item's own marker.
+
+    Args:
+        settings: The repository's settings.
+        lane_budget: The lane's default budget, or ``None`` to keep ``budget_seconds``.
+
+    Returns:
+        The settings the session runs with.
+
+    Raises:
+        ValueError: If ``lane_budget`` is not a finite number above zero.
+    """
+    if lane_budget is None:
+        return settings
+    refuse_unusable_budget(lane_budget, setting="--examples-budget-seconds")
+    return dataclasses.replace(settings, budget_seconds=lane_budget)
 
 
 def pytest_collect_directory(path: Path, parent: pytest.Collector) -> pytest.Collector | None:

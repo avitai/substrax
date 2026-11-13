@@ -4,7 +4,8 @@
 substrax-notebooks convert EXAMPLE... [--repo-root DIR]
 substrax-notebooks check EXAMPLE... [--repo-root DIR]
 substrax-notebooks page EXAMPLE... [--repo-root DIR]
-substrax-notebooks test [PATH...] [--changed-since REF] [--repo-root DIR]
+substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECONDS]
+                        [--repo-root DIR]
 ```
 
 ``convert`` writes each example's clean notebook. ``check`` applies the guide's source rules
@@ -21,10 +22,11 @@ exists, ``tests/examples`` unless PATHs name others, apart from the repository's
 :func:`examples_pytest_options` and without the caller's ``PYTEST_ADDOPTS`` and
 ``PYTEST_PLUGINS``, so the session holds pytest and the example suite alone, reads none of the
 repository's ini keys, and each kernel gets the environment ``uv run python examples/...`` gets.
-``--changed-since`` is the example suite's ``--examples-changed-since``. A PATH is taken from the
-working directory, as an EXAMPLE is, and one outside the repository root is refused. The
-settings are read first, and refused as ``check`` and ``page`` refuse them. Its exit code is
-otherwise pytest's. It needs pytest: ``substrax[notebooks,testing]``.
+``--changed-since`` is the example suite's ``--examples-changed-since``, and ``--budget-seconds``
+its ``--examples-budget-seconds``. A PATH is taken from the working directory, as an EXAMPLE
+is, and one outside the repository root is refused. The settings are read first, and refused as
+``check`` and ``page`` refuse them. Its exit code is otherwise pytest's. It needs pytest:
+``substrax[notebooks,testing]``.
 """
 
 from __future__ import annotations
@@ -87,6 +89,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     tester.add_argument("paths", nargs="*", type=Path, metavar="PATH")
     tester.add_argument("--changed-since", metavar="REF")
+    tester.add_argument("--budget-seconds", metavar="SECONDS", type=float)
     tester.add_argument("--repo-root", type=Path, default=Path.cwd())
     tester.set_defaults(command=_test)
     return parser
@@ -212,17 +215,20 @@ def examples_pytest_options(repo_root: Path) -> tuple[str, ...]:
 def _pytest_command(arguments: argparse.Namespace, *, repo_root: Path) -> list[str]:
     """The examples' pytest command: this interpreter, the session's options and its paths."""
     paths = [str(path.resolve()) for path in arguments.paths] or _default_paths(repo_root)
-    changed = (
-        []
-        if arguments.changed_since is None
-        else [f"--examples-changed-since={arguments.changed_since}"]
-    )
+    forwarded = [
+        f"{option}={value}"
+        for option, value in (
+            ("--examples-changed-since", arguments.changed_since),
+            ("--examples-budget-seconds", arguments.budget_seconds),
+        )
+        if value is not None
+    ]
     return [
         sys.executable,
         "-m",
         "pytest",
         *examples_pytest_options(repo_root),
-        *changed,
+        *forwarded,
         *paths,
     ]
 

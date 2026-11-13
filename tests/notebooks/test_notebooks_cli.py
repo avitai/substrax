@@ -374,6 +374,16 @@ def test_test_passes_changed_since_to_the_example_suite(
     assert "no-such-ref" in err
 
 
+def test_test_passes_budget_seconds_to_the_example_suite(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    repo = _examples_repository(tmp_path)
+
+    assert main(["test", "--repo-root", str(repo), "--budget-seconds", "0"]) == 4
+
+    assert "--examples-budget-seconds must be a finite number" in capfd.readouterr().err
+
+
 def test_test_runs_only_the_paths_it_is_given(
     tmp_path: Path, capfd: pytest.CaptureFixture[str]
 ) -> None:
