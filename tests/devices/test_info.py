@@ -9,7 +9,14 @@ import jax
 import pytest
 from hypothesis import given, strategies as st
 
-from substrax.devices import detect_devices, DeviceInfo, DeviceKind, visible_devices
+from substrax.devices import (
+    detect_devices,
+    DeviceInfo,
+    DeviceKind,
+    GPUUnavailableError,
+    require_gpu,
+    visible_devices,
+)
 
 
 _KNOWN_PLATFORMS = {"cpu", "gpu", "cuda", "rocm", "tpu", "metal"}
@@ -83,3 +90,22 @@ def test_visible_devices_are_the_devices_jax_reports_in_its_order() -> None:
         (device.platform, device.id) for device in jax.devices()
     ]
     assert all(isinstance(device.device_kind, str) for device in devices)
+
+
+def test_require_gpu_refuses_a_cpu_backend_naming_it() -> None:
+    with pytest.raises(GPUUnavailableError, match="the default backend is cpu"):
+        require_gpu()
+
+
+def test_require_gpu_returns_the_gpu_it_found() -> None:
+    gpu = DeviceInfo(platform="gpu", kind=DeviceKind.GPU, count=2, device_kinds=("H100", "H100"))
+
+    assert require_gpu(gpu) is gpu
+
+
+@pytest.mark.parametrize("kind", [DeviceKind.CPU, DeviceKind.TPU, DeviceKind.METAL])
+def test_require_gpu_refuses_every_backend_but_a_gpu(kind: DeviceKind) -> None:
+    info = DeviceInfo(platform=kind.value, kind=kind, count=1, device_kinds=("device",))
+
+    with pytest.raises(GPUUnavailableError, match=f"the default backend is {kind.value}"):
+        require_gpu(info)

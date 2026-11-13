@@ -83,6 +83,33 @@ def detect_devices() -> DeviceInfo:
     )
 
 
+class GPUUnavailableError(RuntimeError):
+    """A GPU is required, and jax's default backend is not one."""
+
+
+def require_gpu(info: DeviceInfo | None = None) -> DeviceInfo:
+    """Return the devices when jax's default backend is a GPU, and refuse to go on otherwise.
+
+    A GPU-required example calls it right after its Setup's imports, so it stops before any work
+    with the reason named, instead of running its GPU workload on the CPU.
+    ``substrax-devices --require-gpu`` applies the same check.
+
+    Args:
+        info: The devices to check; :func:`detect_devices` when ``None``.
+
+    Returns:
+        The devices, their default backend a GPU.
+
+    Raises:
+        GPUUnavailableError: If the default backend is not a GPU, naming the backend.
+    """
+    found = detect_devices() if info is None else info
+    if found.kind is not DeviceKind.GPU:
+        msg = f"no GPU: the default backend is {found.platform}"
+        raise GPUUnavailableError(msg)
+    return found
+
+
 class DeviceLike(Protocol):
     """The part of a ``jax.Device`` substrax reads.
 
