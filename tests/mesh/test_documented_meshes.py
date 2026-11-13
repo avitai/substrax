@@ -1,9 +1,9 @@
 """Mesh construction that the package documents uses Auto axes.
 
-``jax.make_mesh`` builds ``AxisType.Explicit`` axes unless it is given ``axis_types`` (jax 0.11), and
-under Explicit axes the backward pass of a batch-sharded step raises. Every example a reader copies,
-whether in a docstring, the README or a docs page, therefore either names ``axis_types`` or builds
-its mesh with ``DeviceMeshManager.create_device_mesh``.
+``jax.make_mesh`` builds ``AxisType.Explicit`` axes unless it is given ``axis_types`` (jax 0.11),
+and under Explicit axes the backward pass of a batch-sharded step raises. Every example a reader
+copies, whether in a docstring, the README or a docs page, therefore either names ``axis_types`` or
+builds its mesh with ``DeviceMeshManager.create_device_mesh``.
 """
 
 from __future__ import annotations

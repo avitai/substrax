@@ -14,7 +14,8 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
-# Remote hook repositories whose tool the lock also installs, with the locked package each must match.
+# Remote hook repositories whose tool the lock also installs, with the locked package each must
+# match.
 LOCKED_HOOK_TOOLS = {"https://github.com/astral-sh/ruff-pre-commit": "ruff"}
 
 

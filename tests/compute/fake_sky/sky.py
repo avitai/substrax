@@ -2,8 +2,8 @@
 
 State lives under ``$FAKE_SKY_ROOT``: a bucket ``gs://NAME`` is ``buckets/NAME``, and a cluster is
 ``clusters/<name>`` holding its job's pid, log and exit code. Paths the task mounts are rewritten
-to their local directories in the script. The launch ``down`` flag removes the cluster once its job ends, as
-SkyPilot's autodown does, so a finished run is known only from its bucket.
+to their local directories in the script. The launch ``down`` flag removes the cluster once its job
+ends, as SkyPilot's autodown does, so a finished run is known only from its bucket.
 """
 
 from __future__ import annotations

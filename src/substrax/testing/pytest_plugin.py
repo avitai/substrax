@@ -47,8 +47,10 @@ RNGS_FIXTURE_STREAMS = ("default", "params", "dropout", "sample")
 
 _MARKERS = (
     "x64: run the test with jax 64-bit types enabled",
-    "devices(count, kind=None): skip unless at least `count` devices, of `kind` when given, are visible",
-    "accelerator(kind=None): skip unless jax's default backend is an accelerator, of `kind` when given",
+    "devices(count, kind=None): skip unless at least `count` devices, "
+    "of `kind` when given, are visible",
+    "accelerator(kind=None): skip unless jax's default backend is an accelerator, "
+    "of `kind` when given",
 )
 _X64_VARIABLE = "JAX_ENABLE_X64"
 # The values jax reads as true for a boolean variable (jax/_src/config.py, bool_env).

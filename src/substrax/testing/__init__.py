@@ -15,9 +15,10 @@ fails a test that changes jax's global configuration, as jax's own test harness 
 ``counted_calls`` counts the Python functions a block's own threads start, grouped by
 ``by_package``, and ``per_iteration`` takes the exact work per iteration from two pass lengths, for
 tests that bound work by count instead of time; ``substrax.testing.jax_calls`` adds jax's
-dispatches and placements to those counts. ``substrax.testing.compiles`` records the XLA programs compiled inside a block and fails a block
-that compiled an unexpected number, and ``substrax.testing.gradients`` checks a module's gradients
-against finite differences in float64 (both import jax, so the package does not import them).
+dispatches and placements to those counts. ``substrax.testing.compiles`` records the XLA programs
+compiled inside a block and fails a block that compiled an unexpected number, and
+``substrax.testing.gradients`` checks a module's gradients against finite differences in float64
+(both import jax, so the package does not import them).
 ``substrax.testing.source_scans`` holds the contract checks a repository runs over its own source:
 import-time logging and environment writes, and documented meshes without axis types.
 Importing this package imports no jax.

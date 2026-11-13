@@ -1,4 +1,7 @@
-"""``python -m modal app logs APP_ID [--env E] [--since T] [--follow]`` against the fake's app logs."""
+"""``python -m modal app logs`` against the fake's app logs.
+
+Usage: ``python -m modal app logs APP_ID [--env E] [--since T] [--follow]``.
+"""
 
 from __future__ import annotations
 

@@ -203,7 +203,10 @@ class BucketTransport:
 
 
 class CopyTransport:
-    """Local inputs copied to the cluster, outputs fetched over SSH; see the module documentation."""
+    """Local inputs copied to the cluster, outputs fetched over SSH.
+
+    See the module documentation.
+    """
 
     down_with_job = False
     # A verified copy of the outputs answers for the run once it is taken.

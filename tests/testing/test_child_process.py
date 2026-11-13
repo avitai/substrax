@@ -166,7 +166,10 @@ class TestRunPython:
         )
 
     def test_a_runtime_without_platforms_still_runs_the_child_on_the_cpu(self) -> None:
-        code = "import os; from substrax.testing import report; report(os.environ.get('JAX_PLATFORMS'))"
+        code = (
+            "import os; from substrax.testing import report; "
+            "report(os.environ.get('JAX_PLATFORMS'))"
+        )
 
         result = run_python(code, runtime=JaxRuntime(cpu_devices=2), timeout=TIMEOUT)
 

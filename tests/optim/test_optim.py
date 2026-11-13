@@ -1,4 +1,4 @@
-"""``substrax.optim``: one optimizer spec, one builder over optax, the learning rate read on device."""
+"""``substrax.optim``: one optimizer spec, one builder over optax, learning rate read on device."""
 
 from __future__ import annotations
 

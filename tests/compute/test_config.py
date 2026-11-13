@@ -208,7 +208,8 @@ def test_an_examples_directory_that_does_not_exist_is_refused(tmp_path: Path) ->
 def test_a_misspelled_job_field_is_refused_when_the_job_is_resolved(tmp_path: Path) -> None:
     project = _project(
         tmp_path,
-        "[tool.substrax.compute.jobs.probe]\ntimeout_seconds = 60\naccelerators = { kind = 'L4' }\n",
+        "[tool.substrax.compute.jobs.probe]\ntimeout_seconds = 60\n"
+        "accelerators = { kind = 'L4' }\n",
     )
 
     config = read_compute_config(project)

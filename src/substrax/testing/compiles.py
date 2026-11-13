@@ -3,9 +3,9 @@
 jax records the event ``/jax/core/compile/backend_compile_duration`` around
 ``compile_or_get_cached``, which runs only when its in-process executable cache misses, and passes
 the program's name, ``jit(<function>)``, as ``fun_name`` (``jax/_src/interpreters/pxla.py`` and
-``jax/_src/dispatch.py``, jax 0.11.1). Eager operations are compiled programs too. A block therefore sees every executable built for it,
-whether XLA compiled it or the persistent compilation cache supplied it. A trace is a different
-event: :class:`~substrax.testing.TraceCounter` counts those.
+``jax/_src/dispatch.py``, jax 0.11.1). Eager operations are compiled programs too. A block therefore
+sees every executable built for it, whether XLA compiled it or the persistent compilation cache
+supplied it. A trace is a different event: :class:`~substrax.testing.TraceCounter` counts those.
 
 The listener is registered with ``jax.monitoring`` for the block and removed after it. Listeners
 are process-wide, so a compile on another thread during the block is seen too.

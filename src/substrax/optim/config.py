@@ -29,7 +29,7 @@ class OptimizerConfig:  # pylint: disable=too-many-instance-attributes
     | ``learning_rate`` | ``lr`` | the base optax alias's ``learning_rate`` |
     | ``b1``, ``b2`` | ``betas`` | ``b1``, ``b2`` |
     | ``weight_decay`` | ``weight_decay`` on a parameter group | ``optax.adamw(weight_decay=...)`` |
-    | ``weight_decay_filter`` | the parameter group | ``optax.adamw(mask=...)``, True where decayed |
+    | ``weight_decay_filter`` | the same group | ``optax.adamw(mask=...)``, True where decayed |
     | ``wrt`` | ``model.parameters()`` | ``nnx.Optimizer(model, tx, wrt=...)`` |
 
     Attributes:

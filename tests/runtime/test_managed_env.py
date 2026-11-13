@@ -82,7 +82,8 @@ def test_an_accelerator_leaves_the_platform_to_jax_and_uses_the_current_memory_n
     assert "JAX_PLATFORMS" not in env
     assert env["XLA_CLIENT_MEM_FRACTION"] == "0.75"
     assert env["XLA_PYTHON_CLIENT_PREALLOCATE"] == "false"
-    # jaxlib raises when both memory-fraction names are set, so the deprecated one is always cleared.
+    # jaxlib raises when both memory-fraction names are set, so the deprecated one is always
+    # cleared.
     assert "XLA_PYTHON_CLIENT_MEM_FRACTION" not in env
 
 

@@ -2,7 +2,8 @@
 
 ``JaxRuntime`` describes the settings. ``runtime_environment`` renders them as the environment of a
 process that has not imported jax yet (a child process, or a conftest before its first
-``import jax``), ``child_environment`` builds a child's whole environment from them, ``apply_runtime`` applies them to the current process, and
+``import jax``), ``child_environment`` builds a child's whole environment from them,
+``apply_runtime`` applies them to the current process, and
 ``resolve_test_runtime`` chooses the backend and emulated CPU devices of a test run.
 ``configure_entry_point_logging`` sets up the root logger from an entry point. Importing this
 package imports no jax and changes no process state.

@@ -1,10 +1,10 @@
 """The ``main-moved`` action tells a nightly workflow whether main moved since its last green night.
 
-macOS runners are scarce and slow, so the macOS workflow runs nightly and stands down on a night when
-main has not moved since the last scheduled run that succeeded. A manual run always runs. A lookup
-that fails, or a first night with no green run before it, answers "moved", so the work runs rather
-than being skipped on a guess. The decision lives in ``compare.sh``; these tests run it with ``gh``
-replaced by a fake.
+macOS runners are scarce and slow, so the macOS workflow runs nightly and stands down on a night
+when main has not moved since the last scheduled run that succeeded. A manual run always runs. A
+lookup that fails, or a first night with no green run before it, answers "moved", so the work runs
+rather than being skipped on a guess. The decision lives in ``compare.sh``; these tests run it with
+``gh`` replaced by a fake.
 """
 
 from __future__ import annotations
