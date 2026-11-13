@@ -186,6 +186,78 @@ values. A gradient that is zero everywhere is refused unless `allow_zero=True`, 
 ignores what is differentiated passes a finite-difference check. A function with a
 `jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
 
+## Example tests
+
+A repository's example tests are a pytest plugin, configured in its pyproject and written nowhere
+else. `uv run substrax-notebooks test` loads it by name and runs pytest on `examples` and, where it
+exists, `tests/examples`, without the repository's pytest configuration or conftests, any other
+plugin, or the caller's `PYTEST_ADDOPTS` and `PYTEST_PLUGINS` (`examples_pytest_options` in
+`substrax.notebooks.cli`), so each kernel gets the environment a script run gets;
+`--changed-since REF` passes `--examples-changed-since=REF`, and PATHs, from the working directory
+and under the repository, replace the two directories. pytest reads a configuration file of
+substrax's that sets nothing, so none of the repository's ini keys (`addopts`, `filterwarnings`,
+`faulthandler_timeout`, `required_plugins`, `strict_config`) reaches the session, and takes the
+repository as its rootdir, whatever directory holds it; unusable settings are refused first.
+
+```toml
+[tool.pytest.ini_options]
+testpaths = ["tests"]                      # examples run apart:
+addopts = "--ignore=tests/examples"         # uv run substrax-notebooks test
+
+[tool.substrax.examples]
+source_url = "https://github.com/avitai/datarax/blob/main"
+budget_seconds = 600
+unavailable = ["wod_motion_tfrecord_path is not set"]
+page_size_warn_bytes = 102400   # the defaults: a larger page is written with a warning
+page_size_bytes = 204800        # and a larger one refused
+page_size_exempt = []
+```
+
+| Collected | Checks |
+| --- | --- |
+| `examples::corpus` | There is an example; no page under `docs/examples` lacks one; a hand-written `uv run python examples/...` command names a file that exists; `mkdocs.yml` sets `validation.nav.omitted_files: warn` |
+| `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance` |
+| `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within `budget_seconds`, changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
+
+- `discover_examples` decides what is an example: every `.py` under `examples/` whose path has no
+  part starting with `_`, so `_common` helpers are not examples. An example reached through a
+  symlink, a linked `examples/` directory included, is a usage error: its page and its changes
+  name it by its path, which a link would make a second name or put outside the repository.
+- A run whose raised exception, as `<type>: <message>`, holds one of the `unavailable` messages is
+  skipped with it; the failing cell's source and traceback are not read, and a run that raised
+  nothing (its budget passed, its kernel dead) is never skipped. A `GPU-required` example whose run
+  raised `GPUUnavailableError`, as `require_gpu()` does without a GPU, is skipped with that message
+  before the `unavailable` messages are read, and so is every test of its results; any other example
+  raising it is held to those messages like any failure. The class is known by the qualified name it
+  carries, which the kernel records in `RunError.raised_class` whatever raised it. The record is
+  made in the example's own process, so an example that rewrites a class's `__module__`, clears
+  IPython's callbacks or writes the run's files alters its own run, which the check does not guard
+  against. The suite probes no device, never imports jax in the pytest process, and loads none of
+  substrax's other testing plugins: `substrax.testing.pytest_plugin`'s markers and configuration
+  isolation apply to a repository's tests only where the repository enables it. A GPU lane runs
+  `substrax-devices --require-gpu` before the examples and sets no platform
+  ([Checks](../guides/writing-examples.md#checks)), so a lane that has lost its GPU fails there
+  rather than skipping its GPU-required runs.
+- `--examples-changed-since=REF` keeps the runs of the examples whose script, notebook or page
+  changed since `REF`, and every run when `src/`, `pyproject.toml` or `uv.lock` changed, or a file
+  under `examples/` that is no example's own script, notebook or page (a private helper, data). `REF`
+  must name a commit, and is read as one even when it looks like a git option; anything else is a
+  usage error. A change counts whether committed, staged or untracked (what git ignores does not),
+  and only below the repository root, so a project inside a larger git repository sees its own.
+- A repository's own test of an example's results takes the `example_run` fixture, which returns
+  the session's one run of the example, `main()`'s value included; no conftest or other plugin is
+  loaded, so it is the one fixture beyond pytest's own, and it carries no device marker, its
+  example's Devices line deciding. In a directory pytest walks, it is collected by pytest's default
+  naming (`test_*.py` or `*_test.py`, `test`-prefixed functions, `Test`-prefixed classes): the
+  repository's naming keys do not reach the session. A file named on the command line is collected
+  whatever its name. The suite's checks run before any other test:
+
+```python
+def test_the_fit_reaches_the_true_weights(example_run) -> None:
+    summary = example_run("training/linear_fit.py").returned
+    assert summary["relative_error"] < 1e-3
+```
+
 ## The pytest plugin
 
 Enable it in the top-level `conftest.py`:
@@ -291,5 +363,7 @@ shrinking what it reads.
 ::: substrax.testing.source_scans
 
 ::: substrax.examples
+
+::: substrax.testing.example_suite
 
 ::: substrax.testing.compute

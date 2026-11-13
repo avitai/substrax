@@ -49,7 +49,7 @@ Each concern has one home and one test suite:
 | `substrax.callbacks` | The training-callback protocol, `CallbackList`, `BestMetricTracker`, `EarlyStopping` and `EarlyStoppingCallback` |
 | `substrax.tracking` | Step-wise experiment logging with console, file, Weights & Biases and MLflow backends |
 | `substrax.compute` | A project's jobs run on a compute backend: the job spec, the worker every backend runs, the `ComputeBackend` protocol with `local`, `modal` and `skypilot` backends found through entry points, the accelerator, CPU and memory a job requests, a manifest recording the devices a run got, and the `substrax-compute` command |
-| `substrax.notebooks` | An example script's clean notebook written from it (`convert`) and the read-only check that the pair holds the same cells and no outputs (`check_pair`) |
+| `substrax.notebooks` | An example script's clean notebook written from it (`convert`) and the read-only check that the pair holds the same cells and no outputs (`check_pair`); a clean copy executed from the repository root within one budget for the whole run, with its provenance (`substrax.notebooks.run.execute_example`); the repository's settings, read from `[tool.substrax.examples]` (`substrax.notebooks.config`); the example's docs page made from that run, opening with the example's title, then the command that runs it, with every output and figure of the run, its provenance and no local paths (`generate_page`), the checks of a committed page against the script and against a run of it (`check_page`, `compare_with_run`); the example guide's mechanical rules checked on one example (`substrax.notebooks.conformance.check_example`); the `substrax-notebooks` command (`convert`, `check`, `page`, `test`) and the `example-conformance` pre-commit hook, which runs `check` on changed examples; the rules they apply are the shared example guide, `docs/guides/writing-examples.md`, with its template; installed with the `notebooks` extra |
 | `substrax.typing`, `substrax.nnx_typing`, `substrax.records`, `substrax.examples` | The shared type aliases (`PyTree`, `JsonValue`, `CheckpointState`; `NnxState` and `PathEntry` over jax and flax), typed reading and writing of JSON records, and the listing of a repository's example scripts |
 <!-- --8<-- [end:subpackages] -->
 
@@ -65,6 +65,7 @@ uv add substrax          # or: pip install substrax
 uv add "substrax[wandb]"  # Weights & Biases backend
 uv add "substrax[mlflow]" # MLflow backend
 uv add "substrax[testing]" # pytest plugin and fresh-interpreter test helpers
+uv add "substrax[notebooks]" # convert, check and page examples; with testing, test them
 uv add "substrax[modal]"   # the Modal compute backend
 ```
 

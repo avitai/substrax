@@ -4,19 +4,10 @@
 never defaults into the working tree.
 
 ```python
-import argparse
-from pathlib import Path
-
 from substrax.artifacts import resolve_output_dir
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", type=Path, default=None)
-    args = parser.parse_args()
-
-    location = resolve_output_dir("fno_darcy", explicit=args.output_dir)
-    figure_path = location.path / "prediction.png"
+location = resolve_output_dir("darcy_training")
+figure_path = location.path / "prediction.png"
 ```
 
 `resolve_output_dir` takes the first of these that applies and creates the directory:
@@ -27,10 +18,10 @@ def main() -> None:
 | 2 | `$AVITAI_OUTPUT_DIR/<name>`; the variable must hold an absolute path | `"environment"` |
 | 3 | `<name>` inside a directory created once per process under the system temporary directory | `"run_default"` |
 
-Writing figures into the documentation is an explicit choice:
-`python examples/neural-operators/fno_darcy.py --output-dir docs/assets/examples/fno_darcy`.
-A test run or a CI job sets `AVITAI_OUTPUT_DIR` instead, so running an example never rewrites
-tracked files.
+A caller that chooses the directory passes it as `explicit`. A test run, a CI job and the example
+page generator set `AVITAI_OUTPUT_DIR` to a temporary directory, so running an example never
+rewrites tracked files. An example's figures reach its docs page as the output its run captures
+([Writing examples](../guides/writing-examples.md)), never as files it writes into `docs/`.
 
 The per-run directory is created with `tempfile.mkdtemp`, so its name cannot be claimed by
 another user of a shared temporary directory and only its owner can read it. Every default

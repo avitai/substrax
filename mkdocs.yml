@@ -79,12 +79,15 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Guides:
+      - Writing examples: guides/writing-examples.md
   - API Reference:
       - Runtime: api/runtime.md
       - Artifacts: api/artifacts.md
       - Rng: api/rng.md
       - Optim: api/optim.md
       - Testing: api/testing.md
+      - Notebooks: api/notebooks.md
       - Records: api/records.md
       - Devices: api/devices.md
       - Mesh: api/mesh.md

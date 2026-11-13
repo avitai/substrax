@@ -16,6 +16,8 @@ and uses semantic versioning while the public API stabilizes.
   floor. The default, `"[1]"`, runs the suite whole, and the shards run all at once except on
   macOS, which keeps two runners at a time. substrax's own CI runs four shards per Python.
 - One way to write, pair, page and test a repository's examples, with the `notebooks` extra.
+  `docs/guides/writing-examples.md` is the guide every repository's examples follow, and
+  `docs/guides/example_template.py` the starting point.
   - `substrax.notebooks.pairs`: `convert` writes an example script's clean `.ipynb`, and
     `check_pair` passes only when the committed notebook is exactly what `convert` writes. Both
     read the script through `substrax.notebooks.source.read_source`, as the conformance rules
