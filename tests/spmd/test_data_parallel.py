@@ -298,7 +298,8 @@ jax.distributed.shutdown()
 
 
 class TestDataParallelGradients:
-    """Where a data-parallel gradient is reduced: by the compiler under jit, on the loss in shard_map.
+    """Where a data-parallel gradient is reduced: by the compiler under jit, on the loss in
+    shard_map.
 
     There is no gradient to reduce after differentiating: under ``jax.jit`` the gradient of a
     sharded batch's loss is already the full one, and inside ``jax.shard_map`` the gradient of a

@@ -323,7 +323,7 @@ def x64_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 class TestWithoutTemplates:
-    """Without x64 a float64 jax.Array comes back at 32 bits; that is refused like a template's cast."""
+    """Without x64 a float64 jax.Array comes back at 32 bits, refused like a template's cast."""
 
     def test_a_64_bit_array_restored_at_32_bits_is_refused(self, x64_root: Path) -> None:
         with pytest.raises(CheckpointDtypeMismatchError, match="JAX_ENABLE_X64") as raised:

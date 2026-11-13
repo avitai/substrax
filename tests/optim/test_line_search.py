@@ -103,7 +103,10 @@ def _evaluations_over(steps: int, *, objective_changed: bool, ensemble: int = 0)
 
 
 class TestUpdateWithLineSearch:
-    """One step of an optimizer that searches along its direction with the loss of the parameters."""
+    """One step of an optimizer that searches along its direction.
+
+    The search uses the loss of the parameters.
+    """
 
     def test_lbfgs_steps_match_optax_on_the_parameter_array(self) -> None:
         model = Quartic(rngs=nnx.Rngs(0))

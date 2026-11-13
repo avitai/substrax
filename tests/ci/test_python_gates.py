@@ -85,7 +85,10 @@ def test_it_runs_only_when_called_with_the_declared_inputs() -> None:
 
 
 def test_it_leaves_concurrency_and_env_to_the_caller() -> None:
-    """A called workflow's `github.workflow` is the caller's, so a group here would cancel the caller."""
+    """A called workflow's `github.workflow` is the caller's.
+
+    So a group here would cancel the caller.
+    """
     workflow = _workflow()
 
     assert "concurrency" not in workflow
@@ -468,7 +471,10 @@ def test_the_import_check_fails_a_listed_module_that_does_not_import(tmp_path: P
 
 
 def test_the_import_check_reads_the_installed_wheel_not_the_source_tree(tmp_path: Path) -> None:
-    """The check runs in the repository's root, where a flat-layout package would shadow the wheel."""
+    """The check runs in the repository's root.
+
+    There, a flat-layout package would shadow the wheel.
+    """
     result = _run_import_check(tmp_path, declared="1.0", source_version="9.9")
 
     assert result.returncode == 0, result.stderr
@@ -617,7 +623,10 @@ def test_the_docs_build_strictly_with_no_path_filter() -> None:
 
 
 def test_no_script_interpolates_an_input() -> None:
-    """An input reaches a script through `env`, never as `${{ }}` text the shell would run as code."""
+    """An input reaches a script through `env`.
+
+    Never as `${{ }}` text the shell would run as code.
+    """
     interpolated = [
         f"{name}: {step.get('name', step['run'][:40])}"
         for name, job in _jobs().items()

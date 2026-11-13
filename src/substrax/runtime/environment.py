@@ -171,7 +171,7 @@ def _test_cpu_devices(env: Mapping[str, str], prefix: str, default: int) -> int 
 
 
 def _as_text(value: bool | float | Path | None) -> str | None:
-    """Render a field as jax reads it: a ``bool`` as ``true`` or ``false``, the rest with ``str``."""
+    """Render a field as jax reads it: ``bool`` as ``true`` or ``false``, the rest with ``str``."""
     if value is None:
         return None
     if isinstance(value, bool):

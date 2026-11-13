@@ -12,8 +12,8 @@ from flax.typing import Key
 
 type NnxState = nnx.State[Key, NnxState | nnx.Variable[jax.Array]]
 """A module's state, as ``nnx.split`` and ``nnx.state`` return it: keyed by attribute name or
-list index (flax's ``Key``), each value a nested state or a ``Variable`` holding an array. A gradient
-taken with respect to a state has the same structure."""
+list index (flax's ``Key``), each value a nested state or a ``Variable`` holding an array. A
+gradient taken with respect to a state has the same structure."""
 
 
 PathEntry = (

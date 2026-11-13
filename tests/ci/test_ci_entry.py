@@ -94,12 +94,14 @@ def test_required_fails_unless_every_job_succeeded_or_was_skipped_on_purpose() -
 
 
 CONDITIONAL = re.compile(
-    r"^\$\{\{ github\.event_name (?P<op>==|!=) '(?P<event>[a-z_]+)' && '(?P<then>[^']*)' \|\| '(?P<else>[^']*)' \}\}$"
+    r"^\$\{\{ github\.event_name (?P<op>==|!=) '(?P<event>[a-z_]+)' "
+    r"&& '(?P<then>[^']*)' \|\| '(?P<else>[^']*)' \}\}$"
 )
 
 
 def _evaluate(expression: str, event: str) -> str:
-    """The value GitHub gives ``${{ github.event_name <op> '<e>' && '<a>' || '<b>' }}`` on ``event``.
+    """The value GitHub gives, on ``event``, the expression
+    ``${{ github.event_name <op> '<e>' && '<a>' || '<b>' }}``.
 
     `&&` and `||` return an operand, and '' is falsy, so the expression yields `<a>` only when the
     comparison holds and `<a>` is non-empty: `cond && '' || 'list'` is `'list'` whatever `cond` is.
@@ -111,7 +113,7 @@ def _evaluate(expression: str, event: str) -> str:
 
 
 def test_a_pull_request_may_skip_nothing() -> None:
-    """Only a proven merge or the weekly audit stands jobs down, so a pull request allows no skip."""
+    """Only a proven merge or the weekly audit stands jobs down; a pull request allows no skip."""
     allowed = _ci_jobs()["required"]["steps"][0]["with"]["allowed-skips"]
 
     assert _evaluate(allowed, "pull_request") == ""
@@ -156,7 +158,10 @@ def _uses_everywhere() -> list[tuple[str, str]]:
 
 
 def test_every_action_in_every_workflow_is_pinned_by_commit() -> None:
-    """A tag or branch can move under a release; a commit cannot. Local ``./`` uses are this tree."""
+    """A tag or branch can move under a release; a commit cannot.
+
+    Local ``./`` uses are this tree.
+    """
     uses = _uses_everywhere()
     unpinned = [
         f"{path}: {use}"

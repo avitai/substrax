@@ -93,7 +93,8 @@ class CheckpointDtypeMismatchError(ValueError):
         self.step = step
         self.mismatches = mismatches
         listed = "; ".join(
-            f"{mismatch.item} {mismatch.leaf}: saved {mismatch.saved}, restored as {mismatch.restored}"
+            f"{mismatch.item} {mismatch.leaf}: saved {mismatch.saved}, "
+            f"restored as {mismatch.restored}"
             for mismatch in mismatches
         )
         message = (

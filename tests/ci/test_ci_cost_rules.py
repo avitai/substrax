@@ -1,10 +1,10 @@
 """CI runs only what a change needs: no repeated merge runs, no macOS on pushes or pull requests.
 
 Two rules, both about runner time. A merge onto an unmoved ``main``, squash or rebase, carries the
-tree its pull request already tested, so the jobs that would repeat it stand down when every check of that pull
-request succeeded (the ``already-tested`` action). macOS runners are scarce and slow: no macOS job
-runs on a push or a pull request; ``macos.yml`` runs nightly when ``main`` has moved, on demand, and
-on the release commit before its tag (RELEASING.md).
+tree its pull request already tested, so the jobs that would repeat it stand down when every check
+of that pull request succeeded (the ``already-tested`` action). macOS runners are scarce and slow:
+no macOS job runs on a push or a pull request; ``macos.yml`` runs nightly when ``main`` has moved,
+on demand, and on the release commit before its tag (RELEASING.md).
 """
 
 from __future__ import annotations
@@ -79,7 +79,10 @@ def _called(job: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_the_macos_workflow_runs_nightly_on_demand_and_under_a_runner_cap() -> None:
-    """The night calls the shared gates on macOS: their tests and build take the runner it passes."""
+    """The night calls the shared gates on macOS.
+
+    Their tests and build take the runner it passes.
+    """
     workflow = _load(WORKFLOWS / MACOS_WORKFLOW)
     macos_calls = [job for job in workflow["jobs"].values() if _on_macos(job)]
 

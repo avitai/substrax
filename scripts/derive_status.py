@@ -69,7 +69,7 @@ def _count(root: Path, pattern: str) -> int:
 
 
 def measure_version(root: Path, package: str) -> str:
-    """Read the version from ``pyproject.toml``, or from a literal in ``src/<package>/__init__.py``."""
+    """Read the version from ``pyproject.toml``, or a literal in ``src/<package>/__init__.py``."""
     pyproject = root / "pyproject.toml"
     if pyproject.is_file():
         version = tomllib.loads(pyproject.read_text()).get("project", {}).get("version")

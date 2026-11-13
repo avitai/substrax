@@ -12,7 +12,8 @@ is reconciled from them rather than submitted again. Cancelling cancels that req
 then tears the cluster down, keeping every failure.
 
 How inputs reach the cluster and outputs come back is the transport's, configured as exactly one
-of ``[...skypilot.bucket]`` or ``[...skypilot.copy]``; see :mod:`substrax.compute.skypilot_transports`.
+of ``[...skypilot.bucket]`` or ``[...skypilot.copy]``; see
+:mod:`substrax.compute.skypilot_transports`.
 
 Settings (``[tool.substrax.compute.backends.skypilot]``):
 
