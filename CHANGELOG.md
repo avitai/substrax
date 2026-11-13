@@ -30,6 +30,11 @@ and uses semantic versioning while the public API stabilizes.
   needs that table. The job key `task_timeout_seconds` is now `command_timeout_seconds` and
   budgets the job's commands only; the old key is refused. `substrax.compute.example_tasks` takes
   `budget`, a function of each example's path, in place of `timeout_seconds`.
+- With `--examples-changed-since`, a test of an example's results that changed, or a file under
+  `tests/examples` that is no test module (a helper any result test may import), runs the example
+  it asks for through `example_run` even when the change left that example's run out, as
+  pytest-picked runs a changed test file; an unchanged result test of such an example is still
+  skipped.
 
 ### Fixed
 

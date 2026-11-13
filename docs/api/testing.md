@@ -258,7 +258,10 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
   example's Devices line deciding. In a directory pytest walks, it is collected by pytest's default
   naming (`test_*.py` or `*_test.py`, `test`-prefixed functions, `Test`-prefixed classes): the
   repository's naming keys do not reach the session. A file named on the command line is collected
-  whatever its name. The suite's checks run before any other test:
+  whatever its name. With `--examples-changed-since`, the fixture runs an example whose run the
+  change left out when the requesting test's own file changed, or a file under `tests/examples`
+  that is no test module (a helper any result test may import), as pytest-picked runs a changed
+  test file; otherwise it skips the test. The suite's checks run before any other test:
 
 ```python
 def test_the_fit_reaches_the_true_weights(example_run) -> None:
