@@ -1,0 +1,396 @@
+"""The shared example tests: a pytest plugin a repository configures in pyproject only.
+
+``substrax-notebooks test`` loads it by name and runs the examples, with the tests of their results
+under ``tests/examples``, apart from the repository's own tests: without the repository's pytest
+configuration or conftests, any other plugin, or the caller's ``PYTEST_ADDOPTS`` and
+``PYTEST_PLUGINS`` (:func:`substrax.notebooks.cli.examples_pytest_options`). No conftest names it,
+and the repository's own pytest leaves the tests of results out:
+
+```toml
+[tool.pytest.ini_options]
+testpaths = ["tests"]                                 # a plain pytest leaves the examples out
+addopts = "--ignore=tests/examples"
+
+[tool.substrax.examples]                              # substrax.notebooks.config
+source_url = "https://github.com/avitai/datarax/blob/main"
+budget_seconds = 600
+```
+
+It collects, with no example-test code in the repository:
+
+- ``examples::corpus``, once: there is at least one example; every page under ``docs/examples``
+  belongs to one; a hand-written ``uv run python examples/...`` command in a tracked Markdown file
+  names a file that exists; ``mkdocs.yml``, where there is one, sets ``validation.nav.omitted_files:
+  warn``, so ``mkdocs build --strict`` fails on a page left out of the nav (mkdocs defaults it to
+  ``info``).
+- ``examples/<path>.py::follows-the-guide``: every rule of :mod:`substrax.notebooks.conformance`.
+- ``examples/<path>.py::runs-as-its-page-shows``, marked ``example_run``: the example runs as its
+  clean notebook (:func:`substrax.notebooks.run.execute_example`) and its page shows that run
+  (:func:`substrax.notebooks.pages.compare_with_run`). A run whose raised exception, as
+  :attr:`~substrax.notebooks.run.RunError.raised` names it, holds one of the configured
+  ``unavailable`` signatures is skipped with it; so is the run of a ``GPU-required`` example that
+  raised ``GPUUnavailableError``, as ``require_gpu()`` does without a GPU, by the qualified name
+  :attr:`~substrax.notebooks.run.RunError.raised_class` records, and every test of its results. The
+  plugin probes no device and never imports jax: the example's kernel reports the GPU's absence, and
+  a GPU lane runs ``substrax-devices --require-gpu`` before the examples, so a lane without its GPU
+  fails there instead of skipping.
+
+``--examples-changed-since=REF`` keeps the run of each example whose script, notebook or page
+changed since ``REF``, and every run when ``src/``, ``pyproject.toml`` or ``uv.lock`` changed, or a
+file under ``examples/`` that is no example's own, as a private helper or data is. The
+``example_run`` fixture gives a repository's own tests of an example's results the same run, made
+once per session.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from pathlib import Path
+
+import pytest
+
+from substrax.examples import discover_examples
+from substrax.notebooks import repository
+from substrax.notebooks.config import ExamplesConfig, read_examples_config
+from substrax.notebooks.conformance import check_example, Devices, example_metadata
+from substrax.notebooks.corpus import corpus_problems, is_touched, reaches_every_example
+from substrax.notebooks.pages import compare_with_run
+from substrax.notebooks.run import ExampleRun, execute_example, RunError
+
+
+RUN_MARKER = "example_run"
+"""The marker on each example's run, which names the run items among the session's."""
+
+_GPU_REFUSAL_CLASS = "substrax.devices.info.GPUUnavailableError"
+"""The class ``substrax.devices.require_gpu()`` refuses with, by the qualified name the kernel
+records (:attr:`~substrax.notebooks.run.RunError.raised_class`), whatever raised it: a class of the
+example's own with the same name carries another. The record is made in the example's process, so an
+example rewriting a class's ``__module__``, IPython's callbacks or the run's files alters its own
+run, which this check does not guard. It is written out because ``substrax.devices`` imports jax,
+which the pytest process never does; the GPU skip's tests run the real refusal."""
+
+_CONFIG = pytest.StashKey[ExamplesConfig]()
+_EXAMPLES = pytest.StashKey[frozenset[Path]]()
+_RUNS = pytest.StashKey[dict[Path, ExampleRun | RunError]]()
+_COLLECTED = pytest.StashKey[frozenset[Path]]()
+"""The examples whose runs this session collected, before any deselection."""
+_SELECTED = pytest.StashKey[frozenset[Path]]()
+"""The examples whose runs this session keeps after ``--examples-changed-since``."""
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add ``--examples-changed-since``.
+
+    Args:
+        parser: pytest's option parser.
+    """
+    parser.addoption(
+        "--examples-changed-since",
+        metavar="REF",
+        default=None,
+        help="run only the examples changed since REF; every one when the library changed",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register the run marker and read the repository's ``[tool.substrax.examples]`` settings.
+
+    Args:
+        config: pytest's configuration.
+
+    Raises:
+        pytest.UsageError: If pyproject.toml has no ``[tool.substrax.examples]`` table or
+            ``[project]`` ``name``, the table holds settings no run can be held to, or an example
+            is reached through a symlink.
+    """
+    config.addinivalue_line(
+        "markers", f"{RUN_MARKER}: an example run as its clean notebook and compared with its page"
+    )
+    try:
+        config.stash[_CONFIG] = read_examples_config(config.rootpath)
+    except (LookupError, ValueError) as error:
+        raise pytest.UsageError(str(error)) from error
+    config.stash[_EXAMPLES] = _examples(config.rootpath)
+    config.stash[_RUNS] = {}
+    config.stash[_COLLECTED] = frozenset()
+    config.stash[_SELECTED] = frozenset()
+
+
+def _examples(repo_root: Path) -> frozenset[Path]:
+    """The repository's examples, each reached under ``examples/`` without a symlink.
+
+    An example's path from the root is what its page records and what a change names, so a link
+    would give it a second name, or put it outside the repository.
+
+    Args:
+        repo_root: The repository root.
+
+    Returns:
+        The examples, resolved.
+
+    Raises:
+        pytest.UsageError: If an example's resolved path differs from its path under the root.
+    """
+    root = repo_root.resolve()
+    examples = repo_root / "examples"
+    found = discover_examples(examples) if examples.is_dir() else []
+    linked = [path for path in found if path.resolve() != root / path.relative_to(repo_root)]
+    if linked:
+        named = ", ".join(path.relative_to(repo_root).as_posix() for path in linked)
+        msg = (
+            "an example is reached through a symlink, which pages and changes cannot follow: "
+            f"{named}"
+        )
+        raise pytest.UsageError(msg)
+    return frozenset(path.resolve() for path in found)
+
+
+def pytest_collect_directory(path: Path, parent: pytest.Collector) -> pytest.Collector | None:
+    """Collect the repository's ``examples`` directory with its corpus check.
+
+    Args:
+        path: A directory pytest is about to collect.
+        parent: Its parent collector.
+
+    Returns:
+        The examples directory's collector, or ``None`` for any other directory.
+    """
+    if path.resolve() == (parent.config.rootpath / "examples").resolve():
+        return ExamplesDirectory.from_parent(parent, path=path)
+    return None
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Record which examples' runs the session holds; leave out those a change misses.
+
+    ``example_run`` reads the record: a test of an example's results runs in the examples'
+    own invocation, with the example's run, never in a session that did not collect it.
+
+    The suite's own checks then go before every other item, in the order pytest gives them, so a
+    test of an example's results reads the run its item made rather than making it. pytest-randomly
+    shuffles in a ``tryfirst`` wrapper so that a plugin's stable sort applies on top of its order
+    (``pytest_randomly`` 5.0.0, ``pytest_collection_modifyitems``).
+
+    Args:
+        config: pytest's configuration.
+        items: The collected items, edited in place.
+    """
+    config.stash[_COLLECTED] = _run_scripts(items)
+    _deselect_unchanged(config, items)
+    config.stash[_SELECTED] = _run_scripts(items)
+    items.sort(key=lambda item: not isinstance(item, _ExampleCheck))
+
+
+def _run_scripts(items: list[pytest.Item]) -> frozenset[Path]:
+    """The examples whose run items are among ``items``."""
+    return frozenset(item.path.resolve() for item in items if isinstance(item, ExampleRunItem))
+
+
+def _deselect_unchanged(config: pytest.Config, items: list[pytest.Item]) -> None:  # noqa: DOC502  # pytest.UsageError is raised by _changed_paths
+    """With ``--examples-changed-since``, leave out the runs of the examples a change misses.
+
+    Args:
+        config: pytest's configuration.
+        items: The collected items, edited in place.
+
+    Raises:
+        pytest.UsageError: If the option's value names no commit, or git cannot answer.
+    """
+    ref = config.getoption("--examples-changed-since")
+    if ref is None:
+        return
+    changed = _changed_paths(config.rootpath, ref)
+    if reaches_every_example(changed, config.stash[_EXAMPLES], config.rootpath):
+        return
+    unchanged = [
+        item
+        for item in items
+        if isinstance(item, ExampleRunItem) and not is_touched(item.path, changed, config.rootpath)
+    ]
+    if unchanged:
+        config.hook.pytest_deselected(items=unchanged)
+        items[:] = [item for item in items if item not in unchanged]
+
+
+def _changed_paths(repo_root: Path, ref: str) -> set[str]:
+    """The paths changed since ``ref``, a usage error when git cannot say which.
+
+    Args:
+        repo_root: The repository root.
+        ref: The value of ``--examples-changed-since``.
+
+    Returns:
+        The changed paths, relative to the root.
+
+    Raises:
+        pytest.UsageError: If ``ref`` names no commit, or git cannot answer.
+    """
+    try:
+        return repository.changed_since(repo_root, ref)
+    except repository.RepositoryError as error:
+        raise pytest.UsageError(f"--examples-changed-since: {error}") from error
+
+
+@pytest.fixture
+def example_run(request: pytest.FixtureRequest) -> Callable[[str], ExampleRun]:
+    """Give a test the session's run of an example, by its path below ``examples``.
+
+    Args:
+        request: The requesting test.
+
+    Returns:
+        A function from the example's path below ``examples`` to its run; it skips the test when
+        the run was skipped (a ``GPU-required`` example with no GPU here, or a configured
+        ``unavailable`` reason), or when ``--examples-changed-since``
+        left the example's run out, and fails it for any other failure, or when the session did
+        not collect the example's run at all: a test of an example's results runs with its
+        example, as ``uv run substrax-notebooks test`` runs them.
+    """
+    config = request.config
+
+    def run(relative: str) -> ExampleRun:
+        script = (config.rootpath / "examples" / relative).resolve()
+        if script not in config.stash[_EXAMPLES]:
+            pytest.fail(f"{relative} is not an example under {config.rootpath / 'examples'}")
+        if script not in config.stash[_COLLECTED]:
+            pytest.fail(
+                f"{relative} does not run in this session; a test of an example's results runs "
+                "with its example: uv run substrax-notebooks test",
+                pytrace=False,
+            )
+        if script not in config.stash[_SELECTED]:
+            pytest.skip(
+                f"{relative} is not run in this session: no change since the ref touched it"
+            )
+        return _run_or_skip(config, script)
+
+    return run
+
+
+class ExamplesDirectory(pytest.Directory):
+    """The ``examples`` directory: its corpus check, then each example in it.
+
+    Only examples live under ``examples``, so the directory yields them itself, as
+    :func:`substrax.examples.discover_examples` lists them; a private file there is not one.
+    """
+
+    def collect(self) -> Iterator[pytest.Item | pytest.Collector]:
+        """Yield the corpus check, then one collector per example.
+
+        Yields:
+            pytest.Item | pytest.Collector: The corpus check, then each example's collector.
+        """
+        yield CorpusItem.from_parent(self, name="corpus")
+        for script in sorted(self.config.stash[_EXAMPLES]):
+            yield ExampleFile.from_parent(self, path=script)
+
+
+class ExampleFile(pytest.File):
+    """One example script: its guide check and its run."""
+
+    def collect(self) -> Iterator[pytest.Item]:
+        """Yield the guide check and the run, the run marked ``example_run``.
+
+        Yields:
+            pytest.Item: The example's guide check, then its run.
+        """
+        yield GuideItem.from_parent(self, name="follows-the-guide")
+        run = ExampleRunItem.from_parent(self, name="runs-as-its-page-shows")
+        run.add_marker(RUN_MARKER)
+        yield run
+
+
+class _ExampleCheck(pytest.Item):
+    """An example check, reported by its file and name."""
+
+    def reportinfo(self) -> tuple[Path, int, str]:
+        """Name the check by its file and id.
+
+        Returns:
+            The file, line 0 and the check's name.
+        """
+        return self.path, 0, self.name
+
+
+class CorpusItem(_ExampleCheck):
+    """The examples as a whole: they exist, their pages match them, commands name real files."""
+
+    def runtest(self) -> None:
+        """Fail with every problem in the corpus, one per line."""
+        _fail_with(corpus_problems(self.config.rootpath, self.config.stash[_EXAMPLES]))
+
+
+class GuideItem(_ExampleCheck):
+    """One example against every rule of the shared guide."""
+
+    def runtest(self) -> None:
+        """Fail with every rule the example breaks, one per line."""
+        _fail_with(
+            [
+                str(finding)
+                for finding in check_example(
+                    self.path, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
+                )
+            ]
+        )
+
+
+class ExampleRunItem(_ExampleCheck):
+    """One example run as its clean notebook and compared with its page."""
+
+    def runtest(self) -> None:
+        """Fail when the page does not show the run; skip for a configured unavailable reason."""
+        run = _run_or_skip(self.config, self.path.resolve())
+        problems = compare_with_run(
+            self.path, run, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
+        )
+        _fail_with([str(problem) for problem in problems])
+
+
+def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
+    """The session's run of ``script``, made once; skipped for no GPU or an unavailable reason.
+
+    A ``GPU-required`` example that raised ``GPUUnavailableError``, as ``require_gpu()`` does
+    without a GPU, is skipped first, whatever the ``unavailable`` signatures say; any other example
+    raising the same is held to them like any failure.
+    """
+    runs = config.stash[_RUNS]
+    if script not in runs:
+        settings = config.stash[_CONFIG]
+        try:
+            runs[script] = execute_example(
+                script,
+                repo_root=config.rootpath,
+                distribution=settings.distribution,
+                budget_seconds=settings.budget_seconds,
+            )
+        except RunError as error:
+            runs[script] = error
+    outcome = runs[script]
+    if isinstance(outcome, RunError):
+        # Only the exception the example raised says why it failed: the message around it holds
+        # the failing cell's source and traceback, which can name a signature the run never hit.
+        raised = outcome.raised
+        if _refused_its_gpu(script, outcome):
+            pytest.skip(f"{Devices.GPU_REQUIRED} and no GPU here: {raised}")
+        reason = next(
+            (sig for sig in config.stash[_CONFIG].unavailable if raised and sig in raised), None
+        )
+        if reason is not None:
+            pytest.skip(f"unavailable here: {reason}")
+        pytest.fail(str(outcome), pytrace=False)
+    return outcome
+
+
+def _refused_its_gpu(script: Path, outcome: RunError) -> bool:
+    """Whether ``script`` is ``GPU-required`` and its run raised ``require_gpu()``'s refusal."""
+    return (
+        outcome.raised_class == _GPU_REFUSAL_CLASS
+        and example_metadata(script).get("Devices") == Devices.GPU_REQUIRED
+    )
+
+
+def _fail_with(problems: list[str]) -> None:
+    """Fail the current test with its problems, one per line and no traceback, if there are any."""
+    if problems:
+        pytest.fail("\n".join(problems), pytrace=False)

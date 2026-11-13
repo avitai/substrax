@@ -6,3 +6,12 @@
   entry: Dependabot opens version-update pull requests; delete the configuration
   language: fail
   files: ^\.github/dependabot\.ya?ml$
+- id: example-conformance
+  name: examples follow the shared example guide
+  description: >-
+    The guide's source rules on each changed example (substrax.notebooks.conformance.SOURCE_RULES):
+    the clean pair, the skeleton and metadata, main and its guard, and the code rules. Runs with
+    the repository's own locked substrax through uv and executes nothing.
+  entry: uv run --no-sync substrax-notebooks check
+  language: system
+  files: ^examples/.*\.py$

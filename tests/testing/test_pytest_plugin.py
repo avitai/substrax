@@ -319,8 +319,17 @@ _IMPORT_PROBE = (
 )
 
 
-@pytest.mark.parametrize("module", ["substrax.testing", "substrax.testing.pytest_plugin"])
+@pytest.mark.parametrize(
+    "module",
+    [
+        "substrax.testing",
+        "substrax.testing.pytest_plugin",
+        "substrax.testing.example_suite",
+        "substrax.notebooks",
+    ],
+)
 def test_importing_the_testing_package_imports_no_jax(module: str) -> None:
+    """Each module says it imports no jax: jax reads its settings from the environment at import."""
     result = run_python(_IMPORT_PROBE.format(module=module), timeout=180.0)
 
     assert result.check().report_as(bool) is False
