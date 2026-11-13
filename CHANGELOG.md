@@ -57,6 +57,12 @@ and uses semantic versioning while the public API stabilizes.
   mark or lone carriage returns leave it the same version, and raises `NotUtf8Error` for a script
   that is not UTF-8.
 
+- `substrax-notebooks` takes an example's notebook as naming the script beside it, so `convert`
+  writes a notebook again from its script and `check` checks a notebook edited by hand through its
+  pair; a script named with its notebook is taken once. A path that is neither a `.py` nor a
+  `.ipynb`, and a notebook with no script, are refused (exit 2), where such a path was skipped and
+  the command exited 0. The `example-conformance` hook watches `examples/**/*.ipynb` too.
+
 ### Fixed
 
 - `--examples-changed-since=REF` (and `substrax-notebooks test --changed-since`) counts changes

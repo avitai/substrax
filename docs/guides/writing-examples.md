@@ -185,8 +185,10 @@ left out. Checked: `skeleton`
 
 ## Checks
 
-A commit runs the `example-conformance` hook on each changed example: every rule above except
-`page`, `corpus` and `runs-as-its-page-shows`, without running anything. Each repository enables it in `.pre-commit-config.yaml`:
+A commit runs the `example-conformance` hook on each changed example, script or notebook (a
+notebook is checked through its script, so one edited by hand fails `pair`): every rule above
+except `page`, `corpus` and `runs-as-its-page-shows`, without running anything. Each repository
+enables it in `.pre-commit-config.yaml`:
 
 ```yaml
 - repo: https://github.com/avitai/substrax
