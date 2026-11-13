@@ -395,6 +395,10 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Action scripts report to the job log from main().
 ".github/actions/*/*.py" = ["T20"]
+# The rules the example format itself breaks (docs/guides/writing-examples.md): the first markdown
+# cell is the module docstring and opens with its # title (D212, D415), imports follow markdown
+# cells (E402), and main() prints the results the page shows (T201).
+"docs/guides/example_template.py" = ["D212", "D415", "E402", "T201"]
 "scripts/*" = ["T20"]
 "tests/*" = ["ANN", "D", "PLR2004", "S101"]
 
