@@ -26,6 +26,8 @@ import ast
 from collections.abc import Callable, Collection, Sequence
 from pathlib import Path
 
+from substrax.notebooks.kernel_setup import is_main_guard
+
 
 # The ``os.environ`` methods that change the environment.
 _ENVIRONMENT_METHODS = frozenset({"update", "setdefault", "pop", "popitem", "clear"})
@@ -119,31 +121,6 @@ def configures_logging(node: ast.AST) -> bool:
             and function.value.id == "logging"
         )
     return isinstance(function, ast.Name) and function.id == "basicConfig"
-
-
-def _is_main_constant(node: ast.AST) -> bool:
-    return isinstance(node, ast.Constant) and node.value == "__main__"
-
-
-def _is_name_variable(node: ast.AST) -> bool:
-    return isinstance(node, ast.Name) and node.id == "__name__"
-
-
-def is_main_guard(node: ast.AST) -> bool:
-    """Whether ``node`` is ``if __name__ == "__main__":`` (either operand order).
-
-    Its body runs only when the module is run as a script. ``!=`` and chained comparisons are not
-    guards: their bodies run at import.
-    """
-    if not (isinstance(node, ast.If) and isinstance(node.test, ast.Compare)):
-        return False
-    test = node.test
-    if len(test.ops) != 1 or not isinstance(test.ops[0], ast.Eq):
-        return False
-    left, right = test.left, test.comparators[0]
-    return (_is_name_variable(left) and _is_main_constant(right)) or (
-        _is_main_constant(left) and _is_name_variable(right)
-    )
 
 
 def import_time_lines(path: Path, matches: Callable[[ast.AST], bool]) -> list[int]:
