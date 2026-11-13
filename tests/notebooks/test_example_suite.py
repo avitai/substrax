@@ -501,17 +501,63 @@ def test_example_run_outside_the_examples_session_fails_naming_the_invocation(
     result.stdout.fnmatch_lines(["*runs with its example: uv run substrax-notebooks test*"])
 
 
-def test_a_result_test_of_an_example_a_change_left_out_is_skipped(
+def _committed_result_tests(pytester: pytest.Pytester, test: str) -> Path:
+    """The repository with ``test`` committed as its result test, tagged ``base`` after it."""
+    repo = _repository(pytester)
+    _result_tests(pytester, test)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "result tests")
+    git(repo, "tag", "base")
+    return repo
+
+
+def test_an_unchanged_result_test_of_an_example_a_change_left_out_is_skipped(
     pytester: pytest.Pytester,
 ) -> None:
+    _committed_result_tests(pytester, _EVERY_RECORD_KEPT)
+
+    result = _run(pytester, "tests/examples", "--examples-changed-since=base", "-rs")
+
+    result.assert_outcomes(passed=2, skipped=1, deselected=1)
+    result.stdout.fnmatch_lines(["*not run in this session*"])
+
+
+def test_a_result_test_that_changed_runs_its_example(pytester: pytest.Pytester) -> None:
+    """As pytest-picked runs a changed test file: the test asks for its example, which runs."""
     repo = _repository(pytester)
     git(repo, "tag", "base")
     _result_tests(pytester, _EVERY_RECORD_KEPT)
 
     result = _run(pytester, "tests/examples", "--examples-changed-since=base", "-rs")
 
-    result.assert_outcomes(passed=2, skipped=1, deselected=1)
+    result.assert_outcomes(passed=3, deselected=1)
+
+
+def test_another_changed_test_module_does_not_run_an_example_it_does_not_ask_for(
+    pytester: pytest.Pytester,
+) -> None:
+    """A changed test module reaches the examples it asks for, not those its neighbours do."""
+    repo = _committed_result_tests(pytester, _EVERY_RECORD_KEPT)
+    (repo / "tests" / "examples" / "test_other.py").write_text(
+        "def test_other():\n    assert True\n", encoding="utf-8"
+    )
+
+    result = _run(pytester, "tests/examples", "--examples-changed-since=base", "-rs")
+
+    result.assert_outcomes(passed=3, skipped=1, deselected=1)
     result.stdout.fnmatch_lines(["*not run in this session*"])
+
+
+def test_a_changed_helper_beside_the_result_tests_runs_the_examples_they_ask_for(
+    pytester: pytest.Pytester,
+) -> None:
+    """A file under ``tests/examples`` that is no test module may be imported by any of them."""
+    repo = _committed_result_tests(pytester, _EVERY_RECORD_KEPT)
+    (repo / "tests" / "examples" / "records.py").write_text("EXPECTED = 3\n", encoding="utf-8")
+
+    result = _run(pytester, "tests/examples", "--examples-changed-since=base", "-rs")
+
+    result.assert_outcomes(passed=3, deselected=1)
 
 
 def test_an_example_directory_named_like_a_figures_directory_is_not_an_orphan(

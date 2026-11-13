@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable, Iterator
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -81,6 +81,8 @@ _RUNS = pytest.StashKey[dict[Path, ExampleRun | RunError]]()
 _COLLECTED = pytest.StashKey[frozenset[Path]]()
 """The examples whose runs this session collected, before any deselection."""
 _SELECTED = pytest.StashKey[frozenset[Path]]()
+_CHANGED = pytest.StashKey[frozenset[str]]()
+"""The paths ``--examples-changed-since`` found changed, from the root; empty without it."""
 """The examples whose runs this session keeps after ``--examples-changed-since``."""
 
 
@@ -133,6 +135,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.stash[_RUNS] = {}
     config.stash[_COLLECTED] = frozenset()
     config.stash[_SELECTED] = frozenset()
+    config.stash[_CHANGED] = frozenset()
 
 
 def _examples(repo_root: Path) -> frozenset[Path]:
@@ -243,6 +246,7 @@ def _deselect_unchanged(config: pytest.Config, items: list[pytest.Item]) -> None
     if ref is None:
         return
     changed = _changed_paths(config.rootpath, ref)
+    config.stash[_CHANGED] = frozenset(changed)
     if reaches_every_example(changed, config.stash[_EXAMPLES], config.rootpath):
         return
     unchanged = [
@@ -284,10 +288,12 @@ def example_run(request: pytest.FixtureRequest) -> Callable[[str], ExampleRun]:
     Returns:
         A function from the example's path below ``examples`` to its run; it skips the test when
         the run was skipped (a ``GPU-required`` example with no GPU here, or a configured
-        ``unavailable`` reason), or when ``--examples-changed-since``
-        left the example's run out, and fails it for any other failure, or when the session did
-        not collect the example's run at all: a test of an example's results runs with its
-        example, as ``uv run substrax-notebooks test`` runs them.
+        ``unavailable`` reason), or when ``--examples-changed-since`` left the example's run out
+        and changed neither the test's own file nor a file beside the result tests that is no
+        test module (a helper any of them may import), in which case the example runs for the
+        test, as pytest-picked runs a changed test file; and fails it for any other failure, or
+        when the session did not collect the example's run at all: a test of an example's results
+        runs with its example, as ``uv run substrax-notebooks test`` runs them.
     """
     config = request.config
 
@@ -301,7 +307,7 @@ def example_run(request: pytest.FixtureRequest) -> Callable[[str], ExampleRun]:
                 "with its example: uv run substrax-notebooks test",
                 pytrace=False,
             )
-        if script not in config.stash[_SELECTED]:
+        if script not in config.stash[_SELECTED] and not _changed_result_test(request.path, config):
             pytest.skip(
                 f"{relative} is not run in this session: no change since the ref touched it"
             )
@@ -388,6 +394,33 @@ class ExampleRunItem(_ExampleCheck):
             self.path, run, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
         )
         _fail_with([str(problem) for problem in problems])
+
+
+def _changed_result_test(test_file: Path, config: pytest.Config) -> bool:
+    """Whether ``--examples-changed-since`` changed a result test's own file or a helper of it.
+
+    A helper is a file under ``tests/examples`` that is no test module by pytest's default naming
+    (``test_*.py``, ``*_test.py``), such as a module of expected values; any result test may
+    import it, so a change to it reaches every one.
+
+    Args:
+        test_file: The requesting test's file.
+        config: pytest's configuration.
+
+    Returns:
+        Whether the test's file, or a helper beside the result tests, is among the changed paths.
+    """
+    changed = config.stash[_CHANGED]
+    own = test_file.resolve().relative_to(config.rootpath.resolve()).as_posix()
+    return own in changed or any(
+        path.startswith("tests/examples/") and not _is_test_module(path) for path in changed
+    )
+
+
+def _is_test_module(path: str) -> bool:
+    """Whether pytest's default naming collects ``path`` as a test module."""
+    name = PurePosixPath(path).name
+    return name.endswith(".py") and (name.startswith("test_") or name.endswith("_test.py"))
 
 
 def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
