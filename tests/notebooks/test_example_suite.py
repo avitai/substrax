@@ -197,32 +197,68 @@ def test_a_run_failing_for_a_configured_reason_is_skipped_with_it(
     result.stdout.fnmatch_lines(["*the dataset is not set*"])
 
 
-def test_each_example_runs_within_its_own_budget(pytester: pytest.Pytester) -> None:
-    """An example's ``budgets`` entry, not the repository default, bounds its run."""
+SLOW = GOOD.replace(
+    '# %% [markdown]\n"""\n## Results',
+    "# %%\nimport time\n\ntime.sleep(1.5)\n\n# %%\ntime.sleep(1.5)\n\n\n"
+    '# %% [markdown]\n"""\n## Results',
+)
+"""The good example, two cells slower: each cell stays inside a 2.5 s budget, together they pass
+it, and they stay well inside the repository default."""
+
+
+def _slow_repository(pytester: pytest.Pytester, settings: str = "") -> Path:
+    """A repository whose example is :data:`SLOW`, its page current, with ``settings`` added."""
+    assert SLOW != GOOD
+    assert CONFIG.budget_seconds > 3
     repo = _repository(pytester)
     script = repo / "examples" / "sorting.py"
-    # Each cell stays inside the entry's budget; together they pass it, and stay well inside the
-    # repository default.
-    script.write_text(
-        GOOD.replace(
-            '# %% [markdown]\n"""\n## Results',
-            "# %%\nimport time\n\ntime.sleep(1.5)\n\n# %%\ntime.sleep(1.5)\n\n\n"
-            '# %% [markdown]\n"""\n## Results',
-        ),
-        encoding="utf-8",
-    )
+    script.write_text(SLOW, encoding="utf-8")
     convert(script)
-    (repo / "pyproject.toml").write_text(
-        PYPROJECT + 'budgets = { "examples/sorting.py" = 2.5 }\n', encoding="utf-8"
-    )
+    generate_page(script, repo_root=repo, config=CONFIG)
+    (repo / "pyproject.toml").write_text(PYPROJECT + settings, encoding="utf-8")
     git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "a slow example with its own budget")
-    assert CONFIG.budget_seconds > 3
+    git(repo, "commit", "-q", "-m", "a slow example")
+    return repo
+
+
+def test_each_example_runs_within_its_own_budget(pytester: pytest.Pytester) -> None:
+    """An example's ``budgets`` entry, not the repository default, bounds its run."""
+    _slow_repository(pytester, 'budgets = { "examples/sorting.py" = 2.5 }\n')
 
     result = _run(pytester, "-m", "example_run")
 
     result.assert_outcomes(failed=1)
     result.stdout.fnmatch_lines(["*budget of 2.5 s*"])
+
+
+def test_a_lane_s_budget_replaces_the_repository_default(pytester: pytest.Pytester) -> None:
+    _slow_repository(pytester)
+
+    result = _run(pytester, "-m", "example_run", "--examples-budget-seconds=2.5")
+
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*budget of 2.5 s*"])
+
+
+def test_an_example_s_own_budget_outranks_the_lane_s(pytester: pytest.Pytester) -> None:
+    """A lane changes only the default, as pytest-timeout's command line yields to a marker."""
+    _slow_repository(pytester, 'budgets = { "examples/sorting.py" = 120 }\n')
+
+    result = _run(pytester, "-m", "example_run", "--examples-budget-seconds=2.5")
+
+    result.assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize("seconds", ["0", "-1", "inf", "nan"])
+def test_a_lane_budget_no_run_can_be_held_to_is_a_usage_error(
+    pytester: pytest.Pytester, seconds: str
+) -> None:
+    _repository(pytester)
+
+    result = _run(pytester, "-m", "example_run", f"--examples-budget-seconds={seconds}")
+
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    result.stderr.fnmatch_lines(["*--examples-budget-seconds must be a finite number*"])
 
 
 @pytest.mark.parametrize(

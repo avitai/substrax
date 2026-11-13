@@ -17,6 +17,10 @@ and uses semantic versioning while the public API stabilizes.
   example's budget, so a budget lowered below a measured run is found without running anything.
   `ExamplesConfig.budget_for` gives an example's budget, and
   `substrax.notebooks.config.example_source` an example's path as its page records it.
+- The shared example tests take `--examples-budget-seconds`, and `substrax-notebooks test`
+  `--budget-seconds`: a lane's budget for every example without a `budgets` entry, in place of
+  `budget_seconds`; an example's own entry still applies. A value that is not a finite number
+  above zero is a usage error.
 
 ## [0.1.26] - 2026-11-12
 

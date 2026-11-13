@@ -193,7 +193,8 @@ else. `uv run substrax-notebooks test` loads it by name and runs pytest on `exam
 exists, `tests/examples`, without the repository's pytest configuration or conftests, any other
 plugin, or the caller's `PYTEST_ADDOPTS` and `PYTEST_PLUGINS` (`examples_pytest_options` in
 `substrax.notebooks.cli`), so each kernel gets the environment a script run gets;
-`--changed-since REF` passes `--examples-changed-since=REF`, and PATHs, from the working directory
+`--changed-since REF` passes `--examples-changed-since=REF`, `--budget-seconds SECONDS` passes
+`--examples-budget-seconds=SECONDS`, and PATHs, from the working directory
 and under the repository, replace the two directories. pytest reads a configuration file of
 substrax's that sets nothing, so none of the repository's ini keys (`addopts`, `filterwarnings`,
 `faulthandler_timeout`, `required_plugins`, `strict_config`) reaches the session, and takes the
@@ -239,6 +240,10 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
   `substrax-devices --require-gpu` before the examples and sets no platform
   ([Checks](../guides/writing-examples.md#checks)), so a lane that has lost its GPU fails there
   rather than skipping its GPU-required runs.
+- `--examples-budget-seconds=SECONDS` is a lane's budget for every example without a `budgets`
+  entry, in place of `budget_seconds`; an example's own entry still applies, as pytest-timeout's
+  command line yields to an item's own marker. A value that is not a finite number above zero is a
+  usage error.
 - `--examples-changed-since=REF` keeps the runs of the examples whose script, notebook or page
   changed since `REF`, and every run when `src/`, `pyproject.toml` or `uv.lock` changed, or a file
   under `examples/` that is no example's own script, notebook or page (a private helper, data). `REF`

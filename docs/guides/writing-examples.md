@@ -266,7 +266,9 @@ validation:
   "examples/training/long_run.py" = 1800 }`), its measurement beside it; a key in another form,
   or naming no example, is refused. The `page` check reports a committed page whose recorded run
   is longer than its example's budget, so a budget lowered below a measured run is found without
-  running anything.
+  running anything. A lane whose machine is slower or faster passes
+  `uv run substrax-notebooks test --budget-seconds <seconds>`, which replaces only the default:
+  an example's own entry still applies.
 - A page is held to a size as Documenter.jl holds its pages: `substrax-notebooks page` warns above
   `page_size_warn_bytes` (100 KiB) and refuses a page above `page_size_bytes` (200 KiB), its
   figures not counted, and the `page` check reports a committed page over the limit. Print what
