@@ -19,6 +19,7 @@ from substrax.compute import (
     Resources,
     Task,
 )
+from substrax.examples import ExamplePathError
 from substrax.records import dump_record
 from substrax.runtime import JaxRuntime
 
@@ -194,7 +195,7 @@ class TestExampleTasks:
         assert [task.timeout_seconds for task in tasks] == [900.0, 300.0]
 
     def test_an_example_outside_the_project_is_refused(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="outside"):
+        with pytest.raises(ExamplePathError, match="not an example under"):
             example_tasks(
                 [tmp_path / "x.py"], project=tmp_path / "repo", budget=lambda _source: 1.0
             )

@@ -35,8 +35,9 @@ from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
 from traitlets import default
 
+from substrax.examples import example_source
 from substrax.notebooks import kernel_setup, repository
-from substrax.notebooks.config import example_source, refuse_unusable_budget
+from substrax.notebooks.config import refuse_unusable_budget
 from substrax.notebooks.terminal import strip_terminal_controls
 from substrax.typing import JsonValue
 
@@ -343,7 +344,7 @@ def _setup_source(
     """
     arguments = {
         "directory": str(script.resolve().parent),
-        "argv0": script.resolve().relative_to(repo_root.resolve()).as_posix(),
+        "argv0": example_source(script, repo_root=repo_root),
         "file": str(script.absolute()),
         "report_path": str(report_path),
         "raised_path": str(raised_path),

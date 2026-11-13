@@ -10,10 +10,11 @@ page and figures directory under ``docs/examples`` belongs to one, a hand-writte
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import yaml
 
+from substrax.examples import example_source
 from substrax.notebooks import repository
 from substrax.notebooks.pages import page_path, PYTHON_COMMAND
 
@@ -81,13 +82,12 @@ def is_touched(script: Path, changed: set[str], repo_root: Path) -> bool:
 
 def _own_paths(script: Path, repo_root: Path) -> set[str]:
     """An example's script, notebook and page, as paths from the repository root."""
-    root = repo_root.resolve()
-    own = (
-        script.resolve(),
-        script.resolve().with_suffix(".ipynb"),
-        page_path(script, repo_root=root),
-    )
-    return {path.relative_to(root).as_posix() for path in own}
+    source = PurePosixPath(example_source(script, repo_root=repo_root))
+    return {
+        source.as_posix(),
+        source.with_suffix(".ipynb").as_posix(),
+        ("docs" / source.with_suffix(".md")).as_posix(),
+    }
 
 
 def _orphan_pages(repo_root: Path, examples: frozenset[Path]) -> list[str]:

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
+from substrax.examples import example_source
 from substrax.records import read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.runtime import JaxRuntime
 from substrax.typing import JsonValue
@@ -218,7 +219,7 @@ def read_job_spec(data: Mapping[str, JsonValue]) -> JobSpec:  # noqa: DOC502  # 
     return read_record(JobSpec, data)
 
 
-def example_tasks(
+def example_tasks(  # noqa: DOC502  # ExamplePathError is raised by example_source
     paths: Iterable[Path], *, project: Path, budget: Callable[[str], float]
 ) -> tuple[Task, ...]:
     """Make one task per example script, run by the project's interpreter from its root.
@@ -231,25 +232,21 @@ def example_tasks(
             :meth:`substrax.notebooks.config.ExamplesConfig.budget_for`.
 
     Returns:
-        The tasks, in the order of ``paths``, each named by its path relative to ``project`` with
-        dots for separators and without the suffix.
+        The tasks, in the order of ``paths``, each named by its path from ``project`` with dots
+        for separators and without the suffix.
 
     Raises:
-        ValueError: If a path lies outside ``project``.
+        ExamplePathError: If a path is not an example under ``project / "examples"``, or a
+            symlink below the project root leads to it (:func:`~substrax.examples.example_source`).
     """
-    root = project.resolve()
     tasks: list[Task] = []
     for path in paths:
-        resolved = path.resolve()
-        if not resolved.is_relative_to(root):
-            msg = f"example {path} is outside the project {project}"
-            raise ValueError(msg)
-        relative = resolved.relative_to(root)
+        source = PurePosixPath(example_source(path, repo_root=project))
         tasks.append(
             Task(
-                name=".".join(relative.with_suffix("").parts),
-                argv=("python", relative.as_posix()),
-                timeout_seconds=budget(relative.as_posix()),
+                name=".".join(source.with_suffix("").parts),
+                argv=("python", source.as_posix()),
+                timeout_seconds=budget(source.as_posix()),
             )
         )
     return tuple(tasks)

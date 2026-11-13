@@ -222,9 +222,13 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
 | `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
 
 - `discover_examples` decides what is an example: every `.py` under `examples/` whose path has no
-  part starting with `_`, so `_common` helpers are not examples. An example reached through a
-  symlink, a linked `examples/` directory included, is a usage error: its page and its changes
-  name it by its path, which a link would make a second name or put outside the repository.
+  part starting with `_`, so `_common` helpers are not examples. `example_source`, beside it, gives
+  an example's path from the root, `examples/<path>.py`, to every tool that names one: the
+  commands, this session, the run's provenance, the pages, the settings and compute's tasks. An
+  example reached through a symlink below the root, a linked `examples/` directory included, is
+  refused by each of them: its page and its changes name it by its path, which a link would make a
+  second name or put outside the repository. A link above the root (one filesystem mounted at two
+  paths) changes nothing.
 - A run whose raised exception, as `<type>: <message>`, holds one of the `unavailable` messages is
   skipped with it; the failing cell's source and traceback are not read, and a run that raised
   nothing (its budget passed, its kernel dead) is never skipped. A `GPU-required` example whose run

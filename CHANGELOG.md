@@ -15,8 +15,7 @@ and uses semantic versioning while the public API stabilizes.
   in another form or naming no example, or a value that is not a finite number above zero, is
   refused. `check_page` reports `over-budget` when a committed page records a run longer than its
   example's budget, so a budget lowered below a measured run is found without running anything.
-  `ExamplesConfig.budget_for` gives an example's budget, and
-  `substrax.notebooks.config.example_source` an example's path as its page records it.
+  `ExamplesConfig.budget_for` gives an example's budget.
 - The shared example tests take `--examples-budget-seconds`, and `substrax-notebooks test`
   `--budget-seconds`: a lane's budget for every example without a `budgets` entry, in place of
   `budget_seconds`; an example's own entry still applies. A value that is not a finite number
@@ -24,6 +23,14 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Changed
 
+- One function decides an example's path from the root, `substrax.examples.example_source`
+  (raising `substrax.examples.ExamplePathError`), and every tool that names an example asks it:
+  the `substrax-notebooks` commands, the shared example tests, the run's provenance, `page_path`,
+  the `names` rule, the settings' `page_size_exempt` and `budgets`, the change selection and
+  compute's example tasks. So every one refuses an example reached through a symlink below the
+  root, as the shared example tests already did; `substrax-notebooks check` and `page` used to
+  accept a linked `examples/` directory. A link above the root, such as one filesystem mounted at
+  two paths, changes nothing. A compute job's `examples` directory outside `examples/` is refused.
 - **Breaking:** a compute job's example tasks take their examples' budgets from
   `[tool.substrax.examples]` (an example's `budgets` entry, else `budget_seconds`), the budget
   `substrax-notebooks page` and the shared example tests hold them to, so a job listing `examples`
