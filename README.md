@@ -165,10 +165,13 @@ test cannot overwrite tracked files.
 ```python
 from substrax.artifacts import resolve_output_dir
 
-location = resolve_output_dir("fno_darcy")  # or explicit=Path("docs/assets/examples/fno_darcy")
+location = resolve_output_dir("darcy_training")
 figure_path = location.path / "prediction.png"
 print(location.source)  # "argument", "environment" or "run_default"
 ```
+
+A caller that chooses the directory passes it as `explicit`. An example's figures reach its
+docs page as the output its run captures, never as files it writes into `docs/`.
 
 ### Testing
 
@@ -226,6 +229,12 @@ if info.kind is DeviceKind.GPU:
 reads the per-hardware batch-size table. jaxlib ships no type stubs for `jax.Device`, so
 substrax annotates devices with the `DeviceLike` protocol, which a `jax.Device` satisfies, and
 `visible_devices()` returns `jax.devices()` typed as it.
+
+`require_gpu()` returns the devices when jax's default backend is a GPU and raises
+`GPUUnavailableError`, naming the backend, otherwise, so GPU work stops before it starts rather
+than running on the CPU. `substrax-devices` prints the platform, jax's version, the default
+backend and each visible device (`--json` for one JSON object), and `--require-gpu` exits 1 unless
+the default backend is a GPU, the check a GPU job runs before its work.
 
 ### Mesh and SPMD
 
@@ -372,6 +381,33 @@ actually got, so a substituted GPU shows in the record.
 
 A provider is added by registering a factory in the `substrax.compute.backends` entry-point
 group; `substrax.testing.compute.BackendContract` holds the tests every backend must pass.
+
+### Notebooks
+
+An example is written once, as a script in jupytext's percent format under `examples/`. Its clean
+notebook is generated from it, and its docs page is made by running a clean copy, so the page
+shows what the code does today. A repository configures its examples in its pyproject and runs
+the shared checks with one command (`substrax[notebooks,testing]`):
+
+```toml
+[tool.substrax.examples]
+source_url = "https://github.com/avitai/<repository>/blob/main"
+budget_seconds = 600
+```
+
+```bash
+uv run substrax-notebooks convert examples/sorting.py  # write its clean notebook
+uv run substrax-notebooks check examples/sorting.py    # the guide's rules, without a run
+uv run substrax-notebooks page examples/sorting.py     # run it and write its docs page
+uv run substrax-notebooks test                         # run and check every example
+```
+
+`test` runs pytest with a configuration of substrax's own, so none of the repository's unit-test
+settings reach an example's run, and a repository's tests of an example's results, in
+`tests/examples`, read the session's one run through the `example_run` fixture. The rules are the
+shared example guide, `docs/guides/writing-examples.md`, which starts from
+`docs/guides/example_template.py`; the `example-conformance` pre-commit hook runs `check` on the
+examples a commit changes.
 
 ## Development setup
 
