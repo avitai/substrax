@@ -153,6 +153,7 @@ wandb = [
 
 [project.scripts]
 substrax-compute = "substrax.compute.cli:main"
+substrax-devices = "substrax.devices.cli:main"
 
 [project.urls]
 Changelog = "https://github.com/avitai/substrax/blob/main/CHANGELOG.md"

@@ -5,6 +5,8 @@ from substrax.devices.info import (
     DeviceInfo,
     DeviceKind,
     DeviceLike,
+    GPUUnavailableError,
+    require_gpu,
     visible_devices,
 )
 from substrax.devices.placement import (
@@ -22,9 +24,11 @@ __all__ = [
     "DeviceKind",
     "DeviceLike",
     "DevicePlacement",
+    "GPUUnavailableError",
     "HardwareType",
     "detect_devices",
     "get_batch_size_recommendation",
     "place_on_device",
+    "require_gpu",
     "visible_devices",
 ]

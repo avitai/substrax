@@ -15,6 +15,11 @@ and uses semantic versioning while the public API stabilizes.
   job combines each Python's shards and holds them to the configured floor and the changed-line
   floor. The default, `"[1]"`, runs the suite whole, and the shards run all at once except on
   macOS, which keeps two runners at a time. substrax's own CI runs four shards per Python.
+- `substrax-devices` prints the platform, jax's version, the default backend and each visible
+  device; `--require-gpu` exits 1 unless the default backend is a GPU.
+- `substrax.devices.require_gpu()` returns the devices when jax's default backend is a GPU and
+  raises `GPUUnavailableError`, naming the backend, otherwise; `substrax-devices --require-gpu`
+  applies it.
 
 ### Changed
 

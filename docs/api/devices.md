@@ -16,6 +16,10 @@ recommendation = get_batch_size_recommendation()  # for the detected hardware
 never imports an accelerator plugin itself. `DevicePlacement` carries the batch-size
 recommendation table per `HardwareType`.
 
+`require_gpu()` returns the devices when jax's default backend is a GPU and raises
+`GPUUnavailableError`, naming the backend, otherwise; a GPU-required example calls it right
+after its Setup's imports, and `substrax-devices --require-gpu` applies the same check.
+
 jaxlib ships no type stubs for `jax.Device`, so it cannot annotate a parameter. `DeviceLike`
 is the protocol substrax annotates devices with (`id`, `platform`, `device_kind`), which a
 `jax.Device` satisfies, and `visible_devices()` returns `jax.devices()` typed as it.
