@@ -4,6 +4,7 @@
 [tool.substrax.examples]
 source_url = "https://github.com/avitai/datarax/blob/main"  # a page links its script under it
 budget_seconds = 600                                  # the whole run of one example
+budgets = { "examples/training/long_run.py" = 1800 }  # an example's own budget instead
 unavailable = ["wod_motion_tfrecord_path is not set"]  # a run raising one of these is skipped
 page_size_warn_bytes = 102400                         # a larger page is written with a warning
 page_size_bytes = 204800                              # a larger page is refused
@@ -15,15 +16,22 @@ The page-size settings follow Documenter.jl's `size_threshold_warn`, `size_thres
 measured on the Markdown page substrax writes, its figures excluded; Documenter's documentation
 prefers exempting a few pages to raising the limit for all.
 
-The command line, the page generator's callers and the shared example tests read the same table,
-so a repository states its settings once. A misspelled key is refused rather than ignored.
+A budget bounds one example's whole run, as pytest-timeout's per-item timeout and Bazel's per-target
+``timeout`` do: ``budget_seconds`` is the repository default and an example's ``budgets`` entry,
+keyed by its path as its page records it, replaces it for that example. An entry states the run it
+was measured against; ``check_page`` reports a page whose recorded run is longer than its budget.
+
+The command line, the page generator's callers, the shared example tests and compute's examples
+jobs read the same table, so a repository states its settings once. A misspelled key is refused
+rather than ignored.
 """
 
 from __future__ import annotations
 
 import math
 import tomllib
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from substrax.examples import discover_examples
@@ -45,7 +53,7 @@ class ExamplesConfig:
             links its script and notebook as ``<source_url>/examples/<path>``. A page lives under
             ``docs/``, so a relative link cannot reach ``examples/``.
         budget_seconds: How long one example's whole run may take, from its kernel's start to
-            its last cell.
+            its last cell, unless ``budgets`` gives the example its own.
         unavailable: Messages that mean a dataset the example needs is not available here; a
             run whose raised exception, as ``<type>: <message>``, holds one is skipped with it
             rather than failed. A run that raised nothing, its budget passed or its kernel dead,
@@ -56,6 +64,9 @@ class ExamplesConfig:
         page_size_exempt: Examples whose pages are not measured, each as its page records it:
             ``examples/<path>.py``. An entry in another form is refused here, and one naming no
             example when the settings are read.
+        budgets: Examples' own budgets, in seconds, keyed by each example's path as its page
+            records it, ``examples/<path>.py``; an example without an entry has
+            ``budget_seconds``. Keys are checked as ``page_size_exempt``'s entries are.
     """
 
     __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
@@ -67,6 +78,7 @@ class ExamplesConfig:
     page_size_warn_bytes: int = 100 * 2**10
     page_size_bytes: int = 200 * 2**10
     page_size_exempt: tuple[str, ...] = ()
+    budgets: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Refuse a source URL, a budget or page-size limits no page or run can be held to.
@@ -75,8 +87,9 @@ class ExamplesConfig:
             ValueError: If ``source_url`` is not an https URL without a trailing slash,
                 ``budget_seconds`` is not a finite number above zero, the page-size limits are
                 not above zero with the warning size no larger than the limit, an
-                ``unavailable`` signature is in every raised exception, or a
-                ``page_size_exempt`` entry is not an example's path as its page records it.
+                ``unavailable`` signature is in every raised exception, a ``page_size_exempt``
+                entry or ``budgets`` key is not an example's path as its page records it, or a
+                ``budgets`` value is not a finite number above zero.
         """
         if not self.source_url.startswith("https://") or self.source_url.endswith("/"):
             msg = f"source_url must be an https URL with no trailing slash, got {self.source_url!r}"
@@ -89,7 +102,21 @@ class ExamplesConfig:
             )
             raise ValueError(msg)
         _refuse_signatures_matching_every_failure(self.unavailable)
-        _refuse_malformed_exemptions(self.page_size_exempt)
+        _refuse_malformed_sources("page_size_exempt", self.page_size_exempt)
+        _refuse_malformed_sources("budgets", tuple(self.budgets))
+        for source, seconds in self.budgets.items():
+            refuse_unusable_budget(seconds, setting=f"budgets[{source!r}]")
+
+    def budget_for(self, source: str) -> float:
+        """Return how long an example's whole run may take.
+
+        Args:
+            source: The example's path as its page records it, ``examples/<path>.py``.
+
+        Returns:
+            Its ``budgets`` entry, or ``budget_seconds`` when it has none.
+        """
+        return self.budgets.get(source, self.budget_seconds)
 
 
 def _refuse_signatures_matching_every_failure(signatures: tuple[str, ...]) -> None:
@@ -113,11 +140,12 @@ def _refuse_signatures_matching_every_failure(signatures: tuple[str, ...]) -> No
         raise ValueError(msg)
 
 
-def _refuse_malformed_exemptions(entries: tuple[str, ...]) -> None:
-    """Refuse a ``page_size_exempt`` entry that is not an example's path as its page records it.
+def _refuse_malformed_sources(setting: str, entries: tuple[str, ...]) -> None:
+    """Refuse an entry of ``setting`` that is not an example's path as its page records it.
 
     Args:
-        entries: The ``page_size_exempt`` entries.
+        setting: The setting the entries belong to, for the message.
+        entries: Its entries.
 
     Raises:
         ValueError: If an entry is not ``examples/<path>.py`` in its normal form.
@@ -125,7 +153,7 @@ def _refuse_malformed_exemptions(entries: tuple[str, ...]) -> None:
     malformed = [entry for entry in entries if not _is_source_path(entry)]
     if malformed:
         msg = (
-            "page_size_exempt entries name an example as its page records it, "
+            f"{setting} entries name an example as its page records it, "
             f"examples/<path>.py; got {', '.join(map(repr, malformed))}"
         )
         raise ValueError(msg)
@@ -142,17 +170,18 @@ def _is_source_path(entry: str) -> bool:
     )
 
 
-def refuse_unusable_budget(budget_seconds: float) -> None:
+def refuse_unusable_budget(budget_seconds: float, *, setting: str = "budget_seconds") -> None:
     """Refuse a budget no run can be held to: zero or less, infinite, or not a number.
 
     Args:
         budget_seconds: How long a run may take.
+        setting: Where the budget was given, for the message.
 
     Raises:
         ValueError: If ``budget_seconds`` is not a finite number above zero.
     """
     if not (math.isfinite(budget_seconds) and budget_seconds > 0):
-        msg = f"budget_seconds must be a finite number above zero, got {budget_seconds}"
+        msg = f"{setting} must be a finite number above zero, got {budget_seconds}"
         raise ValueError(msg)
 
 
@@ -168,8 +197,8 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
     Raises:
         LookupError: If pyproject.toml has no such table, or names no ``[project]``.
         ValueError: If a key is unknown, missing or holds a value of the wrong type, the table
-            sets ``distribution``, or a ``page_size_exempt`` entry names no example of the
-            repository.
+            sets ``distribution``, or a ``page_size_exempt`` entry or ``budgets`` key names no
+            example of the repository.
     """
     pyproject = repo_root / "pyproject.toml"
     document = tomllib.loads(pyproject.read_text(encoding="utf-8"))
@@ -185,25 +214,48 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
         msg = f"{_TABLE} sets distribution, which is read from [project] name"
         raise ValueError(msg)
     config = read_record(ExamplesConfig, {**table, "distribution": distribution})
-    _refuse_unknown_exemptions(config.page_size_exempt, repo_root=repo_root)
-    return config
-
-
-def _refuse_unknown_exemptions(entries: tuple[str, ...], *, repo_root: Path) -> None:
-    """Refuse a ``page_size_exempt`` entry naming no example the repository's pages are made from.
-
-    Args:
-        entries: The ``page_size_exempt`` entries.
-        repo_root: The repository root.
-
-    Raises:
-        ValueError: If :func:`~substrax.examples.discover_examples` does not find an entry.
-    """
+    # The paths as discovered, under ``examples/`` as found: an example reached through a symlink
+    # is refused by its caller, so it must not fail here by resolving outside the repository.
     examples = repo_root / "examples"
     known = {
         f"examples/{path.relative_to(examples).as_posix()}" for path in discover_examples(examples)
     }
+    for setting, entries in (
+        ("page_size_exempt", config.page_size_exempt),
+        ("budgets", tuple(config.budgets)),
+    ):
+        _refuse_unknown_sources(setting, entries, known=known, repo_root=repo_root)
+    return config
+
+
+def example_source(script: Path, *, repo_root: Path) -> str:
+    """Return an example's path as its page records it: relative to the root, with ``/``.
+
+    Args:
+        script: The example script.
+        repo_root: The repository root.
+
+    Returns:
+        ``examples/<path>.py``.
+    """
+    return script.resolve().relative_to(repo_root.resolve()).as_posix()
+
+
+def _refuse_unknown_sources(
+    setting: str, entries: tuple[str, ...], *, known: set[str], repo_root: Path
+) -> None:
+    """Refuse an entry of ``setting`` naming no example the repository's pages are made from.
+
+    Args:
+        setting: The setting the entries belong to, for the message.
+        entries: Its entries.
+        known: Every example's path as its page records it.
+        repo_root: The repository root, for the message.
+
+    Raises:
+        ValueError: If :func:`~substrax.examples.discover_examples` does not find an entry.
+    """
     unknown = [entry for entry in entries if entry not in known]
     if unknown:
-        msg = f"page_size_exempt names {', '.join(unknown)}, which no example of {repo_root} is"
+        msg = f"{setting} names {', '.join(unknown)}, which no example of {repo_root} is"
         raise ValueError(msg)

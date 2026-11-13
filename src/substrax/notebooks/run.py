@@ -36,7 +36,7 @@ from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernel
 from traitlets import default
 
 from substrax.notebooks import kernel_setup, repository
-from substrax.notebooks.config import refuse_unusable_budget
+from substrax.notebooks.config import example_source, refuse_unusable_budget
 from substrax.notebooks.terminal import strip_terminal_controls
 from substrax.typing import JsonValue
 
@@ -264,7 +264,7 @@ def execute_example(  # noqa: DOC503  # the ValueError is raised by refuse_unusa
         msg = f"{script}: {measured['returned_error']}"
         raise RunError(msg)
     provenance = Provenance(
-        source=script.resolve().relative_to(repo_root.resolve()).as_posix(),
+        source=example_source(script, repo_root=repo_root),
         sha256=script_sha256(script),
         seconds=round(seconds, 1),
         device=measured["device"],

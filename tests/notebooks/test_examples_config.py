@@ -108,17 +108,24 @@ def test_page_size_limits_that_are_not_positive_or_out_of_order_are_refused(
         )
 
 
-@pytest.mark.parametrize(
-    "entry",
-    [
-        pytest.param("./examples/sorting.py", id="a-dot-segment"),
-        pytest.param("examples//sorting.py", id="a-double-slash"),
-        pytest.param("examples/../examples/sorting.py", id="a-parent-segment"),
-        pytest.param("/home/someone/repo/examples/sorting.py", id="absolute"),
-        pytest.param("sorting.py", id="not-under-examples"),
-        pytest.param("examples/sorting.ipynb", id="the-notebook"),
-    ],
-)
+NOT_A_PAGES_SOURCE = [
+    pytest.param("./examples/sorting.py", id="a-dot-segment"),
+    pytest.param("examples//sorting.py", id="a-double-slash"),
+    pytest.param("examples/../examples/sorting.py", id="a-parent-segment"),
+    pytest.param("/home/someone/repo/examples/sorting.py", id="absolute"),
+    pytest.param("sorting.py", id="not-under-examples"),
+    pytest.param("examples/sorting.ipynb", id="the-notebook"),
+]
+"""Paths that are not an example's path as its page records it, ``examples/<path>.py``."""
+
+NAMING_NO_EXAMPLE = [
+    pytest.param("examples/sortng.py", id="misspelled"),
+    pytest.param("examples/_shared.py", id="a-private-helper"),
+]
+"""Paths in a page's source form that name no example of :func:`_repository_with`'s repository."""
+
+
+@pytest.mark.parametrize("entry", NOT_A_PAGES_SOURCE)
 def test_a_page_size_exemption_not_in_a_pages_source_form_is_refused(entry: str) -> None:
     """An entry is compared with a page's source, ``examples/<path>.py``, as the page records it."""
     with pytest.raises(ValueError, match="page_size_exempt"):
@@ -127,11 +134,11 @@ def test_a_page_size_exemption_not_in_a_pages_source_form_is_refused(entry: str)
         )
 
 
-def _repository_with(tmp_path: Path, exempt: str) -> Path:
+def _repository_with(tmp_path: Path, settings: str) -> Path:
+    """A repository with ``examples/sorting.py``, a private helper, and ``settings`` added."""
     repo = _pyproject(
         tmp_path,
-        "[tool.substrax.examples]\n"
-        f'source_url = "{SOURCE}"\nbudget_seconds = 600\npage_size_exempt = ["{exempt}"]\n',
+        f'[tool.substrax.examples]\nsource_url = "{SOURCE}"\nbudget_seconds = 600\n{settings}\n',
     )
     for relative in ("sorting.py", "_shared.py"):
         (repo / "examples" / relative).parent.mkdir(parents=True, exist_ok=True)
@@ -140,21 +147,67 @@ def _repository_with(tmp_path: Path, exempt: str) -> Path:
 
 
 def test_a_page_size_exemption_naming_an_example_is_read(tmp_path: Path) -> None:
-    config = read_examples_config(_repository_with(tmp_path, "examples/sorting.py"))
+    repo = _repository_with(tmp_path, 'page_size_exempt = ["examples/sorting.py"]')
 
-    assert config.page_size_exempt == ("examples/sorting.py",)
+    assert read_examples_config(repo).page_size_exempt == ("examples/sorting.py",)
 
 
-@pytest.mark.parametrize(
-    "entry",
-    [
-        pytest.param("examples/sortng.py", id="misspelled"),
-        pytest.param("examples/_shared.py", id="a-private-helper"),
-    ],
-)
+@pytest.mark.parametrize("entry", NAMING_NO_EXAMPLE)
 def test_a_page_size_exemption_naming_no_example_is_refused(tmp_path: Path, entry: str) -> None:
     with pytest.raises(ValueError, match=re.escape(entry)):
-        read_examples_config(_repository_with(tmp_path, entry))
+        read_examples_config(_repository_with(tmp_path, f'page_size_exempt = ["{entry}"]'))
+
+
+def test_per_example_budgets_are_read_keyed_by_the_example_s_path(tmp_path: Path) -> None:
+    repo = _repository_with(tmp_path, 'budgets = { "examples/sorting.py" = 900 }')
+
+    assert read_examples_config(repo).budgets == {"examples/sorting.py": 900.0}
+
+
+def test_an_example_s_budget_is_its_own_entry_and_otherwise_the_default() -> None:
+    config = ExamplesConfig(
+        distribution="demo",
+        source_url=SOURCE,
+        budget_seconds=600,
+        budgets={"examples/slow.py": 1800},
+    )
+
+    assert config.budget_for("examples/slow.py") == 1800
+    assert config.budget_for("examples/fast.py") == 600
+
+
+def test_no_per_example_budgets_by_default() -> None:
+    assert ExamplesConfig(distribution="demo", source_url=SOURCE, budget_seconds=60).budgets == {}
+
+
+@pytest.mark.parametrize("entry", NOT_A_PAGES_SOURCE)
+def test_a_budget_keyed_by_a_path_not_in_a_pages_source_form_is_refused(entry: str) -> None:
+    """A key is compared with a page's source, ``examples/<path>.py``, as an exemption is."""
+    with pytest.raises(ValueError, match="budgets"):
+        ExamplesConfig(
+            distribution="demo", source_url=SOURCE, budget_seconds=60, budgets={entry: 120}
+        )
+
+
+@pytest.mark.parametrize("budget", [0, -1, float("inf"), float("nan")])
+def test_a_per_example_budget_no_run_can_be_held_to_is_refused_naming_the_example(
+    budget: float,
+) -> None:
+    with pytest.raises(ValueError, match=re.escape("examples/slow.py")):
+        ExamplesConfig(
+            distribution="demo",
+            source_url=SOURCE,
+            budget_seconds=60,
+            budgets={"examples/slow.py": budget},
+        )
+
+
+@pytest.mark.parametrize("entry", NAMING_NO_EXAMPLE)
+def test_a_budget_naming_no_example_is_refused(tmp_path: Path, entry: str) -> None:
+    repo = _repository_with(tmp_path, f'budgets = {{ "{entry}" = 900 }}')
+
+    with pytest.raises(ValueError, match=rf"budgets names {re.escape(entry)}"):
+        read_examples_config(repo)
 
 
 @pytest.mark.parametrize(

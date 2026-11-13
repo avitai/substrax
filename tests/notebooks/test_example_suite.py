@@ -197,6 +197,34 @@ def test_a_run_failing_for_a_configured_reason_is_skipped_with_it(
     result.stdout.fnmatch_lines(["*the dataset is not set*"])
 
 
+def test_each_example_runs_within_its_own_budget(pytester: pytest.Pytester) -> None:
+    """An example's ``budgets`` entry, not the repository default, bounds its run."""
+    repo = _repository(pytester)
+    script = repo / "examples" / "sorting.py"
+    # Each cell stays inside the entry's budget; together they pass it, and stay well inside the
+    # repository default.
+    script.write_text(
+        GOOD.replace(
+            '# %% [markdown]\n"""\n## Results',
+            "# %%\nimport time\n\ntime.sleep(1.5)\n\n# %%\ntime.sleep(1.5)\n\n\n"
+            '# %% [markdown]\n"""\n## Results',
+        ),
+        encoding="utf-8",
+    )
+    convert(script)
+    (repo / "pyproject.toml").write_text(
+        PYPROJECT + 'budgets = { "examples/sorting.py" = 2.5 }\n', encoding="utf-8"
+    )
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "a slow example with its own budget")
+    assert CONFIG.budget_seconds > 3
+
+    result = _run(pytester, "-m", "example_run")
+
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*budget of 2.5 s*"])
+
+
 @pytest.mark.parametrize(
     ("body", "failure"),
     [

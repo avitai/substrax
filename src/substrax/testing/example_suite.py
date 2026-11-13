@@ -51,7 +51,7 @@ import pytest
 
 from substrax.examples import discover_examples
 from substrax.notebooks import repository
-from substrax.notebooks.config import ExamplesConfig, read_examples_config
+from substrax.notebooks.config import example_source, ExamplesConfig, read_examples_config
 from substrax.notebooks.conformance import check_example, Devices, example_metadata
 from substrax.notebooks.corpus import corpus_problems, is_touched, reaches_every_example
 from substrax.notebooks.pages import compare_with_run
@@ -362,7 +362,9 @@ def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
                 script,
                 repo_root=config.rootpath,
                 distribution=settings.distribution,
-                budget_seconds=settings.budget_seconds,
+                budget_seconds=settings.budget_for(
+                    example_source(script, repo_root=config.rootpath)
+                ),
             )
         except RunError as error:
             runs[script] = error
