@@ -257,7 +257,13 @@ def execute_example(  # noqa: DOC503  # the ValueError is raised by refuse_unusa
         if before.get(part, _CLEAN) != after.get(part, _CLEAN)
     )
     if changed:
-        msg = f"{script}: the run wrote into the repository: {', '.join(changed)}"
+        # The check compares the checkout before and after the run, so it sees every writer's
+        # change: an editor's save, a commit or another run as much as the example's.
+        msg = (
+            f"{script}: the repository changed while the run was in progress: "
+            f"{', '.join(changed)}; the check cannot tell the example's writes from another "
+            "writer's, so leave the checkout unchanged while an example runs"
+        )
         raise RunError(msg)
     # One stream output where the kernel flushed several in a row, so the page and the recorded
     # output kinds do not depend on timing.

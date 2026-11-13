@@ -280,7 +280,7 @@ def test_a_lane_budget_no_run_can_be_held_to_is_a_usage_error(
         pytest.param(
             '    open("the dataset is not set.txt", "w").close()\n'
             "    print(sort_records(make_records()))",
-            "*the run wrote into the repository*",
+            "*the repository changed while the run was in progress*",
             id="a-run-that-raised-nothing",
         ),
     ],

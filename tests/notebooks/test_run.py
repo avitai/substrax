@@ -175,7 +175,7 @@ def test_a_write_into_a_file_already_changed_fails_naming_it(tmp_path: Path) -> 
     with (repo / "pyproject.toml").open("a", encoding="utf-8") as out:
         out.write("# changed before the run\n")
 
-    with pytest.raises(RunError, match=r"wrote into the repository: pyproject\.toml"):
+    with pytest.raises(RunError, match=r"changed while the run was in progress: pyproject\.toml"):
         execute_example(
             script,
             repo_root=repo,
@@ -191,7 +191,7 @@ def test_a_new_file_in_a_directory_already_untracked_fails_naming_it(tmp_path: P
     (repo / "scratch").mkdir()
     (repo / "scratch" / "notes.txt").write_text("before the run\n", encoding="utf-8")
 
-    with pytest.raises(RunError, match=r"wrote into the repository: scratch/new\.txt"):
+    with pytest.raises(RunError, match=r"changed while the run was in progress: scratch/new\.txt"):
         execute_example(
             script,
             repo_root=repo,
@@ -897,13 +897,32 @@ _GIT_IN_THE_EXAMPLE = (
 def test_a_run_that_deletes_a_clean_tracked_file_fails_naming_it(tmp_path: Path) -> None:
     repo, script = write_example(tmp_path, _endless('import os\n\n    os.remove("pyproject.toml")'))
 
-    with pytest.raises(RunError, match=r"wrote into the repository: pyproject\.toml"):
+    with pytest.raises(RunError, match=r"changed while the run was in progress: pyproject\.toml"):
         execute_example(
             script,
             repo_root=repo,
             distribution=CONFIG.distribution,
             budget_seconds=CONFIG.budget_seconds,
         )
+
+
+def test_a_change_during_the_run_is_not_blamed_on_the_example(tmp_path: Path) -> None:
+    """Another writer (an editor, a commit, a second run) changes the checkout too (M-4)."""
+    repo, script = write_example(tmp_path, _endless('import os\n\n    os.remove("pyproject.toml")'))
+
+    with pytest.raises(RunError) as raised:
+        execute_example(
+            script,
+            repo_root=repo,
+            distribution=CONFIG.distribution,
+            budget_seconds=CONFIG.budget_seconds,
+        )
+
+    assert str(raised.value) == (
+        f"{script}: the repository changed while the run was in progress: pyproject.toml; the "
+        "check cannot tell the example's writes from another writer's, so leave the checkout "
+        "unchanged while an example runs"
+    )
 
 
 def test_a_run_that_stages_a_new_file_fails_naming_the_index(tmp_path: Path) -> None:
