@@ -1,8 +1,9 @@
 # Testing
 
 `substrax.testing` holds the test infrastructure JAX packages share: fresh-interpreter runs with a
-chosen JAX configuration, trace, compile and work counts, example runs, and an opt-in pytest
-plugin. Install it with `substrax[testing]`.
+chosen JAX configuration, trace, compile and work counts, the shared example tests, and an opt-in
+pytest plugin. Install it with `substrax[testing]`; the example tests also need the `notebooks`
+extra, `substrax[notebooks,testing]`.
 
 ```python
 from substrax.runtime import JaxRuntime
@@ -184,48 +185,6 @@ tolerance is 1e-5 in float64 against 2e-3 in float32). The caller's module keeps
 values. A gradient that is zero everywhere is refused unless `allow_zero=True`, since a loss that
 ignores what is differentiated passes a finite-difference check. A function with a
 `jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
-
-## Running examples
-
-`substrax.examples.discover_examples` lists a repository's example scripts, and `run_example` runs
-one in a fresh interpreter from the repository root:
-
-```python
-from pathlib import Path
-
-import pytest
-
-from substrax.examples import discover_examples
-from substrax.testing import run_example
-
-ROOT = Path(__file__).resolve().parents[2]
-EXAMPLES = discover_examples(ROOT / "examples")
-
-
-@pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.relative_to(ROOT).as_posix())
-def test_example_runs(path: Path, output_dir: Path) -> None:
-    run = run_example(
-        path, repo_root=ROOT, output_dir=output_dir, timeout=600, call_main=True
-    )
-    assert run.result.check().returncode == 0
-    assert run.summary["relative_l2_error"] < 1e-2
-```
-
-- `discover_examples` skips every file or directory whose name starts with `_`, such as
-  `__init__.py`, `_common` helpers and `_templates`. `include` narrows the list further, for
-  example to a numbering rule.
-- `call_main=True` loads the example under a name other than `__main__`, calls `main()` and decodes
-  its return value from JSON into `run.summary`. 0-d numpy and jax values become Python numbers,
-  and a value JSON cannot hold fails the run, naming its key. `call_main=False` runs the file as
-  a script. In both modes the example's own directory comes first on `sys.path`, and it sees no
-  command-line arguments, as in a script run.
-- The child runs through `run_python`, with `AVITAI_OUTPUT_DIR` set to `output_dir`. An example that
-  resolves its outputs with `resolve_output_dir` never writes into the repository, and logging or
-  64-bit settings made at import end with the child.
-- A timeout raises `ExampleTimeoutError`, an `AssertionError` naming the budget and the end of the
-  example's standard error. A timeout is a failure, not a skip.
-- `unavailable_reason(run, signatures)` returns the first of a repository's messages found in a
-  failed run's standard error, for skipping an example whose dataset is not configured here.
 
 ## The pytest plugin
 
