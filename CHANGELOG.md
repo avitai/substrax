@@ -14,9 +14,11 @@ and uses semantic versioning while the public API stabilizes.
 - `python-gates` runs the tests in shards: a caller's `test-shards` (`"[1, 2, 3, 4]"`) splits the
   suite into that many pytest-split groups per Python, one job each, every shard of a run ordered
   by the run's id as its `--randomly-seed`, so each test runs in exactly one shard. A new coverage
-  job combines each Python's shards and holds them to the configured floor and the changed-line
-  floor. The default, `"[1]"`, runs the suite whole, and the shards run all at once except on
-  macOS, which keeps two runners at a time. substrax's own CI runs four shards per Python.
+  job combines each Python's shards, one or many, and holds them to the configured floor and the
+  changed-line floor: each shard hands on its data as `.coverage.shard-<group>`, and the job
+  downloads them side by side. The default, `"[1]"`, runs the suite whole, and the shards run all
+  at once except on macOS, which keeps two runners at a time. substrax's own CI runs four shards
+  per Python.
 - One way to write, pair, page and test a repository's examples, with the `notebooks` extra.
   `docs/guides/writing-examples.md` is the guide every repository's examples follow, and
   `docs/guides/example_template.py` the starting point.
