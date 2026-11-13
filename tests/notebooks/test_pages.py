@@ -342,9 +342,18 @@ def test_known_roots_in_outputs_are_replaced_before_publishing(tmp_path: Path) -
     text = generate_page(script, repo_root=repo, config=CONFIG).read_text(encoding="utf-8")
 
     assert str(repo) not in text
-    assert "./examples/topic/demo.py" in text
+    assert "<repo>/examples/topic/demo.py" in text
     assert sys.prefix not in text
     assert "<env>" in text
+
+
+def test_the_repository_root_before_a_full_stop_reads_as_its_placeholder(tmp_path: Path) -> None:
+    """Not ``cwd is ..``, which reads as the parent directory (R-14)."""
+    repo, script = _repo(tmp_path, '# %%\nimport os\n\nprint(f"cwd is {os.getcwd()}.")\n')
+
+    text = generate_page(script, repo_root=repo, config=CONFIG).read_text(encoding="utf-8")
+
+    assert "    cwd is <repo>." in text
 
 
 def test_code_on_the_page_is_fenced_as_python(tmp_path: Path) -> None:
@@ -776,7 +785,7 @@ def test_a_repository_reached_through_a_symlink_reads_as_through_its_real_path(
 
     page = generate_page(link / script.relative_to(repo), repo_root=link, config=CONFIG)
 
-    assert "    file: ./examples/topic/demo.py" in page.read_text(encoding="utf-8")
+    assert "    file: <repo>/examples/topic/demo.py" in page.read_text(encoding="utf-8")
 
 
 def test_a_temporary_root_reached_through_a_symlink_reads_as_its_placeholder(
