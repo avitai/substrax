@@ -170,7 +170,7 @@ class TestExampleTasks:
         project = tmp_path / "repo"
         paths = [project / "examples" / "metrics" / "01_basic.py", project / "examples" / "top.py"]
 
-        tasks = example_tasks(paths, project=project, timeout_seconds=300.0)
+        tasks = example_tasks(paths, project=project, budget=lambda _source: 300.0)
 
         assert tasks == (
             Task(
@@ -181,6 +181,20 @@ class TestExampleTasks:
             Task(name="examples.top", argv=("python", "examples/top.py"), timeout_seconds=300.0),
         )
 
+    def test_each_example_task_has_the_budget_of_its_path(self, tmp_path: Path) -> None:
+        """The budget is asked for each example by its path relative to the project, with ``/``."""
+        project = tmp_path / "repo"
+        paths = [project / "examples" / "metrics" / "slow.py", project / "examples" / "top.py"]
+        budgets = {"examples/metrics/slow.py": 900.0}
+
+        tasks = example_tasks(
+            paths, project=project, budget=lambda source: budgets.get(source, 300.0)
+        )
+
+        assert [task.timeout_seconds for task in tasks] == [900.0, 300.0]
+
     def test_an_example_outside_the_project_is_refused(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="outside"):
-            example_tasks([tmp_path / "x.py"], project=tmp_path / "repo", timeout_seconds=1.0)
+            example_tasks(
+                [tmp_path / "x.py"], project=tmp_path / "repo", budget=lambda _source: 1.0
+            )

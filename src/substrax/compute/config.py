@@ -13,13 +13,20 @@ commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
-task_timeout_seconds = 300               # each task's budget; the job's when unset
+command_timeout_seconds = 300            # each command's budget; the job's when unset
 runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
+
+[tool.substrax.examples]                 # the example tasks' budgets, substrax.notebooks.config
+source_url = "https://github.com/avitai/demo/blob/main"
+budget_seconds = 600
 ```
 
-A misspelled key is refused rather than ignored.
+An example task's budget is the example's own, from ``[tool.substrax.examples]``: its ``budgets``
+entry, else ``budget_seconds``, as ``substrax-notebooks page`` and the shared example tests hold
+it, so a job listing ``examples`` needs that table. A misspelled key is refused rather than
+ignored.
 """
 
 from __future__ import annotations
@@ -33,32 +40,34 @@ from pathlib import Path
 
 from substrax.compute.spec import Accelerator, example_tasks, JobSpec, Task
 from substrax.examples import discover_examples
+from substrax.notebooks.config import read_examples_config
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.typing import JsonValue
 
 
 _TABLE = "[tool.substrax.compute]"
 _ACCELERATOR = re.compile(r"(?P<kind>[^:]+)(?::(?P<count>\d+))?")
-_TASK_SOURCE_KEYS = ("examples", "commands", "task_timeout_seconds")
+_TASK_SOURCE_KEYS = ("examples", "commands", "command_timeout_seconds")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TaskSources:
-    """Where a configured job's tasks come from, and their budget.
+    """Where a configured job's tasks come from, and the commands' budget.
 
-    The job's other keys are :class:`~substrax.compute.JobSpec` fields.
+    The job's other keys are :class:`~substrax.compute.JobSpec` fields. An example task's budget is
+    the example's, from the project's ``[tool.substrax.examples]``.
 
     Attributes:
         timeout_seconds: The job's budget, which is also a ``JobSpec`` field.
         examples: Directories, relative to the project, whose example scripts become tasks.
         commands: Further tasks, by name, run after the examples.
-        task_timeout_seconds: Each task's budget; ``timeout_seconds`` when ``None``.
+        command_timeout_seconds: Each command's budget; ``timeout_seconds`` when ``None``.
     """
 
     timeout_seconds: float
     examples: tuple[str, ...] = ()
     commands: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
-    task_timeout_seconds: float | None = None
+    command_timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -108,8 +117,9 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
 ) -> JobSpec:
     """Build the spec of a configured job, listing its examples now.
 
-    The job's table holds ``examples``, ``commands`` and ``task_timeout_seconds``, which make its
-    tasks, and otherwise the fields of :class:`~substrax.compute.JobSpec` under their own names.
+    The job's table holds ``examples``, ``commands`` and ``command_timeout_seconds``, which make
+    its tasks, and otherwise the fields of :class:`~substrax.compute.JobSpec` under their own names.
+    An example task's budget is the example's, from the project's ``[tool.substrax.examples]``.
 
     Args:
         config: The project's configuration.
@@ -123,7 +133,9 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
     Raises:
         KeyError: If the job is not configured; the message lists the configured ones.
         FileNotFoundError: If an examples directory does not exist.
-        ValueError: If a key of the job's table is unknown or a value of the wrong type.
+        LookupError: If the job lists examples and the project has no ``[tool.substrax.examples]``.
+        ValueError: If a key of the job's table is unknown or a value of the wrong type, or the
+            examples' settings are refused.
     """
     if name not in config.jobs:
         known = ", ".join(sorted(config.jobs)) or "none"
@@ -137,9 +149,9 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
             "timeout_seconds": table.get("timeout_seconds"),
         },
     )
-    budget = sources.task_timeout_seconds or sources.timeout_seconds
-    tasks = _example_tasks(sources, name, project, budget) + [
-        Task(name=task, argv=argv, timeout_seconds=budget)
+    command_budget = sources.command_timeout_seconds or sources.timeout_seconds
+    tasks = _example_tasks(sources, name, project) + [
+        Task(name=task, argv=argv, timeout_seconds=command_budget)
         for task, argv in sources.commands.items()
     ]
     spec = read_record(
@@ -152,14 +164,36 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
     )
 
 
-def _example_tasks(sources: TaskSources, job: str, project: Path, budget: float) -> list[Task]:
-    tasks: list[Task] = []
+def _example_tasks(  # noqa: DOC503  # LookupError and ValueError are raised by read_examples_config
+    sources: TaskSources, job: str, project: Path
+) -> list[Task]:
+    """The job's example tasks, each with its example's budget.
+
+    Args:
+        sources: Where the job's tasks come from.
+        job: The job, for the message.
+        project: The project root.
+
+    Returns:
+        One task per example of each directory, in order.
+
+    Raises:
+        FileNotFoundError: If an examples directory does not exist; checked before the settings
+            are read, which may name examples of a missing directory.
+        LookupError: If the project has no ``[tool.substrax.examples]``.
+        ValueError: If the examples' settings are refused.
+    """
+    if not sources.examples:
+        return []
     for directory in sources.examples:
-        root = project / directory
-        if not root.is_dir():
+        if not (project / directory).is_dir():
             msg = f"examples directory {directory!r} of job {job!r} does not exist in {project}"
             raise FileNotFoundError(msg)
-        tasks += example_tasks(discover_examples(root), project=project, timeout_seconds=budget)
+    budget = read_examples_config(project).budget_for
+    tasks: list[Task] = []
+    for directory in sources.examples:
+        examples = discover_examples(project / directory)
+        tasks += example_tasks(examples, project=project, budget=budget)
     return tasks
 
 

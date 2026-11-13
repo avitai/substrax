@@ -22,6 +22,15 @@ and uses semantic versioning while the public API stabilizes.
   `budget_seconds`; an example's own entry still applies. A value that is not a finite number
   above zero is a usage error.
 
+### Changed
+
+- **Breaking:** a compute job's example tasks take their examples' budgets from
+  `[tool.substrax.examples]` (an example's `budgets` entry, else `budget_seconds`), the budget
+  `substrax-notebooks page` and the shared example tests hold them to, so a job listing `examples`
+  needs that table. The job key `task_timeout_seconds` is now `command_timeout_seconds` and
+  budgets the job's commands only; the old key is refused. `substrax.compute.example_tasks` takes
+  `budget`, a function of each example's path, in place of `timeout_seconds`.
+
 ## [0.1.26] - 2026-11-12
 
 ### Added
