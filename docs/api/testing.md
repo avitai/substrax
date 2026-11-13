@@ -221,6 +221,11 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
 | `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance` |
 | `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
 
+- The examples are collected directory by directory, as pytest's own directory walk collects, so a
+  nested example is selected by its path (`examples/<topic>/<name>.py`), its directory or the node
+  id a failure prints, and `--ignore` and `--ignore-glob` leave an example directory out. No other
+  plugin collects a file under `examples/`, so an example named `test_*.py` is not imported as a
+  test module.
 - `discover_examples` decides what is an example: every `.py` under `examples/` whose path has no
   part starting with `_`, so `_common` helpers are not examples. `example_source`, beside it, gives
   an example's path from the root, `examples/<path>.py`, to every tool that names one: the
