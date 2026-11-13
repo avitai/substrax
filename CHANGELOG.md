@@ -207,6 +207,9 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Fixed
 
+- The compute example job in the README, the compute page and `substrax.compute.config` lists
+  `platforms = ["cuda", "cpu"]`. With `cuda` alone jax starts no CPU backend, so a job copied from
+  it failed at its first host callback (`jax.debug.print`, `jax.pure_callback`, `io_callback`).
 - `python-gates` builds each job's environment on the Python the job names, whatever a caller's
   tracked `.python-version` says. The lint, test, security and docs jobs set `UV_PYTHON`.
   `uv sync` had replaced the venv `uv venv --python` made with one on the pinned version, so a

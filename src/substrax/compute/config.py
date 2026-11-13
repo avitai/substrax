@@ -14,7 +14,7 @@ extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300               # each task's budget; the job's when unset
-runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
+runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
 ```

@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import ast
+import re
+import subprocess
 import textwrap
 from pathlib import Path
 
 import pytest
 
-from substrax.compute import Accelerator, Mount, MountAccess, Resources, Task
+from substrax.compute import (
+    Accelerator,
+    Mount,
+    MountAccess,
+    Resources,
+    Task,
+)
 from substrax.compute.config import (
     parse_accelerator,
     read_compute_config,
@@ -15,6 +24,64 @@ from substrax.compute.config import (
     resolve_job,
 )
 from substrax.runtime import JaxRuntime
+
+
+REPOSITORY = Path(__file__).resolve().parents[2]
+
+
+def _documented_examples() -> list[tuple[str, str]]:
+    """Each documented compute example with jobs, and the tracked file that documents it.
+
+    Every tracked Markdown file is read, and every module docstring under ``src``, so a copy of the
+    example added anywhere the repository documents it is read too.
+    """
+    listed = subprocess.run(  # nosec B603 B607 - git with fixed arguments
+        ["git", "ls-files", "-z", "--", "*.md", "src/*.py"],  # noqa: S607
+        cwd=REPOSITORY,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    examples = []
+    for relative in filter(None, listed.split("\0")):
+        text = (REPOSITORY / relative).read_text(encoding="utf-8")
+        if relative.endswith(".py"):
+            text = ast.get_docstring(ast.parse(text)) or ""
+        examples += [
+            (relative, block)
+            for block in re.findall(r"```toml\n(.*?)```", text, flags=re.DOTALL)
+            if "[tool.substrax.compute.jobs." in block
+        ]
+    return examples
+
+
+def test_each_documented_job_lists_its_accelerator_first_and_the_cpu_after(
+    tmp_path: Path,
+) -> None:
+    """``cuda`` alone starts no CPU backend, and jax's host callbacks run on a CPU device.
+
+    With no platform, a CUDA that cannot start leaves the job on the CPU in silence, and a compute
+    job has no GPU check of its own; with ``cpu`` first, the CPU is the job's default backend. So a
+    job given an accelerator lists the accelerator's platform first and ``cpu`` after it.
+    """
+    examples = _documented_examples()
+    assert {"README.md", "docs/api/compute.md", "src/substrax/compute/config.py"} <= {
+        where for where, _ in examples
+    }
+    for index, (where, block) in enumerate(examples):
+        (tmp_path / str(index)).mkdir()
+        project = _project(tmp_path / str(index), block)
+        (project / "examples" / "metrics").mkdir(parents=True)
+        (project / "examples" / "metrics" / "accuracy.py").write_text("", encoding="utf-8")
+        settings = read_compute_config(project)
+        for job in settings.jobs:
+            spec = resolve_job(settings, job, project=project)
+            if spec.resources.accelerator is None:
+                continue
+            platforms = spec.runtime.platforms or ()
+            listed = f"{where}: job {job} has an accelerator and lists {platforms or 'no platform'}"
+            assert platforms[:1] != ("cpu",), listed
+            assert "cpu" in platforms[1:], listed
 
 
 def _project(tmp_path: Path, table: str) -> Path:
