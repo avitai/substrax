@@ -31,7 +31,7 @@ from markdown_it import MarkdownIt
 
 from substrax.examples import example_source
 from substrax.notebooks.config import ExamplesConfig
-from substrax.notebooks.environment_writes import environment_writes
+from substrax.notebooks.environment_writes import environment_writes, OS_MUTATORS
 from substrax.notebooks.kernel_setup import is_guarded_main_call
 from substrax.notebooks.pages import check_page
 from substrax.notebooks.pairs import check_pair
@@ -114,9 +114,11 @@ _FORCING_INSTRUCTION = re.compile(
     r"|[\"'](jax_platform_name|jax_platforms)[\"']"
 )
 """Prose that sets or clears the backend: an assignment, an unset, a config key."""
-_ENVIRON = ("os.environ", "environ")
-"""How an example names the process environment: ``os.environ``, or ``environ`` imported from os."""
-_OS_WRITES = ("os.putenv", "os.unsetenv", "putenv", "unsetenv")
+_CONFIG_UPDATE = "jax.config.update"
+"""How code sets one of jax's settings, the backend's among them."""
+_LOADS_DOTENV = "dotenv.load_dotenv"
+"""python-dotenv's function that writes a ``.env`` file's variables into the environment."""
+_SETS_NONE = "it reads its settings from the environment and sets none"
 _ARGUMENT_PARSERS = ("argparse", "optparse", "getopt", "click", "typer", "fire", "docopt")
 """The packages whose job is reading command-line arguments."""
 _EXPECTED_OUTPUT = re.compile(
@@ -638,13 +640,66 @@ def _no_backend_forcing(example: _Example) -> list[str]:
 
 
 def _forced_in_code(example: _Example) -> list[str]:
-    """The backend settings the example's code names, sorted."""
-    named = {
-        node.value
-        for node in example.code_nodes
-        if isinstance(node, ast.Constant) and node.value in _FORCING
+    """The backend settings the example's code writes, sorted: in the environment or jax's config.
+
+    Reading one, ``os.environ.get("CUDA_VISIBLE_DEVICES")`` or ``jax.config.read``, chooses
+    nothing.
+    """
+    names = _module_names(example)
+    configured = {
+        setting
+        for call in example.code_nodes
+        if isinstance(call, ast.Call) and _qualified(call.func, names) == _CONFIG_UPDATE
+        for setting in _constant_strings(call.args[:1])
     }
-    return sorted(named)
+    return sorted((_environment_written(example) | configured) & set(_FORCING))
+
+
+def _constant_strings(nodes: list[ast.expr]) -> list[str]:
+    """The string constants among ``nodes``."""
+    return [
+        node.value
+        for node in nodes
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+
+
+def _module_names(example: _Example) -> dict[str, str]:
+    """What the names the example's module-scope imports bind mean (:func:`_imported_names`)."""
+    return _imported_names(example.tree.body if example.tree is not None else [])
+
+
+def _environment_written(example: _Example) -> set[str]:
+    """The variables the example's code writes into the process environment.
+
+    ``os.environ`` and ``os.putenv``/``os.unsetenv`` count under any name the module's imports
+    give them, and only then: a local mapping named ``environ`` is not the environment.
+    """
+    names = _module_names(example)
+    environ = {"os.environ"} | _bound_to(names, "os.environ", attribute="environ")
+    mutators = {
+        spelling
+        for function in OS_MUTATORS
+        for spelling in {function}
+        | _bound_to(names, function, attribute=function.removeprefix("os."))
+    }
+    return {
+        key
+        for node in example.code_nodes
+        for key in environment_writes(node, environ=environ, mutators=mutators)
+    }
+
+
+def _bound_to(names: dict[str, str], qualified: str, *, attribute: str) -> set[str]:
+    """How code spells ``qualified`` (an ``os`` member) through the names imports bind.
+
+    A name bound to it, or ``<name>.<attribute>`` for a name bound to ``os``.
+    """
+    return {
+        name if meaning == qualified else f"{name}.{attribute}"
+        for name, meaning in names.items()
+        if meaning in {qualified, "os"}
+    }
 
 
 _PLATFORM_POSITION = {"jax.devices": 0, "jax.local_devices": 1}
@@ -816,15 +871,17 @@ def _is_argv(node: ast.expr, names: set[str]) -> bool:
 
 def _no_env_writes(example: _Example) -> list[str]:
     # A backend setting written is no-backend-forcing's finding: one finding a write.
-    written = {
-        key
+    written = _environment_written(example) - set(_FORCING)
+    names = _module_names(example)
+    loads = any(
+        isinstance(node, ast.Call) and _qualified(node.func, names) == _LOADS_DOTENV
         for node in example.code_nodes
-        for key in environment_writes(node, environ=_ENVIRON, mutators=_OS_WRITES)
-    } - set(_FORCING)
-    return [
-        f"the example writes {key}; it reads its settings from the environment and sets none"
-        for key in sorted(written)
-    ]
+    )
+    return [f"the example writes {key}; {_SETS_NONE}" for key in sorted(written)] + (
+        [f"the example loads a .env file into the environment with {_LOADS_DOTENV}(); {_SETS_NONE}"]
+        if loads
+        else []
+    )
 
 
 def _no_expected_output(example: _Example) -> list[str]:
@@ -900,8 +957,9 @@ def _typed_keys(example: _Example) -> list[str]:
 
 
 def _gpu_check(example: _Example) -> list[str]:
-    if _metadata_table(example.cells).get("Devices") != Devices.GPU_REQUIRED:
-        return []
+    devices = _metadata_table(example.cells).get("Devices")
+    if devices != Devices.GPU_REQUIRED:
+        return _require_gpu_without_needing_one(example, devices)
     statements = [
         statement
         for source in _code_by_section(example).get("Setup", [])
@@ -913,6 +971,23 @@ def _gpu_check(example: _Example) -> list[str]:
         "a GPU-required example's Setup calls substrax.devices.require_gpu() with no arguments "
         "right after its imports, as a statement of its own or the value of an assignment, so it "
         "stops before any work when there is no GPU"
+    ]
+
+
+def _require_gpu_without_needing_one(example: _Example, devices: str | None) -> list[str]:
+    """A problem when an example not declared GPU-required calls ``require_gpu()`` anywhere.
+
+    An example with no Devices value is the ``metadata`` rule's finding alone.
+    """
+    names = _module_names(example)
+    if devices is None or not any(
+        isinstance(node, ast.Call) and _qualified(node.func, names) in _REQUIRE_GPU
+        for node in example.code_nodes
+    ):
+        return []
+    return [
+        f"a {devices} example calls require_gpu(), which stops every run without a GPU; "
+        "declare it GPU-required or remove the call"
     ]
 
 

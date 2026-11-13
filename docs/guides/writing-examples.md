@@ -102,7 +102,8 @@ left out. Checked: `skeleton`
    the imports, as a statement of its own (`require_gpu()`) or the value of an assignment
    (`gpus = require_gpu()`), with nothing but a docstring between and the name bound by the
    imports before it, which raises unless jax's default backend is a GPU, so the example stops
-   before any work rather than run it on the CPU. Checked: `gpu-check`
+   before any work rather than run it on the CPU. An example not declared GPU-required never calls
+   it, since it would stop every run without a GPU. Checked: `gpu-check`
 4. `## Core Concepts` (optional): the idea a reader needs before the code. A diagram or a table
    where it helps.
 5. `## Implementation`: one `### Step N: <action>` per step, numbered from 1. A parameter sweep the
@@ -129,12 +130,16 @@ left out. Checked: `skeleton`
   `no-arguments`. The run gives the example what a script run does: its own
   `sys.argv[0]` and `__file__`, and a `main()` that exits with status 0 ends the run cleanly.
 - The example reads the environment and never writes it: no `os.environ[...] =`, `setdefault`,
-  `update`, `pop`, `del`, `putenv` or `unsetenv`. Checked: `no-env-writes`
-- The example never chooses or forces a backend or a device: no `JAX_PLATFORMS`,
-  `CUDA_VISIBLE_DEVICES`, `jax_platform_name` or `jax_default_device`, in code or in prose telling
-  the reader to set them, and no device chosen in code (`jax.devices("cpu")`,
-  `jax.local_devices(None, "cpu")`, a `backend=` argument, `jax.default_device`; a `None` platform
-  asks for jax's default and is no choice). A name means what the module's imports bind it to, those
+  `update`, `pop`, `del`, `putenv` or `unsetenv`, under any name its imports give `os.environ` or
+  those functions, and no python-dotenv `load_dotenv()`, which writes a `.env` file's variables
+  into it (`activate.sh` already sources `.env`). A mapping of its own, even one named `environ`,
+  is not the environment. Checked: `no-env-writes`
+- The example never chooses or forces a backend or a device: it sets no `JAX_PLATFORMS` or
+  `CUDA_VISIBLE_DEVICES` in the environment and no `jax_platforms`, `jax_platform_name` or
+  `jax_default_device` with `jax.config.update`, and no prose tells the reader to set them; reading
+  one, as `os.environ.get("CUDA_VISIBLE_DEVICES")` does, chooses nothing. No device is chosen in
+  code (`jax.devices("cpu")`, `jax.local_devices(None, "cpu")`, a `backend=` argument,
+  `jax.default_device`; a `None` platform asks for jax's default and is no choice). A name means what the module's imports bind it to, those
   in a module-level `try`, `if` or `with` included, the last import of a name deciding; a function's
   or class's own parameters, assignments and imports are not followed, nor an assignment such as
   `listing = jax.devices`, so a parameter that shadows an imported jax function is read as that
