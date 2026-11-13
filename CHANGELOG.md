@@ -49,6 +49,13 @@ and uses semantic versioning while the public API stabilizes.
   it asks for through `example_run` even when the change left that example's run out, as
   pytest-picked runs a changed test file; an unchanged result test of such an example is still
   skipped.
+- **Breaking:** `substrax.notebooks.source` is now `substrax.notebooks.text`: `read_utf8` (was
+  `read_source`) raises `NotUtf8Error` (was `ExampleSourceError`), which names the file and the
+  byte, and makes every line ending `\n`. Every tool reads a script, notebook or page through it,
+  the run included, so a run executes the cells the clean notebook holds even when the script
+  opens with a byte order mark. `script_sha256` hashes the script's text as read, so a byte order
+  mark or lone carriage returns leave it the same version, and raises `NotUtf8Error` for a script
+  that is not UTF-8.
 
 ### Fixed
 
@@ -61,6 +68,10 @@ and uses semantic versioning while the public API stabilizes.
   id pytest prints for it, and `--ignore` leaves an example directory out: the shared example tests
   collect the examples directory by directory, as pytest's own directory walk does, where before
   every one of these was a usage error or ignored.
+- A file that is not UTF-8 is reported where it ended in a `UnicodeDecodeError`: a notebook or a
+  page is `unreadable` in `check_pair` and `check_page` (a page whose script is not UTF-8 too), an
+  example script is a `RunError` from `execute_example`, and a Markdown file or `mkdocs.yml` is a
+  corpus problem. A notebook cell with no `cell_type` is `unreadable`, where it raised `KeyError`.
 
 ## [0.1.26] - 2026-11-12
 

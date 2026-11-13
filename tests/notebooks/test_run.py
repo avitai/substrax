@@ -20,6 +20,7 @@ import pytest
 from _example_texts import CONFIG, GOOD, returning_environment, write_example
 from nbconvert.preprocessors import CoalesceStreamsPreprocessor
 
+from substrax.notebooks.pairs import convert
 from substrax.notebooks.run import (
     coalesce_streams,
     ExampleRun,
@@ -28,6 +29,7 @@ from substrax.notebooks.run import (
     RunError,
     script_sha256,
 )
+from substrax.notebooks.text import NotUtf8Error
 
 
 def test_the_kernel_talks_over_ipc_not_plain_tcp() -> None:
@@ -1128,3 +1130,62 @@ def test_the_kernel_has_none_of_the_variables_pytest_writes(tmp_path: Path) -> N
     )
 
     assert run.returned == {"PYTEST_CURRENT_TEST": None, "PYTEST_VERSION": None}
+
+
+def _run(script: Path, repo: Path) -> ExampleRun:
+    return execute_example(
+        script,
+        repo_root=repo,
+        distribution=CONFIG.distribution,
+        budget_seconds=CONFIG.budget_seconds,
+    )
+
+
+def test_an_example_that_is_not_utf8_is_a_run_error_naming_the_encoding(tmp_path: Path) -> None:
+    repo, script = write_example(tmp_path)
+    script.write_bytes(b"# caf\xe9\n" + script.read_bytes())
+
+    with pytest.raises(RunError, match="is not UTF-8: byte 5 cannot be decoded"):
+        _run(script, repo)
+
+
+def test_a_run_executes_the_cells_the_clean_notebook_holds(tmp_path: Path) -> None:
+    """A byte order mark is dropped as the pair drops it, so the opening cell stays prose (P-1)."""
+    repo, script = write_example(tmp_path)
+    script.write_bytes(b"\xef\xbb\xbf" + script.read_bytes())
+    convert(script)
+    paired = nbformat.read(script.with_suffix(".ipynb"), as_version=4)
+
+    run = _run(script, repo)
+
+    assert [cell.cell_type for cell in run.notebook.cells] == [
+        cell.cell_type for cell in paired.cells
+    ]
+    assert run.notebook.cells[0].source == paired.cells[0].source
+
+
+@pytest.mark.parametrize(
+    "encode",
+    [
+        lambda text: text.encode("utf-8").replace(b"\n", b"\r\n"),
+        lambda text: text.encode("utf-8").replace(b"\n", b"\r"),
+        lambda text: b"\xef\xbb\xbf" + text.encode("utf-8"),
+    ],
+    ids=["windows", "carriage-return", "byte-order-mark"],
+)
+def test_a_script_s_identity_is_its_text_as_the_tools_read_it(
+    tmp_path: Path, encode: Callable[[str], bytes]
+) -> None:
+    plain, other = tmp_path / "plain.py", tmp_path / "other.py"
+    plain.write_text(GOOD, encoding="utf-8")
+    other.write_bytes(encode(GOOD))
+
+    assert script_sha256(other) == script_sha256(plain)
+
+
+def test_a_script_that_is_not_utf8_has_no_identity(tmp_path: Path) -> None:
+    script = tmp_path / "example.py"
+    script.write_bytes(b"# caf\xe9\n")
+
+    with pytest.raises(NotUtf8Error):
+        script_sha256(script)

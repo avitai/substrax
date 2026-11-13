@@ -42,6 +42,7 @@ from substrax.examples import discover_examples, example_source
 from substrax.notebooks.config import ExamplesConfig
 from substrax.notebooks.outputs import local_paths, publish_outputs
 from substrax.notebooks.run import ExampleRun, execute_example, Provenance, script_sha256
+from substrax.notebooks.text import read_utf8, text_sha256, unix_line_endings
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 
 
@@ -83,10 +84,9 @@ class _PageRecord:
 
 
 """``{"body": <sha256>, "record": <sha256>, "figures": {<path beside the page>: <sha256>}}``."""
-_LINE_ENDING = re.compile(r"\r\n?")
-"""A Windows or a lone carriage-return line ending."""
-_UNREADABLE_RECORD = ValueError
-"""What reading a page's record raises when the record is missing or malformed."""
+_UNREADABLE = ValueError
+"""What reading a page or its record raises: the page or its script is not UTF-8
+(:class:`~substrax.notebooks.text.NotUtf8Error`), or the record is missing or malformed."""
 type ProblemKind = Literal[
     "missing",
     "unreadable",
@@ -204,7 +204,7 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
     return page
 
 
-def read_provenance(page: Path) -> Provenance:  # noqa: DOC502  # ValueError is raised by _read_record
+def read_provenance(page: Path) -> Provenance:  # noqa: DOC502  # raised by read_utf8 and _read_record
     """Read the provenance a page records.
 
     Args:
@@ -214,9 +214,10 @@ def read_provenance(page: Path) -> Provenance:  # noqa: DOC502  # ValueError is 
         Its provenance.
 
     Raises:
-        ValueError: If the page records none.
+        ValueError: If the page records none, or is not UTF-8
+            (:class:`~substrax.notebooks.text.NotUtf8Error`).
     """
-    provenance, _, _ = _read_record(page.read_text(encoding="utf-8"), page=page)
+    provenance, _, _ = _read_record(read_utf8(page), page=page)
     return provenance
 
 
@@ -229,7 +230,7 @@ def _read_record(text: str, *, page: Path) -> tuple[Provenance, _PageDigests, st
     digest covers.
 
     Args:
-        text: The page's text.
+        text: The page's text, as :func:`~substrax.notebooks.text.read_utf8` reads it.
         page: The page, for the error message.
 
     Returns:
@@ -244,7 +245,7 @@ def _read_record(text: str, *, page: Path) -> tuple[Provenance, _PageDigests, st
         msg = f"{page} records no {_MARKER} provenance"
         raise ValueError(msg)
     record = read_record(_PageRecord, json.loads(match.group("json")))
-    unrecorded = text[: match.start()] + text[match.end() :].lstrip("\r\n")
+    unrecorded = text[: match.start()] + text[match.end() :].lstrip("\n")
     return record.provenance, record.page, unrecorded
 
 
@@ -257,8 +258,9 @@ def check_page(script: Path, *, repo_root: Path, config: ExamplesConfig) -> list
         config: The repository's example settings, for the page-size limit and the budgets.
 
     Returns:
-        Every problem found: no page, no provenance, a page made from another version of the
-        script, a page or figure changed since it was written, a figure its record lists that
+        Every problem found: no page, a page or script that is not UTF-8 or a page with no
+        provenance, a page made from another version of the script, a page or figure changed
+        since it was written, a figure its record lists that
         does not exist, a figure file the record does not list, a figures directory where other
         examples' pages live, a page over the size limit, a recorded run longer than the
         example's budget, or a local path in it.
@@ -274,13 +276,13 @@ def _check_page(
     page = page_path(script, repo_root=repo_root)
     if not page.exists():
         return [PageProblem(script=script, kind="missing", detail=f"no {page}")], None
-    text = page.read_text(encoding="utf-8")
     try:
+        text = read_utf8(page)
         provenance, digests, unrecorded = _read_record(text, page=page)
-    except _UNREADABLE_RECORD as error:
+        current = script_sha256(script)
+    except _UNREADABLE as error:
         return [PageProblem(script=script, kind="unreadable", detail=str(error))], None
     problems = []
-    current = script_sha256(script)
     if provenance.sha256 != current:
         problems.append(
             PageProblem(script=script, kind="stale", detail="made from another version")
@@ -398,8 +400,8 @@ def _remove_written_figures(page: Path) -> None:
     if not (page.is_file() and figures.is_dir()):
         return
     try:
-        _, digests, _ = _read_record(page.read_text(encoding="utf-8"), page=page)
-    except _UNREADABLE_RECORD:
+        _, digests, _ = _read_record(read_utf8(page), page=page)
+    except _UNREADABLE:
         return  # a page with no readable record names nothing it wrote
     inside = figures.resolve()
     for name, digest in digests.figures.items():
@@ -447,12 +449,13 @@ def _export(notebook: nbformat.NotebookNode, *, stem: str) -> tuple[str, dict[st
     r"""The executed notebook as Markdown, and its figures by their path beside the page.
 
     The Markdown's line endings are made ``\n``: an output can carry a lone ``\r`` (a displayed
-    Markdown string), which CommonMark reads as a line ending and Python's universal newlines read
-    back as ``\n``, so a page digested with it would not match the page read from disk.
+    Markdown string), which CommonMark reads as a line ending and
+    :func:`~substrax.notebooks.text.read_utf8` reads back as ``\n``, so a page digested with it
+    would not match the page read from disk.
     """
     resources = {"output_files_dir": f"{stem}_files", "unique_key": stem}
     body, written = MarkdownExporter().from_notebook_node(notebook, resources=resources)
-    return _LINE_ENDING.sub("\n", body), dict(written.get("outputs", {}))
+    return unix_line_endings(body), dict(written.get("outputs", {}))
 
 
 def _with_header(notebook: nbformat.NotebookNode, header: str) -> nbformat.NotebookNode:
@@ -511,7 +514,7 @@ def _provenance_comment(provenance: Provenance, digests: _PageDigests) -> str:
 def _page_digests(body: str, figures: dict[str, bytes], *, provenance: Provenance) -> _PageDigests:
     """The sha256 of the page's text before its record, of the record, and of each figure."""
     return _PageDigests(
-        body=_text_sha256(body + "\n"),
+        body=text_sha256(body + "\n"),
         record=_record_sha256(provenance),
         figures={name: hashlib.sha256(data).hexdigest() for name, data in figures.items()},
     )
@@ -527,7 +530,7 @@ def _edited(
     that is gone is reported as missing instead.
     """
     edited = []
-    if _text_sha256(unrecorded) != digests.body:
+    if text_sha256(unrecorded) != digests.body:
         edited.append("the page's text")
     if _record_sha256(provenance) != digests.record:
         edited.append("the provenance record")
@@ -541,8 +544,3 @@ def _edited(
 def _record_sha256(provenance: Provenance) -> str:
     """The sha256 of a provenance as the record writes it: ``dump_record``'s JSON, keys sorted."""
     return hashlib.sha256(json.dumps(dump_record(provenance), sort_keys=True).encode()).hexdigest()
-
-
-def _text_sha256(text: str) -> str:
-    """The sha256 of a text's UTF-8 bytes, Windows line endings made Unix ones as a checkout may."""
-    return hashlib.sha256(text.replace("\r\n", "\n").encode("utf-8")).hexdigest()
