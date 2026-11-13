@@ -20,7 +20,7 @@ from typing import Any, Literal
 import jupytext
 import nbformat
 
-from substrax.notebooks.source import ExampleSourceError, read_source
+from substrax.notebooks.text import NotUtf8Error, read_utf8
 
 
 FORMATS = "ipynb,py:percent"
@@ -68,7 +68,7 @@ def convert(script: Path) -> Path:
 
     Raises:
         ValueError: If ``script`` is not a ``.py`` file, or not UTF-8
-            (:class:`~substrax.notebooks.source.ExampleSourceError`).
+            (:class:`~substrax.notebooks.text.NotUtf8Error`).
     """
     if script.suffix != ".py":
         msg = f"{script} is not a .py example script"
@@ -85,21 +85,27 @@ def check_pair(script: Path) -> list[PairProblem]:
         script: The example's ``.py`` file.
 
     Returns:
-        Every problem found; empty when the committed notebook equals the generated one.
+        Every problem found; empty when the committed notebook equals the generated one. Both
+        files are read as :func:`~substrax.notebooks.text.read_utf8` reads them, so a checkout
+        with Windows line endings is the pair it was committed as; a file that is not UTF-8, or a
+        notebook that is not one, is ``unreadable``.
     """
     notebook_path = script.with_suffix(".ipynb")
     if not notebook_path.exists():
         return [PairProblem(script=script, kind="missing", detail=f"no {notebook_path.name}")]
-    committed = notebook_path.read_text(encoding="utf-8")
     try:
+        committed = read_utf8(notebook_path)
         generated = _generated(script)
-    except ExampleSourceError as error:
+    except NotUtf8Error as error:
         return [PairProblem(script=script, kind="unreadable", detail=str(error))]
     if committed == generated:
         return []
     try:
         notebook: dict[str, Any] = json.loads(committed)
         notebook_cells = _cells(notebook)
+    except KeyError as error:
+        detail = f"a cell has no {error.args[0]!r} field"
+        return [PairProblem(script=script, kind="unreadable", detail=detail)]
     except (json.JSONDecodeError, AttributeError, TypeError) as error:
         return [PairProblem(script=script, kind="unreadable", detail=str(error))]
     problems = [
@@ -117,7 +123,7 @@ def check_pair(script: Path) -> list[PairProblem]:
 
 def _generated(script: Path) -> str:
     """The notebook :func:`convert` writes for ``script``, as text."""
-    notebook = jupytext.reads(read_source(script), fmt="py:percent")
+    notebook = jupytext.reads(read_utf8(script), fmt="py:percent")
     notebook.metadata = {
         "jupytext": {"formats": FORMATS},
         "kernelspec": dict(_KERNELSPEC),

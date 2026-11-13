@@ -241,12 +241,41 @@ def test_a_figure_replaced_by_hand_is_a_problem(tmp_path: Path) -> None:
     assert figure.name in problems[0].detail
 
 
-def test_a_page_with_windows_line_endings_checks_clean(tmp_path: Path) -> None:
+@pytest.mark.parametrize("ending", [b"\r\n", b"\r"], ids=["windows", "carriage-return"])
+def test_a_page_with_other_line_endings_checks_clean(tmp_path: Path, ending: bytes) -> None:
     repo, script = _repo(tmp_path)
     page = generate_page(script, repo_root=repo, config=CONFIG)
-    page.write_bytes(page.read_bytes().replace(b"\n", b"\r\n"))
+    page.write_bytes(page.read_bytes().replace(b"\n", ending))
 
     assert check_page(script, repo_root=repo, config=CONFIG) == []
+
+
+def test_a_page_that_is_not_utf8_is_unreadable_not_a_crash(tmp_path: Path) -> None:
+    repo, script = _repo(tmp_path)
+    page = generate_page(script, repo_root=repo, config=CONFIG)
+    page.write_bytes(b"# Caf\xe9\n" + page.read_bytes())
+
+    problems = check_page(script, repo_root=repo, config=CONFIG)
+
+    assert [problem.kind for problem in problems] == ["unreadable"]
+    assert problems[0].detail == (
+        f"{page} is not UTF-8: byte 5 cannot be decoded; save it as UTF-8"
+    )
+    with pytest.raises(ValueError, match="is not UTF-8"):
+        read_provenance(page)
+
+
+def test_a_page_whose_script_is_not_utf8_is_unreadable_not_a_crash(tmp_path: Path) -> None:
+    repo, script = _repo(tmp_path)
+    generate_page(script, repo_root=repo, config=CONFIG)
+    script.write_bytes(b"# caf\xe9\n" + script.read_bytes())
+
+    problems = check_page(script, repo_root=repo, config=CONFIG)
+
+    assert [problem.kind for problem in problems] == ["unreadable"]
+    assert problems[0].detail == (
+        f"{script} is not UTF-8: byte 5 cannot be decoded; save it as UTF-8"
+    )
 
 
 def test_a_page_whose_provenance_records_no_page_digest_is_unreadable(tmp_path: Path) -> None:

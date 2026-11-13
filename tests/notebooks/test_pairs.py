@@ -243,3 +243,44 @@ def test_a_byte_order_mark_does_not_change_the_generated_notebook(tmp_path: Path
     marked.write_bytes(b"\xef\xbb\xbf" + SCRIPT.encode("utf-8"))
 
     assert convert(plain).read_text(encoding="utf-8") == convert(marked).read_text(encoding="utf-8")
+
+
+def test_a_notebook_that_is_not_utf8_is_unreadable_not_a_crash(tmp_path: Path) -> None:
+    script = _script(tmp_path)
+    notebook = convert(script)
+    written = notebook.read_bytes()
+    notebook.write_bytes(written.replace(b"Some text", b"Som\xe9 text"))
+    byte = written.index(b"Some text") + len(b"Som")
+
+    problems = check_pair(script)
+
+    assert [problem.kind for problem in problems] == ["unreadable"]
+    assert problems[0].detail == (
+        f"{notebook} is not UTF-8: byte {byte} cannot be decoded; save it as UTF-8"
+    )
+
+
+def test_a_notebook_cell_with_no_kind_is_unreadable_not_a_crash(tmp_path: Path) -> None:
+    script = _script(tmp_path)
+    notebook = convert(script)
+    written = json.loads(notebook.read_text(encoding="utf-8"))
+    del written["cells"][0]["cell_type"]
+    notebook.write_text(json.dumps(written), encoding="utf-8")
+
+    problems = check_pair(script)
+
+    assert [problem.kind for problem in problems] == ["unreadable"]
+    assert problems[0].detail == "a cell has no 'cell_type' field"
+
+
+@pytest.mark.parametrize("ending", [b"\r\n", b"\r"], ids=["windows", "carriage-return"])
+def test_a_pair_checked_out_with_other_line_endings_checks_clean(
+    tmp_path: Path, ending: bytes
+) -> None:
+    """What git's ``core.autocrlf`` writes on checkout is the same pair (BR-15)."""
+    script = _script(tmp_path)
+    notebook = convert(script)
+    for path in (script, notebook):
+        path.write_bytes(path.read_bytes().replace(b"\n", ending))
+
+    assert check_pair(script) == []

@@ -39,6 +39,7 @@ from substrax.examples import example_source
 from substrax.notebooks import kernel_setup, repository
 from substrax.notebooks.config import refuse_unusable_budget
 from substrax.notebooks.terminal import strip_terminal_controls
+from substrax.notebooks.text import NotUtf8Error, read_utf8, text_sha256
 from substrax.typing import JsonValue
 
 
@@ -193,13 +194,15 @@ def execute_example(  # noqa: DOC503  # the ValueError is raised by refuse_unusa
 
     Raises:
         ValueError: If ``budget_seconds`` is not a finite number above zero.
-        RunError: If the kernel does not start, a cell raises, the run passes its budget, the
-            kernel dies, the run writes a file the repository tracks or an untracked one it does
-            not ignore, or the repository is not under git.
+        RunError: If the script is not UTF-8, the kernel does not start, a cell raises, the run
+            passes its budget, the kernel dies, the run writes a file the repository tracks or an
+            untracked one it does not ignore, or the repository is not under git.
     """
     refuse_unusable_budget(budget_seconds)
+    source = _read_script(script)
     before = _repository_state(repo_root)
-    notebook = jupytext.read(script, fmt="py:percent")
+    # Read as the pair is generated, so the run executes the cells the clean notebook holds.
+    notebook = jupytext.reads(source, fmt="py:percent")
     # The exporter fences code with the notebook's language; jupytext's reading names none.
     notebook.metadata["language_info"] = {"name": "python"}
     # A script stops at its first exception: no cell tag lets one fail and the run go on.
@@ -266,7 +269,7 @@ def execute_example(  # noqa: DOC503  # the ValueError is raised by refuse_unusa
         raise RunError(msg)
     provenance = Provenance(
         source=example_source(script, repo_root=repo_root),
-        sha256=script_sha256(script),
+        sha256=text_sha256(source),
         seconds=round(seconds, 1),
         device=measured["device"],
         versions=measured["versions"],
@@ -668,16 +671,38 @@ def _after_overwrites(line: str) -> str:
     return line[cut + 1 :] if cut >= 0 else line
 
 
-def script_sha256(script: Path) -> str:
-    """Return the sha256 of an example script's bytes, the identity a page records.
+def _read_script(script: Path) -> str:
+    """The script's text as :func:`~substrax.notebooks.text.read_utf8` reads it.
 
-    Windows line endings count as Unix ones, as a page's own digest counts them: git's
-    ``core.autocrlf`` checks a script out with them, and the script is the same version.
+    Args:
+        script: The example script.
+
+    Returns:
+        Its text.
+
+    Raises:
+        RunError: If the script is not UTF-8.
+    """
+    try:
+        return read_utf8(script)
+    except NotUtf8Error as error:
+        raise RunError(str(error)) from error
+
+
+def script_sha256(script: Path) -> str:  # noqa: DOC502  # NotUtf8Error is raised by read_utf8
+    """Return the sha256 of an example script's text, the identity a page records.
+
+    The text is the script as :func:`~substrax.notebooks.text.read_utf8` reads it, which is what
+    the run executes and the pair is generated from: a byte order mark or the Windows line endings
+    git's ``core.autocrlf`` checks a script out with leave it the same version.
 
     Args:
         script: The example script.
 
     Returns:
         The hex digest.
+
+    Raises:
+        NotUtf8Error: If the script is not UTF-8.
     """
-    return hashlib.sha256(script.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    return text_sha256(read_utf8(script))

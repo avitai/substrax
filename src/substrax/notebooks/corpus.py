@@ -18,6 +18,7 @@ import yaml
 from substrax.examples import example_source, is_private
 from substrax.notebooks import repository
 from substrax.notebooks.pages import figures_directory, page_path
+from substrax.notebooks.text import NotUtf8Error, read_utf8
 
 
 LIBRARY_PATHS = ("src/", "pyproject.toml", "uv.lock")
@@ -47,8 +48,9 @@ def corpus_problems(repo_root: Path, examples: frozenset[Path]) -> list[str]:
 
     Returns:
         One line per problem: no example, a file under ``docs/examples`` that is no example's page
-        or figure, a notebook with no script, a hand-written command naming a missing file, or a
-        mkdocs nav that lets a page go unlisted.
+        or figure, a notebook with no script, a hand-written command naming a missing file, a
+        mkdocs nav that lets a page go unlisted, or a Markdown file or ``mkdocs.yml`` that is not
+        UTF-8.
     """
     if not examples:
         return [f"no example under {repo_root / 'examples'}"]
@@ -150,12 +152,22 @@ def _dead_commands(repo_root: Path) -> list[str]:
     for markdown in repository.tracked(repo_root, "*.md"):
         if markdown.is_relative_to(pages):
             continue
-        for match in _COMMAND.finditer(markdown.read_text(encoding="utf-8")):
+        try:
+            text = read_utf8(markdown)
+        except NotUtf8Error as error:
+            problems.append(_not_utf8(error, repo_root))
+            continue
+        for match in _COMMAND.finditer(text):
             if not (repo_root / match.group("path")).is_file():
                 problems.append(
                     f"{markdown.relative_to(repo_root)}: `{match.group(0)}` names no file"
                 )
     return problems
+
+
+def _not_utf8(error: NotUtf8Error, repo_root: Path) -> str:
+    """The problem a file that is not UTF-8 is, naming it from the repository root."""
+    return str(NotUtf8Error(error.path.relative_to(repo_root), error.byte))
 
 
 def _unlisted_pages_allowed(repo_root: Path) -> list[str]:
@@ -167,7 +179,11 @@ def _unlisted_pages_allowed(repo_root: Path) -> list[str]:
     mkdocs = repo_root / "mkdocs.yml"
     if not mkdocs.is_file():
         return []
-    document = yaml.compose(mkdocs.read_text(encoding="utf-8"), Loader=yaml.SafeLoader)
+    try:
+        text = read_utf8(mkdocs)
+    except NotUtf8Error as error:
+        return [_not_utf8(error, repo_root)]
+    document = yaml.compose(text, Loader=yaml.SafeLoader)
     validation = _mapping_value(document, "validation")
     level = _mapping_value(_mapping_value(validation, "nav"), "omitted_files")
     level = level or _mapping_value(validation, "omitted_files")

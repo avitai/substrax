@@ -106,6 +106,18 @@ def test_a_placeholder_path_is_no_command(tmp_path: Path) -> None:
     assert corpus_problems(repo, _examples(repo)) == []
 
 
+def test_a_document_that_is_not_utf8_is_a_problem_not_a_crash(tmp_path: Path) -> None:
+    repo, _ = write_example(tmp_path)
+    (repo / "README.md").write_bytes(b"# Caf\xe9\n")
+    (repo / "mkdocs.yml").write_bytes(b"site_name: caf\xe9\n")
+    git(repo, "add", "README.md", "mkdocs.yml")
+
+    assert corpus_problems(repo, _examples(repo)) == [
+        "README.md is not UTF-8: byte 5 cannot be decoded; save it as UTF-8",
+        "mkdocs.yml is not UTF-8: byte 14 cannot be decoded; save it as UTF-8",
+    ]
+
+
 def test_a_document_deleted_and_not_staged_is_read_as_gone(tmp_path: Path) -> None:
     repo, _ = write_example(tmp_path)
     (repo / "NOTES.md").write_text("Run `uv run python examples/gone.py`.\n", encoding="utf-8")

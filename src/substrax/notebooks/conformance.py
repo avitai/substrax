@@ -35,7 +35,7 @@ from substrax.notebooks.environment_writes import environment_writes
 from substrax.notebooks.kernel_setup import is_guarded_main_call
 from substrax.notebooks.pages import check_page
 from substrax.notebooks.pairs import check_pair
-from substrax.notebooks.source import ExampleSourceError, read_source
+from substrax.notebooks.text import NotUtf8Error, read_utf8
 
 
 class Tier(StrEnum):
@@ -234,8 +234,8 @@ def example_metadata(script: Path) -> dict[str, str]:
         as for a file that is not UTF-8, which the ``parses`` rule reports.
     """
     try:
-        text = read_source(script)
-    except ExampleSourceError:
+        text = read_utf8(script)
+    except NotUtf8Error:
         return {}
     return _metadata_table(_cells(text))
 
@@ -256,8 +256,8 @@ def _read(script: Path, *, repo_root: Path, config: ExamplesConfig) -> _Example:
     its own and is dropped before the other rules read the file.
     """
     try:
-        text = read_source(script)
-    except ExampleSourceError as error:
+        text = read_utf8(script)
+    except NotUtf8Error as error:
         return _Example(script, repo_root, config, [], _outline([]), None, [str(error)])
     problems = []
     if script.read_bytes().startswith(codecs.BOM_UTF8):
