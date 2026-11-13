@@ -31,6 +31,13 @@ and uses semantic versioning while the public API stabilizes.
   root, as the shared example tests already did; `substrax-notebooks check` and `page` used to
   accept a linked `examples/` directory. A link above the root, such as one filesystem mounted at
   two paths, changes nothing. A compute job's `examples` directory outside `examples/` is refused.
+- The corpus check holds `docs/examples` to generated pages and their figures only: any other file
+  there, an image, a script or a template as much as a hand-written page, is reported, and the
+  message says so and names `docs/examples.md` as the home of an examples overview, where it said
+  the page's example was renamed, moved or removed. A notebook under `examples` with no script is
+  reported. A hand-written `python examples/...` command is read as `uv run python examples/...`
+  is, and a path holding `<`, `>`, `{`, `}` or `*`, a placeholder for a shape, is not a command.
+  `substrax.examples.is_private` and `substrax.notebooks.pages.figures_directory` are public.
 - **Breaking:** a compute job's example tasks take their examples' budgets from
   `[tool.substrax.examples]` (an example's `budgets` entry, else `budget_seconds`), the budget
   `substrax-notebooks page` and the shared example tests hold them to, so a job listing `examples`

@@ -217,7 +217,7 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
 
 | Collected | Checks |
 | --- | --- |
-| `examples::corpus` | There is an example; no page under `docs/examples` lacks one; a hand-written `uv run python examples/...` command names a file that exists; `mkdocs.yml` sets `validation.nav.omitted_files: warn` |
+| `examples::corpus` | There is an example; every file under `docs/examples` is an example's page or one of its figures (an overview lives at `docs/examples.md`); every notebook under `examples` has its script; a hand-written `python examples/...` or `uv run python examples/...` command names a file that exists, a placeholder such as `<name>` aside; `mkdocs.yml` sets `validation.nav.omitted_files: warn` |
 | `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance` |
 | `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
 

@@ -1,9 +1,10 @@
 """A repository's examples as a whole, and which of their runs a change reaches.
 
 :func:`corpus_problems` holds the examples to the guide's corpus rules: there is at least one, every
-page and figures directory under ``docs/examples`` belongs to one, a hand-written
-``uv run python examples/...`` command in a tracked Markdown file names a file that exists, and
-``mkdocs.yml`` lets no page leave the nav unnoticed. :func:`reaches_every_example` and
+file under ``docs/examples`` is an example's page or one of its figures, every notebook under
+``examples`` has its script, a hand-written ``python examples/...`` or ``uv run python
+examples/...`` command in a tracked Markdown file names a file that exists, and ``mkdocs.yml`` lets
+no page leave the nav unnoticed. :func:`reaches_every_example` and
 :func:`is_touched` decide which runs a change since a ref keeps.
 """
 
@@ -14,16 +15,27 @@ from pathlib import Path, PurePosixPath
 
 import yaml
 
-from substrax.examples import example_source
+from substrax.examples import example_source, is_private
 from substrax.notebooks import repository
-from substrax.notebooks.pages import page_path, PYTHON_COMMAND
+from substrax.notebooks.pages import figures_directory, page_path
 
 
 LIBRARY_PATHS = ("src/", "pyproject.toml", "uv.lock")
 """A change to any of these is a change to what every example runs on: every example runs."""
 
 
-_COMMAND = re.compile(rf"{re.escape(PYTHON_COMMAND)} (?P<path>examples/[^\s`'\")]+\.(?:py|ipynb))")
+_COMMAND = re.compile(
+    r"(?<![\w-])(?:uv run )?python (?P<path>examples/[^\s`'\")<>{}*]+\.(?:py|ipynb))"
+)
+"""A command running an example: ``python`` or ``uv run python``, then a path under ``examples``.
+
+A path holding ``<``, ``>``, ``{``, ``}`` or ``*`` is a placeholder for a shape, not a file.
+"""
+OVERVIEW = "docs/examples.md"
+"""Where a repository's hand-written examples overview lives.
+
+``docs/examples`` holds generated pages and their figures only.
+"""
 
 
 def corpus_problems(repo_root: Path, examples: frozenset[Path]) -> list[str]:
@@ -34,13 +46,15 @@ def corpus_problems(repo_root: Path, examples: frozenset[Path]) -> list[str]:
         examples: The repository's example scripts, resolved.
 
     Returns:
-        One line per problem: no example, a page or figure directory with no example, a
-        hand-written command naming a missing file, or a mkdocs nav that lets a page go unlisted.
+        One line per problem: no example, a file under ``docs/examples`` that is no example's page
+        or figure, a notebook with no script, a hand-written command naming a missing file, or a
+        mkdocs nav that lets a page go unlisted.
     """
     if not examples:
         return [f"no example under {repo_root / 'examples'}"]
     return [
-        *_orphan_pages(repo_root, examples),
+        *_strays_under_docs_examples(repo_root, examples),
+        *_notebooks_without_scripts(repo_root, examples),
         *_dead_commands(repo_root),
         *_unlisted_pages_allowed(repo_root),
     ]
@@ -90,38 +104,47 @@ def _own_paths(script: Path, repo_root: Path) -> set[str]:
     }
 
 
-def _orphan_pages(repo_root: Path, examples: frozenset[Path]) -> list[str]:
-    """The pages and figure directories under ``docs/examples`` that no example makes."""
+def _strays_under_docs_examples(repo_root: Path, examples: frozenset[Path]) -> list[str]:
+    """The files under ``docs/examples`` that are neither an example's page nor one of its figures.
+
+    The figures of ``examples/<path>.py`` live in its page's figures directory,
+    ``docs/examples/<path>_files``; the page of ``examples/data_files/loading.py`` lives in
+    ``docs/examples/data_files``, which is then a page directory, not a figures directory.
+    """
     pages_root = repo_root / "docs" / "examples"
     if not pages_root.is_dir():
         return []
     pages = {page_path(script, repo_root=repo_root).resolve() for script in examples}
-    orphans = [path for path in sorted(pages_root.rglob("*.md")) if path.resolve() not in pages]
-    orphans += _orphan_figures_directories(pages_root, pages)
+    figures = {figures_directory(page) for page in pages}
+    strays = [
+        path
+        for path in sorted(pages_root.rglob("*"))
+        if path.is_file()
+        and path.resolve() not in pages
+        and not any(path.resolve().is_relative_to(directory) for directory in figures)
+    ]
     return [
-        f"{path.relative_to(repo_root)}: no example makes this page; its example was renamed, "
-        "moved or removed"
-        for path in orphans
+        f"{path.relative_to(repo_root).as_posix()}: docs/examples holds generated pages and their "
+        f"figures only, and no example makes this file; an examples overview lives at {OVERVIEW}"
+        for path in strays
     ]
 
 
-def _orphan_figures_directories(pages_root: Path, pages: set[Path]) -> list[Path]:
-    """The ``*_files`` directories under ``pages_root`` that are no example's page's figures.
-
-    A ``*_files`` directory is a page's figures directory unless an example's page lives in it:
-    the page directory of ``examples/data_files/loading.py`` is ``docs/examples/data_files``.
-    """
+def _notebooks_without_scripts(repo_root: Path, examples: frozenset[Path]) -> list[str]:
+    """The notebooks under ``examples`` whose script is no example, as a rename leaves behind."""
+    root = repo_root / "examples"
+    notebooks = {script.with_suffix(".ipynb") for script in examples}
     return [
-        path
-        for path in sorted(pages_root.rglob("*_files"))
-        if path.is_dir()
-        and path.with_name(path.name.removesuffix("_files") + ".md").resolve() not in pages
-        and not any(page.is_relative_to(path.resolve()) for page in pages)
+        f"{path.relative_to(repo_root).as_posix()}: no example script makes this notebook; "
+        "convert writes a notebook from its script, so remove it or restore "
+        f"{path.with_suffix('.py').relative_to(repo_root).as_posix()}"
+        for path in sorted(root.rglob("*.ipynb"))
+        if not is_private(path.relative_to(root)) and path.resolve() not in notebooks
     ]
 
 
 def _dead_commands(repo_root: Path) -> list[str]:
-    """Each hand-written ``uv run python examples/...`` naming a file that does not exist."""
+    """Each hand-written command (:data:`_COMMAND`) naming an example file that does not exist."""
     pages = repo_root / "docs" / "examples"
     problems = []
     for markdown in repository.tracked(repo_root, "*.md"):
@@ -130,8 +153,7 @@ def _dead_commands(repo_root: Path) -> list[str]:
         for match in _COMMAND.finditer(markdown.read_text(encoding="utf-8")):
             if not (repo_root / match.group("path")).is_file():
                 problems.append(
-                    f"{markdown.relative_to(repo_root)}: `{PYTHON_COMMAND} {match.group('path')}` "
-                    "names no file"
+                    f"{markdown.relative_to(repo_root)}: `{match.group(0)}` names no file"
                 )
     return problems
 

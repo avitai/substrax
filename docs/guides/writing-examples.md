@@ -37,12 +37,16 @@ Every command runs from the repository root after `source ./activate.sh`.
   the notebook and committed with its figures. It shows the example's cells, every output of the
   run, and a header with the run's duration, device and versions (Python, jax, substrax and the
   distribution `[project]` names), links to the script and notebook, and the
-  command that runs it. `docs/examples` holds generated pages only: rerun `page` whenever the script
-  changes, and never edit a page or its figures. The page records the digest of its text, of its
+  command that runs it. `docs/examples` holds generated pages and their figures only, nothing
+  else: rerun `page` whenever the script changes, and never edit a page or its figures. A
+  hand-written overview of the examples lives at `docs/examples.md`, outside it, first in the
+  Examples section of the docs navigation. The page records the digest of its text, of its
   provenance record and of each figure as written, so a change by hand, or by a formatter, is
   found. Checked: `page`
-- A page whose example was renamed, moved or removed goes with it; so does a hand-written
-  `uv run python examples/...` command naming a file that no longer exists. Checked: `corpus`
+- A page whose example was renamed, moved or removed goes with it, and so does its notebook; so
+  does a hand-written `python examples/...` or `uv run python examples/...` command naming a file
+  that no longer exists. A path written as a shape, `examples/<topic>/<name>.py`, is not a
+  command. Checked: `corpus`
 
 ## The script
 

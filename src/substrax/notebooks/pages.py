@@ -373,7 +373,7 @@ def _figure_problems(script: Path, page: Path, *, recorded: Mapping[str, str]) -
         for name in sorted(recorded)
         if not (page.parent / name).is_file()
     ]
-    figures = _figures_directory(page)
+    figures = figures_directory(page)
     stray = sorted(
         path.relative_to(page.parent).as_posix()
         for path in (figures.rglob("*") if figures.is_dir() else ())
@@ -394,7 +394,7 @@ def _remove_written_figures(page: Path) -> None:
     there by hand, which ``check_page`` then reports as ``stray-figure``. The directory goes once
     nothing is left in it.
     """
-    figures = _figures_directory(page)
+    figures = figures_directory(page)
     if not (page.is_file() and figures.is_dir()):
         return
     try:
@@ -421,7 +421,7 @@ def _figures_directory_taken(script: Path, *, repo_root: Path) -> str | None:
     page directory of every example under ``examples/<path>_files/``: the two would share one
     directory, and the page could never check clean.
     """
-    figures = _figures_directory(page_path(script, repo_root=repo_root))
+    figures = figures_directory(page_path(script, repo_root=repo_root))
     examples = (repo_root / "examples").resolve()
     directory = examples / figures.relative_to(repo_root / "docs" / "examples")
     inside = [
@@ -438,7 +438,7 @@ def _figures_directory_taken(script: Path, *, repo_root: Path) -> str | None:
     )
 
 
-def _figures_directory(page: Path) -> Path:
+def figures_directory(page: Path) -> Path:
     """Where a page's figures live: ``<stem>_files`` beside it, as :func:`_export` names it."""
     return page.parent / f"{page.stem}_files"
 
