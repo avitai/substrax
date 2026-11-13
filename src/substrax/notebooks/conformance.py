@@ -676,13 +676,8 @@ def _environment_written(example: _Example) -> set[str]:
     give them, and only then: a local mapping named ``environ`` is not the environment.
     """
     names = _module_names(example)
-    environ = {"os.environ"} | _bound_to(names, "os.environ", attribute="environ")
-    mutators = {
-        spelling
-        for function in OS_MUTATORS
-        for spelling in {function}
-        | _bound_to(names, function, attribute=function.removeprefix("os."))
-    }
+    environ = _spellings(names, "os.environ")
+    mutators = {spelling for function in OS_MUTATORS for spelling in _spellings(names, function)}
     return {
         key
         for node in example.code_nodes
@@ -690,15 +685,18 @@ def _environment_written(example: _Example) -> set[str]:
     }
 
 
-def _bound_to(names: dict[str, str], qualified: str, *, attribute: str) -> set[str]:
-    """How code spells ``qualified`` (an ``os`` member) through the names imports bind.
+def _spellings(names: dict[str, str], qualified: str) -> set[str]:
+    """How code spells a module's member, ``qualified``, through the names imports bind.
 
-    A name bound to it, or ``<name>.<attribute>`` for a name bound to ``os``.
+    The qualified name itself, a name bound to the member, and ``<name>.<member>`` for a name bound
+    to its module: ``os.environ``, ``environ`` after ``from os import environ``, ``o.environ``
+    after ``import os as o``.
     """
-    return {
-        name if meaning == qualified else f"{name}.{attribute}"
+    module, _, member = qualified.rpartition(".")
+    return {qualified} | {
+        name if meaning == qualified else f"{name}.{member}"
         for name, meaning in names.items()
-        if meaning in {qualified, "os"}
+        if meaning in {qualified, module}
     }
 
 
@@ -822,7 +820,7 @@ def _no_arguments(example: _Example) -> list[str]:
     return problems + [
         f"line {node.lineno} reads sys.argv beyond [0], the script's name; "
         "the run passes no arguments"
-        for node in _argv_reads(nodes)
+        for node in _argv_reads(nodes, _spellings(_module_names(example), "sys.argv"))
     ]
 
 
@@ -835,14 +833,20 @@ def _imported_packages(node: ast.AST) -> list[str]:
     return []
 
 
-def _argv_reads(nodes: list[ast.AST]) -> list[ast.expr]:
-    """Each use of ``sys.argv``, or of ``argv`` imported from sys, other than ``argv[0]``."""
-    names = {name for node in nodes for name in _argv_imported(node)}
+def _argv_reads(nodes: list[ast.AST], spellings: set[str]) -> list[ast.expr]:
+    """Each use of ``sys.argv`` other than ``argv[0]``.
+
+    ``spellings`` are how the module's imports let code spell it (:func:`_spellings`); a
+    function's own ``from sys import argv`` counts too.
+    """
+    names = spellings | {name for node in nodes for name in _argv_imported(node)}
     own_name = {id(node.value) for node in nodes if _is_index_zero(node)}
     return [
         node
         for node in nodes
-        if isinstance(node, ast.expr) and _is_argv(node, names) and id(node) not in own_name
+        if isinstance(node, ast.Name | ast.Attribute)
+        and ast.unparse(node) in names
+        and id(node) not in own_name
     ]
 
 
@@ -860,13 +864,6 @@ def _is_index_zero(node: ast.AST) -> TypeGuard[ast.Subscript]:
         and isinstance(node.slice, ast.Constant)
         and node.slice.value == 0
     )
-
-
-def _is_argv(node: ast.expr, names: set[str]) -> bool:
-    """Whether ``node`` is ``sys.argv`` or a name bound to it."""
-    if isinstance(node, ast.Name):
-        return node.id in names
-    return isinstance(node, ast.Attribute) and ast.unparse(node) == "sys.argv"
 
 
 def _no_env_writes(example: _Example) -> list[str]:

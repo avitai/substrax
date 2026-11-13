@@ -80,6 +80,8 @@ and uses semantic versioning while the public API stabilizes.
   `o.environ[...] =`. It reports python-dotenv's `load_dotenv()`, which writes the environment.
   `gpu-check` reports an example not declared GPU-required that calls `require_gpu()`, which
   would stop every run without a GPU.
+- `no-arguments` reads `sys.argv` under whatever name the example's imports give it:
+  `import sys as system` no longer hides `system.argv[1]`.
 - A run whose checkout changed fails saying the repository changed while the run was in
   progress, and that the check cannot tell the example's writes from another writer's, where it
   said the run wrote the paths; an editor's save, a commit or another run in the same checkout

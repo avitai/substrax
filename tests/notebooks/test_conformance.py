@@ -863,6 +863,16 @@ def test_each_section_holds_what_the_guide_gives_it(
         pytest.param("import sys", "print(len(sys.argv))", "no-arguments", id="their-count"),
         pytest.param("import sys", "print(sys.argv[1:])", "no-arguments", id="a-slice"),
         pytest.param("from sys import argv", "print(argv[1])", "no-arguments", id="imported-argv"),
+        pytest.param(
+            "import sys as system", "print(system.argv[1])", "no-arguments", id="sys-aliased"
+        ),
+        pytest.param("import sys as system", "print(system.argv[0])", None, id="aliased-own-name"),
+        pytest.param(
+            "from sys import argv as arguments",
+            "print(arguments[1:])",
+            "no-arguments",
+            id="argv-aliased",
+        ),
         pytest.param("import argparse", "print(argparse.__name__)", "no-arguments", id="argparse"),
         pytest.param(
             "from argparse import ArgumentParser",
