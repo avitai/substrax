@@ -511,3 +511,33 @@ def test_test_refuses_a_repository_without_the_settings(
 
     assert main(["test", "--repo-root", str(repo)]) == 2
     assert table in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", ["check", "page", "test"])
+def test_a_repository_without_a_pyproject_is_refused_not_a_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    repo, script = write_example(tmp_path)
+    (repo / "pyproject.toml").unlink()
+    examples = [] if command == "test" else [str(script)]
+
+    assert main([command, "--repo-root", str(repo), *examples]) == 2
+
+    assert capsys.readouterr().err == f"substrax-notebooks: {repo} has no pyproject.toml\n"
+
+
+def test_convert_reports_a_script_that_is_not_utf8_and_converts_the_others(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, script = write_example(tmp_path)
+    other = script.with_name("other.py")
+    other.write_bytes(b"# caf\xe9\n")
+    script.with_suffix(".ipynb").unlink()
+
+    assert main(["convert", "--repo-root", str(repo), str(other), str(script)]) == 1
+
+    captured = capsys.readouterr()
+    assert captured.err == (
+        f"substrax-notebooks: {other} is not UTF-8: byte 5 cannot be decoded; save it as UTF-8\n"
+    )
+    assert captured.out == f"{script.with_suffix('.ipynb')}\n"

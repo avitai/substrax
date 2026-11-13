@@ -180,7 +180,7 @@ def _example_tasks(  # noqa: DOC503  # LookupError and ValueError are raised by 
     Raises:
         FileNotFoundError: If an examples directory does not exist; checked before the settings
             are read, which may name examples of a missing directory.
-        LookupError: If the project has no ``[tool.substrax.examples]``.
+        LookupError: If the project has no pyproject.toml or no ``[tool.substrax.examples]``.
         ValueError: If the examples' settings are refused.
     """
     if not sources.examples:

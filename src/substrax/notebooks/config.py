@@ -195,13 +195,17 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
         The settings.
 
     Raises:
-        LookupError: If pyproject.toml has no such table, or names no ``[project]``.
+        LookupError: If the repository has no pyproject.toml, it has no such table, or it names
+            no ``[project]``.
         ValueError: If a key is unknown, missing or holds a value of the wrong type, the table
             sets ``distribution``, a ``page_size_exempt`` entry or ``budgets`` key names no
             example of the repository, or a symlink below the root leads to an example
             (:class:`~substrax.examples.ExamplePathError`).
     """
     pyproject = repo_root / "pyproject.toml"
+    if not pyproject.is_file():
+        msg = f"{repo_root} has no pyproject.toml"
+        raise LookupError(msg)
     document = tomllib.loads(pyproject.read_text(encoding="utf-8"))
     table = document.get("tool", {}).get("substrax", {}).get("examples")
     if table is None:

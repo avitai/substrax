@@ -44,6 +44,7 @@ from substrax.notebooks.conformance import check_example, SOURCE_RULES
 from substrax.notebooks.pages import generate_page, PageError
 from substrax.notebooks.pairs import convert
 from substrax.notebooks.run import RunError
+from substrax.notebooks.text import NotUtf8Error
 
 
 _SUCCESS, _UNSUCCESSFUL, _REFUSED = 0, 1, 2
@@ -54,6 +55,11 @@ EXAMPLES_PYTEST_CONFIG = Path(__file__).with_name("examples_pytest.ini")
 _CALLERS_PYTEST_SETTINGS = frozenset({"PYTEST_ADDOPTS", "PYTEST_PLUGINS"})
 """The variables through which pytest takes options and plugins from its caller's environment
 (``pytest --help``); the examples' session runs without them."""
+
+
+class _UsageError(Exception):
+    """A command refused before it does anything: :func:`main` writes why and returns 2."""
+
 
 type _Command = Callable[[argparse.Namespace], int]
 type _ExamplesCommand = Callable[[argparse.Namespace, list[Path]], int]
@@ -69,7 +75,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         The exit code.
     """
     arguments = _parser().parse_args(argv)
-    return arguments.command(arguments)
+    try:
+        return arguments.command(arguments)
+    except _UsageError as refusal:
+        sys.stderr.write(f"substrax-notebooks: {refusal}\n")
+        return _REFUSED
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -106,8 +116,7 @@ def _on_examples(command: _ExamplesCommand) -> _Command:
     def run(arguments: argparse.Namespace) -> int:
         selected, refusals = _named_examples(arguments.examples, repo_root=arguments.repo_root)
         if refusals:
-            sys.stderr.write(f"substrax-notebooks: {'; '.join(refusals)}\n")
-            return _REFUSED
+            raise _UsageError("; ".join(refusals))
         return command(arguments, selected)
 
     return run
@@ -135,15 +144,18 @@ def _named_examples(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], 
 
 def _convert(arguments: argparse.Namespace, examples: list[Path]) -> int:
     del arguments
+    status = _SUCCESS
     for script in examples:
-        sys.stdout.write(f"{convert(script)}\n")
-    return _SUCCESS
+        try:
+            sys.stdout.write(f"{convert(script)}\n")
+        except NotUtf8Error as error:
+            sys.stderr.write(f"substrax-notebooks: {error}\n")
+            status = _UNSUCCESSFUL
+    return status
 
 
 def _check(arguments: argparse.Namespace, examples: list[Path]) -> int:
     config = _read_settings(arguments.repo_root)
-    if config is None:
-        return _REFUSED
     findings = [
         finding
         for script in examples
@@ -158,8 +170,6 @@ def _check(arguments: argparse.Namespace, examples: list[Path]) -> int:
 
 def _page(arguments: argparse.Namespace, examples: list[Path]) -> int:
     config = _read_settings(arguments.repo_root)
-    if config is None:
-        return _REFUSED
     status = _SUCCESS
     for script in examples:
         try:
@@ -174,14 +184,13 @@ def _page(arguments: argparse.Namespace, examples: list[Path]) -> int:
 def _test(arguments: argparse.Namespace) -> int:
     """Run pytest on the examples apart from the repository's own tests; return its exit code."""
     repo_root = arguments.repo_root.resolve()
-    if _read_settings(repo_root) is None:
-        return _REFUSED
+    _read_settings(repo_root)
     outside = [
         str(path) for path in arguments.paths if not path.resolve().is_relative_to(repo_root)
     ]
     if outside:
-        sys.stderr.write(f"substrax-notebooks: not under {repo_root}: {', '.join(outside)}\n")
-        return _REFUSED
+        msg = f"not under {repo_root}: {', '.join(outside)}"
+        raise _UsageError(msg)
     environment = {
         name: value for name, value in os.environ.items() if name not in _CALLERS_PYTEST_SETTINGS
     }
@@ -248,15 +257,23 @@ def _default_paths(repo_root: Path) -> list[str]:
     ]
 
 
-def _read_settings(repo_root: Path) -> ExamplesConfig | None:
-    """The repository's example settings, or ``None`` once the reason they are unusable is written.
+def _read_settings(repo_root: Path) -> ExamplesConfig:
+    """The repository's example settings.
 
-    A missing table or ``[project]`` ``name`` and settings no run can be held to
-    (``read_examples_config``'s ``LookupError`` and ``ValueError``) are both the user's to fix, so
-    neither is a traceback.
+    A missing pyproject.toml, table or ``[project]`` ``name`` and settings no run can be held to
+    (``read_examples_config``'s ``LookupError`` and ``ValueError``) are all the user's to fix, so
+    each refuses the command rather than ending in a traceback.
+
+    Args:
+        repo_root: The repository root.
+
+    Returns:
+        The settings.
+
+    Raises:
+        _UsageError: If the settings cannot be read or no run can be held to them.
     """
     try:
         return read_examples_config(repo_root)
     except (LookupError, ValueError) as error:
-        sys.stderr.write(f"substrax-notebooks: {error}\n")
-        return None
+        raise _UsageError(str(error)) from error
