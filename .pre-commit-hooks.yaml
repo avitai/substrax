@@ -10,8 +10,9 @@
   name: examples follow the shared example guide
   description: >-
     The guide's source rules on each changed example (substrax.notebooks.conformance.SOURCE_RULES):
-    the clean pair, the skeleton and metadata, main and its guard, and the code rules. Runs with
-    the repository's own locked substrax through uv and executes nothing.
+    the clean pair, the skeleton and metadata, main and its guard, and the code rules. A changed
+    notebook is checked through its script, so one edited by hand fails its pair. Runs with the
+    repository's own locked substrax through uv and executes nothing.
   entry: uv run --no-sync substrax-notebooks check
   language: system
-  files: ^examples/.*\.py$
+  files: ^examples/.*\.(py|ipynb)$

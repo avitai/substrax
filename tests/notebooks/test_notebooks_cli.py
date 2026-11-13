@@ -10,7 +10,13 @@ from pathlib import Path
 
 import pytest
 import yaml
-from _example_texts import CONFIG, git, GOOD, returning_environment, write_example
+from _example_texts import (
+    CONFIG,
+    git,
+    GOOD,
+    returning_environment,
+    write_example,
+)
 
 from substrax.notebooks.cli import EXAMPLES_PYTEST_CONFIG, main
 from substrax.notebooks.conformance import RULES, SOURCE_RULES
@@ -109,6 +115,73 @@ def test_a_missing_example_is_refused(tmp_path: Path) -> None:
     assert main(["check", "--repo-root", str(repo), str(repo / "examples" / "typo.py")]) == 2
 
 
+def test_check_given_a_notebook_checks_its_script(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, script = write_example(
+        tmp_path, GOOD.replace("jax.random.key(0)", "jax.random.PRNGKey(0)")
+    )
+    notebook = script.with_suffix(".ipynb")
+
+    assert main(["check", "--repo-root", str(repo), str(notebook)]) == 1
+
+    assert f"{script}: typed-keys: " in capsys.readouterr().out
+
+
+def test_a_script_named_with_its_notebook_is_checked_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The hook passes both files of a pair that changed together."""
+    repo, script = write_example(
+        tmp_path, GOOD.replace("jax.random.key(0)", "jax.random.PRNGKey(0)")
+    )
+    notebook = script.with_suffix(".ipynb")
+
+    assert main(["check", "--repo-root", str(repo), str(script), str(notebook)]) == 1
+
+    assert capsys.readouterr().out.count(": typed-keys: ") == 1
+
+
+def test_convert_given_a_notebook_writes_it_again_from_its_script(tmp_path: Path) -> None:
+    repo, script = write_example(tmp_path)
+    notebook = script.with_suffix(".ipynb")
+    clean = notebook.read_bytes()
+    notebook.write_text("{}", encoding="utf-8")
+
+    assert main(["convert", "--repo-root", str(repo), str(notebook)]) == 0
+
+    assert notebook.read_bytes() == clean
+
+
+def test_a_path_that_is_neither_a_script_nor_a_notebook_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = write_example(tmp_path)
+    notes = repo / "examples" / "notes.md"
+    notes.write_text("# Notes\n", encoding="utf-8")
+
+    assert main(["check", "--repo-root", str(repo), str(notes)]) == 2
+
+    assert capsys.readouterr().err == (
+        f"substrax-notebooks: {notes} is not an example script (.py) or its notebook (.ipynb)\n"
+    )
+
+
+def test_a_notebook_with_no_script_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, script = write_example(tmp_path)
+    orphan = script.with_name("renamed.ipynb")
+    script.with_suffix(".ipynb").rename(orphan)
+
+    assert main(["check", "--repo-root", str(repo), str(orphan)]) == 2
+
+    assert capsys.readouterr().err == (
+        f"substrax-notebooks: {orphan} is a notebook with no script "
+        f"{orphan.with_suffix('.py')}; convert writes a notebook from its script\n"
+    )
+
+
 def test_page_writes_each_page(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     repo, script = write_example(tmp_path)
 
@@ -182,7 +255,24 @@ def test_the_shared_hook_checks_changed_examples_in_the_repository_environment()
 
     assert hook["entry"] == "uv run --no-sync substrax-notebooks check"
     assert hook["language"] == "system"
-    assert hook["files"] == r"^examples/.*\.py$"
+    assert hook["files"] == r"^examples/.*\.(py|ipynb)$"
+
+
+@pytest.mark.parametrize(
+    ("path", "watched"),
+    [
+        ("examples/topic/sorting.py", True),
+        ("examples/topic/sorting.ipynb", True),
+        ("examples/topic/notes.md", False),
+        ("docs/examples/topic/sorting.md", False),
+    ],
+)
+def test_the_hook_watches_a_script_and_a_hand_edited_notebook(path: str, watched: bool) -> None:
+    """A notebook edited by hand leaves its pair; the hook checks it as it checks the script."""
+    hooks = yaml.safe_load((REPOSITORY / ".pre-commit-hooks.yaml").read_text(encoding="utf-8"))
+    hook = next(hook for hook in hooks if hook["id"] == "example-conformance")
+
+    assert (re.search(hook["files"], path) is not None) is watched
 
 
 def test_the_command_is_installed_as_substrax_notebooks() -> None:

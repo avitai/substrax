@@ -12,8 +12,8 @@ substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECOND
 (:data:`substrax.notebooks.conformance.SOURCE_RULES`) and runs nothing, which is what the
 ``example-conformance`` pre-commit hook does on changed examples. ``page`` runs each example as
 its clean notebook within the repository's ``[tool.substrax.examples]`` budget and writes its docs
-page. An EXAMPLE is an existing ``.py`` under
-``<repo root>/examples``: a private one (a path part starting with ``_``) is skipped, and any other
+page. An EXAMPLE is an existing ``.py`` under ``<repo root>/examples``, or its notebook, which names
+the script beside it: a private one (a path part starting with ``_``) is skipped, and any other
 path is refused. The repository root is the working directory unless ``--repo-root`` names one.
 Exit codes: 0 for success, 1 when a check finds a problem or a run fails, 2 for a refused command.
 
@@ -108,9 +108,12 @@ def _parser() -> argparse.ArgumentParser:
 def _on_examples(command: _ExamplesCommand) -> _Command:
     """``command`` given the examples its arguments name, once anything that is none is refused.
 
-    A private example (a path part starting with ``_``) is skipped, as ``discover_examples`` skips
-    it; a path that is not an existing file under ``<repo root>/examples``, or one a symlink below
-    the root leads to, is refused, as :func:`substrax.examples.example_source` decides.
+    A notebook names the script beside it, so the hook checks a notebook edited by hand and
+    ``convert`` writes it again; a script named with its notebook is taken once. A private example
+    (a path part starting with ``_``) is skipped, as ``discover_examples`` skips it. A path that is
+    neither a ``.py`` nor a ``.ipynb``, a notebook with no script, and a path that is not an
+    existing file under ``<repo root>/examples`` or that a symlink below the root leads to (as
+    :func:`substrax.examples.example_source` decides) are refused.
     """
 
     def run(arguments: argparse.Namespace) -> int:
@@ -123,23 +126,39 @@ def _on_examples(command: _ExamplesCommand) -> _Command:
 
 
 def _named_examples(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], list[str]]:
-    """The examples among ``paths``, private ones left out, and why each other path is refused."""
+    """The example scripts ``paths`` name, each once and private ones left out, and the refusals."""
     examples = repo_root / "examples"
     discovered = set(discover_examples(examples))
     selected: list[Path] = []
     refusals: list[str] = []
     for path in paths:
-        if not path.is_file():
-            refusals.append(f"{path} is not an example under {examples}")
+        script = _script_named(path, examples=examples)
+        if isinstance(script, str):
+            refusals.append(script)
             continue
         try:
-            source = example_source(path, repo_root=repo_root)
+            source = example_source(script, repo_root=repo_root)
         except ExamplePathError as error:
             refusals.append(str(error))
             continue
-        if repo_root / source in discovered:
-            selected.append(path)
+        if repo_root / source in discovered and script not in selected:
+            selected.append(script)
     return selected, refusals
+
+
+def _script_named(path: Path, *, examples: Path) -> Path | str:
+    """The script ``path`` names (itself, or the one beside a notebook), or why it names none."""
+    if path.suffix not in {".py", ".ipynb"}:
+        return f"{path} is not an example script (.py) or its notebook (.ipynb)"
+    if not path.is_file():
+        return f"{path} is not an example under {examples}"
+    script = path.with_suffix(".py")
+    if not script.is_file():
+        return (
+            f"{path} is a notebook with no script {script}; convert writes a notebook from its "
+            "script"
+        )
+    return script
 
 
 def _convert(arguments: argparse.Namespace, examples: list[Path]) -> int:
