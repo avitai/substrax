@@ -399,6 +399,18 @@ def test_settings_no_run_can_be_held_to_are_a_usage_error(
     result.stderr.fnmatch_lines([f"*{named}*"])
 
 
+def test_a_repository_without_a_pyproject_is_a_usage_error(pytester: pytest.Pytester) -> None:
+    """Not an internal error: pytest takes a ``pytest.ini`` directory as its root (R-8)."""
+    repo = _repository(pytester)
+    (repo / "pyproject.toml").unlink()
+    (repo / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+
+    result = _run(pytester, "-m", "example_run")
+
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    result.stderr.fnmatch_lines([f"*{repo} has no pyproject.toml*"])
+
+
 def test_a_repository_naming_no_distribution_is_a_usage_error(pytester: pytest.Pytester) -> None:
     repo = _repository(pytester)
     named = '[project]\nname = "demo"\n'

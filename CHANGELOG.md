@@ -72,6 +72,11 @@ and uses semantic versioning while the public API stabilizes.
   page is `unreadable` in `check_pair` and `check_page` (a page whose script is not UTF-8 too), an
   example script is a `RunError` from `execute_example`, and a Markdown file or `mkdocs.yml` is a
   corpus problem. A notebook cell with no `cell_type` is `unreadable`, where it raised `KeyError`.
+- A repository with no `pyproject.toml` is refused as one without the `[tool.substrax.examples]`
+  table is: `read_examples_config` raises `LookupError`, the shared example tests stop with a
+  usage error where pytest reported an internal error, and `substrax-notebooks` exits 2 where it
+  ended in a traceback. `substrax-notebooks convert` reports a script that is not UTF-8, converts
+  the others and exits 1.
 
 ## [0.1.26] - 2026-11-12
 

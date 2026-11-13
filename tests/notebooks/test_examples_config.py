@@ -258,3 +258,9 @@ def test_the_table_cannot_set_the_distribution(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="distribution"):
         read_examples_config(repo)
+
+
+def test_a_repository_without_a_pyproject_is_a_missing_table(tmp_path: Path) -> None:
+    """A missing file is refused as a missing table is, not as an ``OSError`` (R-8)."""
+    with pytest.raises(LookupError, match=r"has no pyproject\.toml"):
+        read_examples_config(tmp_path)
