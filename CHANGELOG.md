@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-11-12
+
 ### Added
 
 - `python-gates` runs the tests in shards: a caller's `test-shards` (`"[1, 2, 3, 4]"`) splits the
@@ -1029,7 +1031,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.25...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/avitai/substrax/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/avitai/substrax/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/avitai/substrax/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/avitai/substrax/compare/v0.1.22...v0.1.23
