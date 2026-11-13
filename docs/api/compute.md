@@ -21,7 +21,7 @@ extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 task_timeout_seconds = 300
-runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
+runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
 ```
@@ -32,7 +32,12 @@ least it gets. Modal takes them as `gpu`, `cpu` and `memory`; SkyPilot as `accel
 `cpus = "<n>+"` and `memory = "<n>MB+"`; the local backend provisions nothing. `--accelerator`
 replaces the configured accelerator for one run. `examples` lists each directory's scripts as
 `substrax.examples.discover_examples` does, skipping every name that starts with `_`; a task's
-leading `"python"` is the project environment's interpreter.
+leading `"python"` is the project environment's interpreter. `runtime` sets the job's JAX
+environment; a GPU job lists `cpu` after `cuda`, since jax's host callbacks (`jax.debug.print`,
+`jax.pure_callback`, `io_callback`) run on a CPU device. With `cuda` listed, a machine that has an
+NVIDIA device but a CUDA that cannot start raises rather than running on the CPU; a machine with
+no NVIDIA device node runs on the CPU, since jax skips a listed `cuda` there. No platform list
+requires a GPU: `substrax-devices --require-gpu` exits 1 unless jax's default backend is one.
 
 ## Running them
 

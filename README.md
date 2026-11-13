@@ -357,7 +357,7 @@ examples = ["examples"]
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
-runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
+runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 ```
 
 ```bash
