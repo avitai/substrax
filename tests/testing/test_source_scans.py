@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,6 @@ from substrax.testing.source_scans import (
     configures_logging,
     documented_texts,
     import_time_lines,
-    is_main_guard,
     python_files,
     unguarded_make_mesh_calls,
     writes_environment,
@@ -111,24 +109,6 @@ def test_only_code_that_runs_at_import_is_reported(tmp_path: Path) -> None:
 
     assert import_time_lines(module, configures_logging) == [3, 8]
     assert import_time_lines(module, writes_environment) == [4, 6, 21]
-
-
-@pytest.mark.parametrize(
-    ("condition", "expected"),
-    [
-        ("__name__ == '__main__'", True),
-        ('__name__ == "__main__"', True),
-        ("'__main__' == __name__", True),
-        ("__name__ != '__main__'", False),
-        ("__name__ == '__main__' == other", False),
-        ("__name__ == 'other'", False),
-        ("name == '__main__'", False),
-    ],
-)
-def test_the_main_guard_is_recognised_by_its_comparison(condition: str, expected: bool) -> None:
-    node = ast.parse(f"if {condition}:\n    pass\n").body[0]
-
-    assert is_main_guard(node) is expected
 
 
 @pytest.mark.parametrize(

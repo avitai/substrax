@@ -21,6 +21,72 @@ and uses semantic versioning while the public API stabilizes.
     read the script through `substrax.notebooks.source.read_source`, as the conformance rules
     do: UTF-8 with a byte order mark dropped, and `ExampleSourceError` for any other encoding,
     which `check_pair` reports as an unreadable pair.
+  - `substrax.notebooks.run.execute_example` runs a clean copy of an example as a notebook, in a
+    kernel on this interpreter from the repository root, without the user's IPython profile, and
+    gives the example what `python <script>` gives it: its own directory first on `sys.path`, its
+    path in `sys.argv` and `__file__`, and a clean exit when `main()` exits as Python exits with
+    status 0: a code of `None` or an integer 0, so `sys.exit(0.0)` fails as it does in Python. That
+    setup is `substrax.notebooks.kernel_setup`, a module whose source a hidden cell runs in a
+    namespace of its own, so the kernel never imports substrax. The kernel's environment is the
+    caller's without the variables pytest writes into its own process (`PYTEST_CURRENT_TEST`,
+    `PYTEST_VERSION`), so a run inside a test session captures what the example writes to file
+    descriptors 1 and 2, as a run outside one does. One
+    budget covers the run from the kernel's start to its report after the example's last cell,
+    substrax's own setup and report included, and a cell still running when it ends is stopped; a
+    budget that is not a finite number above zero is refused. The run fails at the first exception a
+    cell raises, as a script run does, a `raises-exception` cell tag included, and when its kernel
+    does not start, it passes its budget, its kernel dies, or it writes or removes a file the
+    repository tracks, writes an untracked file it does not ignore, a file already changed before
+    the run included, or changes HEAD, the index or the hooks directory; a `RunError` names the
+    exception the example raised in `raised` and its class in `raised_class`, by the qualified name
+    the kernel recorded after the cell, or `None` where it left no readable record; neither `raised`
+    nor the message holds terminal control sequences.
+    It returns each cell's outputs, consecutive outputs of one stream merged however the kernel
+    flushed them and text after a figure kept after it, the run's provenance and what `main()`
+    returned, written by a reporter bound before the example runs, so the example's `print`,
+    standard output and threads cannot disturb it; a failure while reporting is substrax's, not the
+    example's.
+  - `substrax.notebooks.pages`: `generate_page` writes `docs/examples/<path>.md` from a run, opening
+    with the example's title, its first cell's leading level-one heading written with `#` or
+    underlined (a first cell with none is left whole, the header before it), then where and how long
+    it ran, links to its script and notebook, and the command that runs it, the example's path
+    quoted for the shell. In the run's outputs, the run's artifact directory (`<outputs>`) and the
+    repository, environment, temporary and home directories, each as given or resolved through
+    symlinks, become placeholders where they start a path, punctuation after them included, and a
+    page whose outputs still hold a local path, a Windows one in either backslash spelling included,
+    is refused; terminal control sequences are removed, and ipykernel's per-process cell directory
+    under the temporary directory loses its number, so a page reads the same on every regeneration,
+    while text the example prints is kept as printed; the code, header and provenance are published
+    as they are, and every line ending is `\n`, a lone carriage return an output displayed included.
+    The page records the sha256 of its text, of its provenance record and of each figure as written.
+    The record, `{"provenance": ..., "page": ...}`, is written and read through `substrax.records`:
+    a field missing, undeclared or of the wrong type makes the page `unreadable`, and
+    `read_provenance` raises `ValueError` for it. `Provenance` holds its outputs as tuples.
+    Regenerating a page removes the figures its last generation wrote, still as written, and keeps
+    anything else in the figures directory, another example's page or a file put there by hand, and
+    the header's links are percent-encoded. An example whose figures directory,
+    `docs/examples/<path>_files`, is the page directory of examples under `examples/<path>_files` is
+    refused before its run, and `check_page` reports such a page as `figures-directory-taken`.
+    `check_page` checks a committed page without running anything, reporting one made from another
+    version of its script as `stale`, a Windows checkout of the same script being the same version,
+    one changed since it was written as `edited`, a figure its record lists and the directory lacks
+    as `missing-figure` and a figure file the record does not list as `stray-figure`, image syntax
+    an output prints read as text; `compare_with_run` also compares its output kinds with a fresh
+    run, standard error left out before the text on either side of it is joined, so a warning one
+    machine prints and another does not changes no kind.
+  - `substrax.notebooks.terminal.strip_terminal_controls` removes every ECMA-48 control from text,
+    colours, hyperlinks (keeping their text), window titles, device control strings and character
+    sets alike, in one linear scan; pages and run errors use it.
+  - `substrax.notebooks.config` reads a repository's `[tool.substrax.examples]` settings,
+    including the page-size limits, which follow Documenter.jl's: `page` warns above
+    `page_size_warn_bytes` (100 KiB) and refuses a page above `page_size_bytes` (200 KiB), figures
+    not counted, `page_size_exempt` naming examples not measured; `check_page` reports a committed
+    page over the limit as `too-large`, and it and `compare_with_run` take the settings.
+    A `page_size_exempt` entry is an example's path as its page records it, `examples/<path>.py`,
+    and one in another form, or naming no example, is refused.
+    `distribution` is the repository's `[project]` `name`, never a key of the table, and a
+    pyproject.toml without one is refused; each page records its installed version beside
+    Python's, jax's and substrax's.
 - `substrax-devices` prints the platform, jax's version, the default backend and each visible
   device; `--require-gpu` exits 1 unless the default backend is a GPU.
 - `substrax.devices.require_gpu()` returns the devices when jax's default backend is a GPU and
@@ -29,6 +95,9 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Removed
 
+- **Breaking:** `substrax.testing.source_scans.is_main_guard`. The one `__main__` guard
+  recogniser is `substrax.notebooks.kernel_setup.is_main_guard`, which the source scans, the
+  conformance rules and the run share.
 - **Breaking:** `substrax.examples.discover_examples`'s `include` filter. Every example is
   discovered the same way, as the shared example tests discover it; a caller that keeps only some
   names filters the list it returns.
