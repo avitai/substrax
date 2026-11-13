@@ -560,6 +560,58 @@ def test_a_changed_helper_beside_the_result_tests_runs_the_examples_they_ask_for
     result.assert_outcomes(passed=3, deselected=1)
 
 
+def _collected(pytester: pytest.Pytester, *arguments: str) -> tuple[int, list[str]]:
+    """The examples session's exit code and node ids for ``--collect-only`` over ``arguments``."""
+    result = pytester.runpytest_subprocess(*_suite(pytester), "--collect-only", "-q", *arguments)
+    return result.ret, [line for line in result.outlines if "::" in line]
+
+
+NESTED = [
+    "examples/topic/nested.py::follows-the-guide",
+    "examples/topic/nested.py::runs-as-its-page-shows",
+]
+"""The items of the nested example of :func:`_nested_repository`."""
+
+
+def _nested_repository(pytester: pytest.Pytester) -> Path:
+    """A repository with a top-level example and one in a subdirectory, as the guide places them."""
+    return _repository(pytester, {"sorting.py": GOOD, "topic/nested.py": GOOD})
+
+
+@pytest.mark.parametrize(
+    "selection",
+    ["examples/topic/nested.py", "examples/topic"],
+    ids=["by-its-path", "by-its-directory"],
+)
+def test_a_nested_example_is_selected_by_its_path_or_directory(
+    pytester: pytest.Pytester, selection: str
+) -> None:
+    """pytest matches a command-line path one directory at a time (M-1)."""
+    _nested_repository(pytester)
+
+    assert _collected(pytester, selection) == (pytest.ExitCode.OK, NESTED)
+
+
+def test_a_nested_example_s_node_id_selects_its_item(pytester: pytest.Pytester) -> None:
+    """The node id pytest prints for a failure can be passed back to rerun it."""
+    _nested_repository(pytester)
+
+    assert _collected(pytester, NESTED[0]) == (pytest.ExitCode.OK, NESTED[:1])
+
+
+def test_an_ignored_directory_under_examples_is_not_collected(pytester: pytest.Pytester) -> None:
+    _nested_repository(pytester)
+
+    code, collected = _collected(pytester, "examples", "--ignore=examples/topic")
+
+    assert code == pytest.ExitCode.OK
+    assert collected == [
+        "examples::corpus",
+        "examples/sorting.py::follows-the-guide",
+        "examples/sorting.py::runs-as-its-page-shows",
+    ]
+
+
 def test_an_example_directory_named_like_a_figures_directory_is_not_an_orphan(
     pytester: pytest.Pytester,
 ) -> None:

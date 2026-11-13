@@ -50,6 +50,10 @@ and uses semantic versioning while the public API stabilizes.
   a file `REF` gained after the branch point no longer counts as changed, so a pull request whose
   base moved on runs only the examples it touched. A `REF` sharing no history with HEAD is a
   usage error.
+- An example in a subdirectory of `examples/` is selected by its path, its directory or the node
+  id pytest prints for it, and `--ignore` leaves an example directory out: the shared example tests
+  collect the examples directory by directory, as pytest's own directory walk does, where before
+  every one of these was a usage error or ignored.
 
 ## [0.1.26] - 2026-11-12
 

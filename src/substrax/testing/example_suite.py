@@ -312,21 +312,60 @@ def example_run(request: pytest.FixtureRequest) -> Callable[[str], ExampleRun]:
 
 
 class ExamplesDirectory(pytest.Directory):
-    """The ``examples`` directory: its corpus check, then each example in it.
+    """The ``examples`` directory: its corpus check, then the examples below it.
 
-    Only examples live under ``examples``, so the directory yields them itself, as
-    :func:`substrax.examples.discover_examples` lists them; a private file there is not one.
+    Only examples live under ``examples``, so the directory collects them itself, as
+    :func:`substrax.examples.discover_examples` lists them, and a private file there is not one;
+    no other plugin collects a file there, so an example named ``test_*.py`` is not imported as
+    a test module.
     """
 
     def collect(self) -> Iterator[pytest.Item | pytest.Collector]:
-        """Yield the corpus check, then one collector per example.
+        """Yield the corpus check, then the examples and example directories directly in it.
 
         Yields:
-            pytest.Item | pytest.Collector: The corpus check, then each example's collector.
+            pytest.Item | pytest.Collector: The corpus check, then the collectors below it.
         """
         yield CorpusItem.from_parent(self, name="corpus")
-        for script in sorted(self.config.stash[_EXAMPLES]):
-            yield ExampleFile.from_parent(self, path=script)
+        yield from _collect_below(self)
+
+
+class ExamplesSubdirectory(pytest.Directory):
+    """A directory under ``examples`` holding examples, so a path or node id below it resolves."""
+
+    def collect(self) -> Iterator[pytest.Collector]:
+        """Yield the examples and example directories directly in it.
+
+        Yields:
+            pytest.Collector: Each example's collector, and each directory holding examples.
+        """
+        yield from _collect_below(self)
+
+
+def _collect_below(directory: pytest.Directory) -> Iterator[pytest.Collector]:
+    """Each example and each directory holding examples directly in ``directory``, by name.
+
+    pytest matches a command-line path one directory at a time, so a nested example is reached
+    through a collector for each directory above it, as pytest's own ``Dir`` collects; and as
+    ``Dir`` does, an entry ``pytest_ignore_collect`` refuses (``--ignore``, ``--ignore-glob``) is
+    left out.
+
+    Args:
+        directory: The examples directory, or one below it.
+
+    Yields:
+        pytest.Collector: Each example's collector, and each directory holding examples.
+    """
+    examples = directory.config.stash[_EXAMPLES]
+    for entry in sorted(directory.path.iterdir()):
+        if directory.ihook.pytest_ignore_collect(collection_path=entry, config=directory.config):
+            continue
+        resolved = entry.resolve()
+        if entry.is_dir():
+            if any(example.is_relative_to(resolved) for example in examples):
+                yield ExamplesSubdirectory.from_parent(directory, path=entry)
+        elif resolved in examples:
+            yield ExampleFile.from_parent(directory, path=entry)
 
 
 class ExampleFile(pytest.File):
