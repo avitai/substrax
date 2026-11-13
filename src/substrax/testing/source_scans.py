@@ -26,11 +26,11 @@ import ast
 from collections.abc import Callable, Collection, Sequence
 from pathlib import Path
 
+from substrax.notebooks.environment_writes import environment_writes
 from substrax.notebooks.kernel_setup import is_main_guard
 
 
 # The ``os.environ`` methods that change the environment.
-_ENVIRONMENT_METHODS = frozenset({"update", "setdefault", "pop", "popitem", "clear"})
 _MESH_CALL = "make_mesh("
 _DOCUMENTED_NODES = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 _DEFERRED_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
@@ -70,43 +70,16 @@ def python_files(
     return files
 
 
-def _is_os_environ(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Attribute)
-        and node.attr == "environ"
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "os"
-    )
-
-
-def _is_environment_item(node: ast.AST) -> bool:
-    return isinstance(node, ast.Subscript) and _is_os_environ(node.value)
-
-
-def _assigns_environment(node: ast.AST) -> bool:
-    if isinstance(node, (ast.Assign, ast.Delete)):
-        return any(_is_environment_item(target) for target in node.targets)
-    if isinstance(node, ast.AugAssign):
-        return _is_os_environ(node.target) or _is_environment_item(node.target)
-    return False
-
-
-def _calls_environment_mutator(node: ast.AST) -> bool:
-    if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
-        return False
-    function = node.func
-    if _is_os_environ(function.value):
-        return function.attr in _ENVIRONMENT_METHODS
-    return (
-        isinstance(function.value, ast.Name)
-        and function.value.id == "os"
-        and function.attr in {"putenv", "unsetenv"}
-    )
-
-
 def writes_environment(node: ast.AST) -> bool:
-    """Whether ``node`` changes ``os.environ`` or calls ``os.putenv``/``os.unsetenv``."""
-    return _assigns_environment(node) or _calls_environment_mutator(node)
+    """Whether ``node`` changes ``os.environ`` or calls ``os.putenv``/``os.unsetenv``.
+
+    Args:
+        node: A syntax-tree node.
+
+    Returns:
+        Whether :func:`~substrax.notebooks.environment_writes.environment_writes` finds a write.
+    """
+    return bool(environment_writes(node))
 
 
 def configures_logging(node: ast.AST) -> bool:

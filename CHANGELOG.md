@@ -77,6 +77,50 @@ and uses semantic versioning while the public API stabilizes.
   - `substrax.notebooks.terminal.strip_terminal_controls` removes every ECMA-48 control from text,
     colours, hyperlinks (keeping their text), window titles, device control strings and character
     sets alike, in one linear scan; pages and run errors use it.
+  - `substrax.notebooks.conformance.check_example` applies the guide's mechanical rules by the ids
+    the guide names them by. A file that is not UTF-8, opens with a byte order mark, or writes a
+    markdown cell as comments is a finding rather than an error, through every rule, as is a cell
+    marker carrying an option (a `tags=` or `active=` value, `[raw]`), which the notebook run
+    obeys and `python <script>` does not; jupytext reads each marker to decide; and an
+    `async def main` is a `main` finding. It takes the repository's settings from its caller,
+    which reads them once, and the `page` rule holds the page to them. Markdown cells are read
+    as CommonMark reads them, through markdown-it-py as pages are, so a heading in a backtick or
+    tilde fence or an indented code block opens no section, and `## Setup ##` is the Setup section.
+    A GPU-required example whose Setup does not call `substrax.devices.require_gpu()`, with no
+    arguments (an argument would check devices of the example's choosing), right after its imports,
+    as a statement of its own or an assignment's value with nothing but a docstring between, is a
+    `gpu-check` finding; the call may be reached through `substrax.devices` or
+    `substrax.devices.info`, under the names the imports before it bind. `Tier` and `Devices`
+    enumerate the values the metadata table's fields may take.
+    `typed-keys` finds `PRNGKey` imported by name as well as reached through `jax.random`.
+    `no-env-writes` finds an example that writes the environment (`os.environ[...] =`, `setdefault`,
+    `update`, `pop`, `del`, `putenv`, `unsetenv`); a backend setting written stays
+    `no-backend-forcing`'s finding alone. It and `substrax.testing.source_scans.writes_environment`
+    share one recogniser, `substrax.notebooks.environment_writes.environment_writes`.
+    `no-expected-output` finds a comment or a line of prose that opens by stating an output:
+    Expected, Sample or Example output, or Expected followed by `:` or `(`, in a comment
+    (trailing ones included), a heading or a paragraph; a bare `Output`, which names what code
+    returns, a shape or a figure, is no claim.
+    `names` finds a part of an example's path below `examples/`, a directory or the file name, that
+    is not `snake_case` or opens with a number.
+    `title` also finds a title that names a tier (Quick Reference, Tutorial, Advanced Guide).
+    `metadata` also finds a table that does not directly follow the title or does not open with
+    its `| Metadata | Value |` header and delimiter row.
+    `setup`, `results`, `troubleshooting` and `next-steps` check what each section holds: one Setup
+    code cell with every module-level import, Results under `###` titles, a `###` per Troubleshooting
+    entry, and Experiments to Try as Next Steps' only subsection; on a broken outline they leave
+    the one finding to `skeleton`.
+    `no-arguments` finds an example that reads `sys.argv` beyond `[0]`, or imports a command-line
+    parser (`argparse`, `optparse`, `getopt`, `click`, `typer`, `fire`, `docopt`).
+    `no-backend-forcing` also finds a device chosen in code: a platform given to `jax.devices` or
+    `jax.local_devices`, a `backend=` argument (a `None` asks for jax's default and is none),
+    `jax.default_device` or the `jax_default_device` setting. Both rules read a name as the module's
+    imports bind it, those in a module-level `try`, `if`, `with`, loop or `match` included, the last
+    import of a name deciding: a function's or class's own parameters, assignments and imports are
+    not followed.
+    `main` also finds a guard that calls `main()` with keyword arguments, as it did positional ones.
+    A markdown cell marked `[md]` is read as one, a raw `r"""` cell is a triple-quoted string, and a
+    cell written as a one-line string is named as one rather than as comments.
   - `substrax.notebooks.config` reads a repository's `[tool.substrax.examples]` settings,
     including the page-size limits, which follow Documenter.jl's: `page` warns above
     `page_size_warn_bytes` (100 KiB) and refuses a page above `page_size_bytes` (200 KiB), figures
