@@ -150,7 +150,9 @@ left out. Checked: `skeleton`
   the run captures it for the page. A run that changes or removes anything git tracks, adds an
   untracked path git does not ignore, or changes git's own state (a commit, a staged file, a hook)
   fails; a path the repository ignores, such as `__pycache__`, is a byproduct of running and is
-  not checked. Checked: `runs-as-its-page-shows`
+  not checked. The check compares the checkout before and after the run, so it cannot tell the
+  example's change from one an editor, a commit or another run makes meanwhile: leave the
+  checkout unchanged while an example runs. Checked: `runs-as-its-page-shows`
 - No `from x import *`. Checked: `no-star-imports`
 - Keys come from `jax.random.key`, never `jax.random.PRNGKey`, whether called through
   `jax.random` or imported by name. Checked: `typed-keys`. Each use derives its own key with

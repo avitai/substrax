@@ -80,6 +80,10 @@ and uses semantic versioning while the public API stabilizes.
   `o.environ[...] =`. It reports python-dotenv's `load_dotenv()`, which writes the environment.
   `gpu-check` reports an example not declared GPU-required that calls `require_gpu()`, which
   would stop every run without a GPU.
+- A run whose checkout changed fails saying the repository changed while the run was in
+  progress, and that the check cannot tell the example's writes from another writer's, where it
+  said the run wrote the paths; an editor's save, a commit or another run in the same checkout
+  changes it too. The guide says to leave the checkout unchanged while an example runs.
 - A repository with no `pyproject.toml` is refused as one without the `[tool.substrax.examples]`
   table is: `read_examples_config` raises `LookupError`, the shared example tests stop with a
   usage error where pytest reported an internal error, and `substrax-notebooks` exits 2 where it
