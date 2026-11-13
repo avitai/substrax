@@ -95,7 +95,7 @@ def _root_patterns(repo_root: Path, *, output_dir: Path) -> list[tuple[re.Patter
     placeholders = {
         # The run's artifact directory, a new temporary name each run, under the temporary root.
         output_dir: "<outputs>",
-        repo_root.absolute(): ".",
+        repo_root.absolute(): "<repo>",
         Path(sys.prefix): "<env>",
         Path(sys.base_prefix): "<python>",
         Path(tempfile.gettempdir()): "<tmp>",

@@ -84,6 +84,9 @@ and uses semantic versioning while the public API stabilizes.
   progress, and that the check cannot tell the example's writes from another writer's, where it
   said the run wrote the paths; an editor's save, a commit or another run in the same checkout
   changes it too. The guide says to leave the checkout unchanged while an example runs.
+- **Breaking:** a page shows the repository root as `<repo>`, as it shows the other roots
+  (`<outputs>`, `<env>`, `<python>`, `<tmp>`), where it showed `.`: the root before a full stop
+  read `..`, the parent directory. A page generated before needs generating again.
 - A repository with no `pyproject.toml` is refused as one without the `[tool.substrax.examples]`
   table is: `read_examples_config` raises `LookupError`, the shared example tests stop with a
   usage error where pytest reported an internal error, and `substrax-notebooks` exits 2 where it
