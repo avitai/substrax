@@ -131,6 +131,52 @@ and uses semantic versioning while the public API stabilizes.
     `distribution` is the repository's `[project]` `name`, never a key of the table, and a
     pyproject.toml without one is refused; each page records its installed version beside
     Python's, jax's and substrax's.
+  - `substrax-notebooks convert | check | page | test`, and the `example-conformance` pre-commit
+    hook, which runs `check` on the examples a commit changes; `check` and `page` refuse a
+    repository with no `[tool.substrax.examples]` table or `[project]` `name`, or one holding
+    settings no run can be held to, with exit code 2. `test` runs pytest on `examples` and, where it
+    exists, `tests/examples` (or the paths given) with `examples_pytest_options`, without the
+    repository's pytest configuration (it reads an empty one of substrax's, so no ini key of the
+    repository reaches it, and a test of results in a walked directory is collected by pytest's
+    default naming, one named as a path whatever its name) and
+    conftests, any plugin it does not name (`--disable-plugin-autoload`) or the caller's
+    `PYTEST_ADDOPTS` and `PYTEST_PLUGINS`, so no unit-test timeout or coverage floor reaches a run
+    and each kernel gets the environment a script run gets; `--changed-since REF` is
+    the suite's `--examples-changed-since`, and its exit code is pytest's. It reads the settings
+    first, refusing unusable ones and a path outside the repository with exit code 2, and gives
+    pytest the repository as its rootdir; naming substrax's configuration file with `-c` is what
+    keeps an ancestor's ini file out, since pytest then searches no ancestor.
+  - `substrax.testing.example_suite`, a pytest plugin `substrax-notebooks test` loads and a
+    repository configures in its pyproject (settings no run can be held to, and an example reached
+    through a symlink, are usage errors): per example, a guide check and a run compared with its
+    page, and one check of the examples as a whole (`substrax.notebooks.corpus.corpus_problems`,
+    beside the change selection, `reaches_every_example` and `is_touched`), among it that an example
+    makes every page and figures directory under `docs/examples` (a `*_files` directory holding an
+    example's page is that page's directory, not an orphan; a tracked document deleted and not
+    staged is not read); `--examples-changed-since=REF` runs the
+    examples a change touches, `REF` a commit even when it looks like a git option, a usage error
+    when it names none, untracked files counted and only the paths below the repository root, as in
+    a monorepo, every example when a file under `examples/` that no example owns (a helper, data)
+    changed, and the `example_run` fixture gives a repository's own tests the session's one run. The
+    examples run in their own invocation, `substrax-notebooks test`, the tests of their results
+    under `tests/examples`; `example_run` fails a test in a session that did not collect the
+    example's run and skips one whose run `--examples-changed-since` left out. The suite's own
+    checks run before any other test, in the order pytest gives them, so a test of an example's
+    results reads the run the example's item made, whatever order pytest-randomly or the command
+    line gives. A run is skipped as unavailable only when the exception it raised holds a configured
+    `unavailable` message, and a message every raised exception holds (`""`, `" "`, `":"`, `": "`)
+    is refused. A `GPU-required` example whose run raised `GPUUnavailableError`, as `require_gpu()`
+    does without a GPU, is skipped with every test of its results, before the `unavailable` messages
+    are read. The class is known by the qualified name it carries,
+    `substrax.devices.info.GPUUnavailableError`, which the kernel records whatever raised it, so a
+    class of the example's own with that name and message carries another; an example that rewrites
+    its classes, IPython's callbacks or the run's files alters its own run, which the check does not
+    guard. Another example raising the class is held to the `unavailable` messages like any failure.
+    A GPU lane runs `substrax-devices --require-gpu` before the examples and sets no platform, so it
+    fails without its GPU and keeps the CPU backend host callbacks need. It probes no device, never
+    imports jax in the pytest process and loads none of substrax's other testing plugins, so
+    `substrax.testing.pytest_plugin`'s markers and per-test check of jax's configuration reach a
+    repository's own tests only where the repository enables them.
 - `substrax-devices` prints the platform, jax's version, the default backend and each visible
   device; `--require-gpu` exits 1 unless the default backend is a GPU.
 - `substrax.devices.require_gpu()` returns the devices when jax's default backend is a GPU and
