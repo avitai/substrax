@@ -520,19 +520,107 @@ def test_typed_keys_covers_prngkey_however_it_is_reached(
         pytest.param(
             'os.environ.setdefault("JAX_PLATFORMS", "cpu")', "no-backend-forcing", id="backend"
         ),
+        pytest.param(
+            'print(os.environ.get("CUDA_VISIBLE_DEVICES", "all"))', None, id="a-backend-read"
+        ),
+        pytest.param('print(environ["JAX_PLATFORMS"])', None, id="a-backend-subscript-read"),
+        pytest.param('print(jax.config.read("jax_platforms"))', None, id="a-setting-read"),
+        pytest.param(
+            'jax.config.update("jax_platforms", "cpu")', "no-backend-forcing", id="a-setting"
+        ),
+        pytest.param('os.environ["JAX_PLATFORMS"] = "cpu"', "no-backend-forcing", id="assigned"),
+        pytest.param('os.putenv("CUDA_VISIBLE_DEVICES", "0")', "no-backend-forcing", id="put"),
+        pytest.param('o.environ["X_SMOKE"] = "1"', "no-env-writes", id="os-under-another-name"),
+        pytest.param('set_variable("X_SMOKE", "1")', "no-env-writes", id="putenv-imported"),
     ],
 )
 def test_an_example_reads_the_environment_and_never_writes_it(
     tmp_path: Path, statement: str, rule: str | None
 ) -> None:
     """A write of a backend setting is no-backend-forcing's finding alone: one finding a write."""
-    setup = "import os\nfrom os import environ\n\nimport jax\n"
+    setup = (
+        "import os\nimport os as o\nfrom os import environ\nfrom os import putenv as set_variable"
+        "\n\nimport jax\n"
+    )
     text = GOOD.replace("import jax\n", setup).replace(
         "    print(sort_records(make_records()))",
         f"    {statement}\n    print(sort_records(make_records()))",
     )
 
     assert _rules_broken(tmp_path, text) == ([] if rule is None else [rule])
+
+
+@pytest.mark.parametrize(
+    ("setup", "statement", "rule"),
+    [
+        pytest.param(
+            "import os\n",
+            'environ = dict(os.environ)\n    environ["DATA"] = "1"',
+            None,
+            id="a-copy-named-environ",
+        ),
+        pytest.param(
+            "import os\n", 'putenv = {}\n    putenv["DATA"] = "1"', None, id="a-dict-named-putenv"
+        ),
+        pytest.param(
+            "from dotenv import load_dotenv\n", "load_dotenv()", "no-env-writes", id="load-dotenv"
+        ),
+        pytest.param(
+            "import dotenv\n", "dotenv.load_dotenv()", "no-env-writes", id="dotenv-module"
+        ),
+        pytest.param(
+            "from dotenv import dotenv_values\n",
+            'print(dotenv_values(".env"))',
+            None,
+            id="dotenv-values-only-read",
+        ),
+    ],
+)
+def test_only_the_process_environment_counts_as_written(
+    tmp_path: Path, setup: str, statement: str, rule: str | None
+) -> None:
+    """A local name is not the environment; python-dotenv's ``load_dotenv`` writes it (A-15)."""
+    text = GOOD.replace("import jax\n", f"{setup}\nimport jax\n").replace(
+        "    print(sort_records(make_records()))",
+        f"    {statement}\n    print(sort_records(make_records()))",
+    )
+
+    assert _rules_broken(tmp_path, text) == ([] if rule is None else [rule])
+
+
+def test_load_dotenv_is_named_in_the_finding(tmp_path: Path) -> None:
+    text = GOOD.replace("import jax\n", "from dotenv import load_dotenv\n\nimport jax\n").replace(
+        "    print(sort_records(make_records()))",
+        "    load_dotenv()\n    print(sort_records(make_records()))",
+    )
+
+    (finding,) = _findings(tmp_path, text)
+
+    assert finding.detail == (
+        "the example loads a .env file into the environment with dotenv.load_dotenv(); it reads "
+        "its settings from the environment and sets none"
+    )
+
+
+@pytest.mark.parametrize("devices", ["CPU-compatible", "GPU-optional"])
+def test_an_example_not_requiring_a_gpu_never_calls_require_gpu(
+    tmp_path: Path, devices: str
+) -> None:
+    """``require_gpu()`` would stop every run without a GPU, which the example says it needs not."""
+    text = GOOD.replace("| **Devices** | CPU-compatible |", f"| **Devices** | {devices} |").replace(
+        "# %%\nimport jax\n",
+        "# %%\nimport jax\n\nfrom substrax.devices import require_gpu\n\nrequire_gpu()\n",
+    )
+
+    findings = _findings(tmp_path, text)
+
+    assert [(finding.rule, finding.detail) for finding in findings] == [
+        (
+            "gpu-check",
+            f"a {devices} example calls require_gpu(), which stops every run without a GPU; "
+            "declare it GPU-required or remove the call",
+        )
+    ]
 
 
 _PRINT = "    print(sort_records(make_records()))"

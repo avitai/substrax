@@ -72,6 +72,14 @@ and uses semantic versioning while the public API stabilizes.
   page is `unreadable` in `check_pair` and `check_page` (a page whose script is not UTF-8 too), an
   example script is a `RunError` from `execute_example`, and a Markdown file or `mkdocs.yml` is a
   corpus problem. A notebook cell with no `cell_type` is `unreadable`, where it raised `KeyError`.
+- `no-backend-forcing` reports a backend setting the example writes, into the environment or with
+  `jax.config.update`, where it reported any string naming one: reading
+  `os.environ.get("CUDA_VISIBLE_DEVICES")` is no finding. `no-env-writes` counts `os.environ`,
+  `putenv` and `unsetenv` under whatever names the example's imports give them, and only those: a
+  mapping of the example's own named `environ` is no finding, and `import os as o` no longer hides
+  `o.environ[...] =`. It reports python-dotenv's `load_dotenv()`, which writes the environment.
+  `gpu-check` reports an example not declared GPU-required that calls `require_gpu()`, which
+  would stop every run without a GPU.
 - A repository with no `pyproject.toml` is refused as one without the `[tool.substrax.examples]`
   table is: `read_examples_config` raises `LookupError`, the shared example tests stop with a
   usage error where pytest reported an internal error, and `substrax-notebooks` exits 2 where it
