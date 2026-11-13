@@ -352,8 +352,6 @@ ignore = [
   # Google-style docstrings: D203 and D213 conflict with D211 and D212.
   "D203",
   "D213",
-  # The formatter owns line length.
-  "E501",
   # Exception messages are written inline; a message class per raise is noise.
   "TRY003"
 ]
