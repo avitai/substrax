@@ -245,11 +245,13 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
   command line yields to an item's own marker. A value that is not a finite number above zero is a
   usage error.
 - `--examples-changed-since=REF` keeps the runs of the examples whose script, notebook or page
-  changed since `REF`, and every run when `src/`, `pyproject.toml` or `uv.lock` changed, or a file
-  under `examples/` that is no example's own script, notebook or page (a private helper, data). `REF`
-  must name a commit, and is read as one even when it looks like a git option; anything else is a
-  usage error. A change counts whether committed, staged or untracked (what git ignores does not),
-  and only below the repository root, so a project inside a larger git repository sees its own.
+  changed since `REF`'s merge base with HEAD, as a pull request's diff counts changes (what `REF`
+  gained after the branch point does not count), and every run when `src/`, `pyproject.toml` or
+  `uv.lock` changed, or a file under `examples/` that is no example's own script, notebook or
+  page (a private helper, data). `REF` must name a commit that shares history with HEAD, and is
+  read as one even when it looks like a git option; anything else is a usage error. A change
+  counts whether committed, staged or untracked (what git ignores does not), and only below the
+  repository root, so a project inside a larger git repository sees its own.
 - A repository's own test of an example's results takes the `example_run` fixture, which returns
   the session's one run of the example, `main()`'s value included; no conftest or other plugin is
   loaded, so it is the one fixture beyond pytest's own, and it carries no device marker, its

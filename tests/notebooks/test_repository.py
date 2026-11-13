@@ -37,6 +37,34 @@ def test_changed_since_names_edited_and_staged_paths(tmp_path: Path) -> None:
     assert repository.changed_since(repo, "base") == {"examples/sorting.py", "added.py"}
 
 
+def test_changed_since_names_only_what_changed_since_the_merge_base(tmp_path: Path) -> None:
+    """As a pull request's diff: what the ref gained after the branch point is no change here."""
+    repo, _ = write_example(tmp_path)
+    git(repo, "branch", "trunk")
+    git(repo, "switch", "-q", "-c", "topic")
+    (repo / "topic.py").write_text("TOPIC = 1\n", encoding="utf-8")
+    git(repo, "add", "topic.py")
+    git(repo, "commit", "-q", "-m", "topic")
+    git(repo, "switch", "-q", "trunk")
+    (repo / "trunk_only.py").write_text("TRUNK = 1\n", encoding="utf-8")
+    git(repo, "add", "trunk_only.py")
+    git(repo, "commit", "-q", "-m", "trunk moves on")
+    git(repo, "switch", "-q", "topic")
+
+    assert repository.changed_since(repo, "trunk") == {"topic.py"}
+
+
+def test_changed_since_refuses_a_ref_sharing_no_history_with_head(tmp_path: Path) -> None:
+    repo, _ = write_example(tmp_path)
+    git(repo, "switch", "-q", "-c", "topic")
+    git(repo, "switch", "-q", "--orphan", "elsewhere")
+    git(repo, "commit", "-q", "--allow-empty", "-m", "unrelated")
+    git(repo, "switch", "-q", "topic")
+
+    with pytest.raises(repository.RepositoryError, match="no history in common"):
+        repository.changed_since(repo, "elsewhere")
+
+
 @pytest.mark.parametrize(
     "ref",
     [

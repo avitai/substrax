@@ -31,6 +31,14 @@ and uses semantic versioning while the public API stabilizes.
   budgets the job's commands only; the old key is refused. `substrax.compute.example_tasks` takes
   `budget`, a function of each example's path, in place of `timeout_seconds`.
 
+### Fixed
+
+- `--examples-changed-since=REF` (and `substrax-notebooks test --changed-since`) counts changes
+  from `REF`'s merge base with HEAD, as a pull request's diff does, rather than from `REF` itself:
+  a file `REF` gained after the branch point no longer counts as changed, so a pull request whose
+  base moved on runs only the examples it touched. A `REF` sharing no history with HEAD is a
+  usage error.
+
 ## [0.1.26] - 2026-11-12
 
 ### Added

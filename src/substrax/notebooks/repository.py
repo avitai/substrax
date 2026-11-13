@@ -37,28 +37,52 @@ def unclean_files(repo_root: Path) -> set[str]:  # noqa: DOC502  # RepositoryErr
     return set(listed.split("\0")) - {""}
 
 
-def changed_since(repo_root: Path, ref: str) -> set[str]:  # noqa: DOC502  # RepositoryError is raised by _commit and _git
-    """The paths below the root that differ between ``ref`` and the working tree, or are new.
+def changed_since(repo_root: Path, ref: str) -> set[str]:  # noqa: DOC502  # RepositoryError is raised by _merge_base and _git
+    """The paths below the root changed since ``ref``'s and HEAD's merge base, or new.
 
-    In a repository whose git top level lies above it, only the paths below the root count, named
-    from the root, as every other path the example tools hold is.
+    The comparison starts where HEAD's history left ``ref``'s, as a pull request's diff does
+    (``git diff ref...HEAD``), so what ``ref`` gained after that point is not a change here; it
+    ends at the working tree, so staged and unstaged edits count. In a repository whose git top
+    level lies above it, only the paths below the root count, named from the root, as every other
+    path the example tools hold is.
 
     Args:
         repo_root: The repository root.
         ref: A commit, branch or tag; read as a revision even when it looks like an option.
 
     Returns:
-        Every path changed, added (staged or untracked) or removed since ``ref``; what the
+        Every path changed, added (staged or untracked) or removed since the merge base; what the
         repository ignores is left out.
 
     Raises:
-        RepositoryError: If git is not installed, ``repo_root`` is not in a git repository, or
-            ``ref`` names no commit.
+        RepositoryError: If git is not installed, ``repo_root`` is not in a git repository,
+            ``ref`` names no commit, or ``ref`` and HEAD share no history.
     """
-    commit = _commit(repo_root, ref)
-    changed = _git(repo_root, "diff", "--name-only", "--relative", "-z", commit, "--")
+    base = _merge_base(repo_root, ref)
+    changed = _git(repo_root, "diff", "--name-only", "--relative", "-z", base, "--")
     untracked = _git(repo_root, "ls-files", "-z", "--others", "--exclude-standard")
     return (set(changed.split("\0")) | set(untracked.split("\0"))) - {""}
+
+
+def _merge_base(repo_root: Path, ref: str) -> str:
+    """The commit where HEAD's history left ``ref``'s.
+
+    Args:
+        repo_root: The repository root.
+        ref: A commit, branch or tag.
+
+    Returns:
+        The merge base's full hash.
+
+    Raises:
+        RepositoryError: If ``ref`` names no commit, or it and HEAD share no history.
+    """
+    commit = _commit(repo_root, ref)
+    base = _git(repo_root, "merge-base", commit, "HEAD", allowed=(0, 1)).strip()
+    if not base:
+        msg = f"{ref!r} and HEAD have no history in common in {repo_root}"
+        raise RepositoryError(msg)
+    return base
 
 
 def _commit(repo_root: Path, ref: str) -> str:
