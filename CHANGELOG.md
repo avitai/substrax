@@ -62,6 +62,10 @@ and uses semantic versioning while the public API stabilizes.
   pair; a script named with its notebook is taken once. A path that is neither a `.py` nor a
   `.ipynb`, and a notebook with no script, are refused (exit 2), where such a path was skipped and
   the command exited 0. The `example-conformance` hook watches `examples/**/*.ipynb` too.
+- `substrax-notebooks page` reports a GPU-required example run without a GPU in one line,
+  `<script>: GPU-required and no GPU here: <the refusal>`, read from the run's own
+  `GPUUnavailableError`, where it printed the run's traceback. The example tests' GPU skip and the
+  command share `substrax.notebooks.conformance.no_gpu_reason`.
 
 ### Fixed
 

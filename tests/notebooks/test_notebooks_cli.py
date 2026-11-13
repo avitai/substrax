@@ -14,6 +14,7 @@ from _example_texts import (
     CONFIG,
     git,
     GOOD,
+    GPU_REQUIRED,
     returning_environment,
     write_example,
 )
@@ -180,6 +181,29 @@ def test_a_notebook_with_no_script_is_refused(
         f"substrax-notebooks: {orphan} is a notebook with no script "
         f"{orphan.with_suffix('.py')}; convert writes a notebook from its script\n"
     )
+
+
+def test_page_reports_a_gpu_required_example_off_a_gpu_in_one_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The run's own refusal, without a device probe in this process (BR-10)."""
+    monkeypatch.setenv("JAX_PLATFORMS", "cpu")
+    repo, script = write_example(
+        tmp_path,
+        GPU_REQUIRED.replace(
+            "import jax\n",
+            "import jax\n\nfrom substrax.devices import require_gpu\n\nrequire_gpu()\n",
+            1,
+        ),
+    )
+
+    assert main(["page", "--repo-root", str(repo), str(script)]) == 1
+
+    assert capsys.readouterr().err == (
+        f"substrax-notebooks: {script}: GPU-required and no GPU here: "
+        "GPUUnavailableError: no GPU: the default backend is cpu\n"
+    )
+    assert not page_path(script, repo_root=repo).exists()
 
 
 def test_page_writes_each_page(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -57,7 +57,7 @@ from substrax.notebooks.config import (
     read_examples_config,
     refuse_unusable_budget,
 )
-from substrax.notebooks.conformance import check_example, Devices, example_metadata
+from substrax.notebooks.conformance import check_example, no_gpu_reason
 from substrax.notebooks.corpus import corpus_problems, is_touched, reaches_every_example
 from substrax.notebooks.pages import compare_with_run
 from substrax.notebooks.run import ExampleRun, execute_example, RunError
@@ -66,13 +66,6 @@ from substrax.notebooks.run import ExampleRun, execute_example, RunError
 RUN_MARKER = "example_run"
 """The marker on each example's run, which names the run items among the session's."""
 
-_GPU_REFUSAL_CLASS = "substrax.devices.info.GPUUnavailableError"
-"""The class ``substrax.devices.require_gpu()`` refuses with, by the qualified name the kernel
-records (:attr:`~substrax.notebooks.run.RunError.raised_class`), whatever raised it: a class of the
-example's own with the same name carries another. The record is made in the example's process, so an
-example rewriting a class's ``__module__``, IPython's callbacks or the run's files alters its own
-run, which this check does not guard. It is written out because ``substrax.devices`` imports jax,
-which the pytest process never does; the GPU skip's tests run the real refusal."""
 
 _CONFIG = pytest.StashKey[ExamplesConfig]()
 _EXAMPLES = pytest.StashKey[frozenset[Path]]()
@@ -480,11 +473,12 @@ def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
             runs[script] = error
     outcome = runs[script]
     if isinstance(outcome, RunError):
+        no_gpu = no_gpu_reason(script, outcome)
+        if no_gpu is not None:
+            pytest.skip(no_gpu)
         # Only the exception the example raised says why it failed: the message around it holds
         # the failing cell's source and traceback, which can name a signature the run never hit.
         raised = outcome.raised
-        if _refused_its_gpu(script, outcome):
-            pytest.skip(f"{Devices.GPU_REQUIRED} and no GPU here: {raised}")
         reason = next(
             (sig for sig in config.stash[_CONFIG].unavailable if raised and sig in raised), None
         )
@@ -492,14 +486,6 @@ def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
             pytest.skip(f"unavailable here: {reason}")
         pytest.fail(str(outcome), pytrace=False)
     return outcome
-
-
-def _refused_its_gpu(script: Path, outcome: RunError) -> bool:
-    """Whether ``script`` is ``GPU-required`` and its run raised ``require_gpu()``'s refusal."""
-    return (
-        outcome.raised_class == _GPU_REFUSAL_CLASS
-        and example_metadata(script).get("Devices") == Devices.GPU_REQUIRED
-    )
 
 
 def _fail_with(problems: list[str]) -> None:

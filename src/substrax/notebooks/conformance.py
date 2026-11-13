@@ -35,6 +35,7 @@ from substrax.notebooks.environment_writes import environment_writes, OS_MUTATOR
 from substrax.notebooks.kernel_setup import is_guarded_main_call
 from substrax.notebooks.pages import check_page
 from substrax.notebooks.pairs import check_pair
+from substrax.notebooks.run import RunError
 from substrax.notebooks.text import NotUtf8Error, read_utf8
 
 
@@ -223,6 +224,37 @@ def check_example(
         if rule_id in chosen
         for detail in rule.check(example)
     ]
+
+
+GPU_REFUSAL_CLASS = "substrax.devices.info.GPUUnavailableError"
+"""The class ``substrax.devices.require_gpu()`` refuses with, by the qualified name the kernel
+records (:attr:`~substrax.notebooks.run.RunError.raised_class`), whatever raised it: a class of the
+example's own with the same name carries another. The record is made in the example's process, so an
+example rewriting a class's ``__module__``, IPython's callbacks or the run's files alters its own
+run, which this check does not guard. It is written out because ``substrax.notebooks`` never
+imports ``substrax.devices`` (the ``process_setup`` import contract), whose import starts jax."""
+
+
+def no_gpu_reason(script: Path, error: RunError) -> str | None:
+    """Why a run failed for want of a GPU, or ``None`` when it failed for another reason.
+
+    A ``GPU-required`` example whose run raised ``require_gpu()``'s refusal
+    (:data:`GPU_REFUSAL_CLASS`) failed for want of a GPU; any other example raising the same is a
+    failure like any other.
+
+    Args:
+        script: The example script.
+        error: How its run failed.
+
+    Returns:
+        ``GPU-required and no GPU here: <the refusal>``, or ``None``.
+    """
+    if (
+        error.raised_class != GPU_REFUSAL_CLASS
+        or example_metadata(script).get("Devices") != Devices.GPU_REQUIRED
+    ):
+        return None
+    return f"{Devices.GPU_REQUIRED} and no GPU here: {error.raised}"
 
 
 def example_metadata(script: Path) -> dict[str, str]:

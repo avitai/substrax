@@ -14,7 +14,8 @@ substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECOND
 its clean notebook within the repository's ``[tool.substrax.examples]`` budget and writes its docs
 page. An EXAMPLE is an existing ``.py`` under ``<repo root>/examples``, or its notebook, which names
 the script beside it: a private one (a path part starting with ``_``) is skipped, and any other
-path is refused. The repository root is the working directory unless ``--repo-root`` names one.
+path is refused. ``page`` reports a GPU-required example run without a GPU in one line. The
+repository root is the working directory unless ``--repo-root`` names one.
 Exit codes: 0 for success, 1 when a check finds a problem or a run fails, 2 for a refused command.
 
 ``test`` runs pytest on the examples and the tests of their results, ``examples`` and, where it
@@ -40,7 +41,7 @@ from pathlib import Path
 
 from substrax.examples import discover_examples, example_source, ExamplePathError
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
-from substrax.notebooks.conformance import check_example, SOURCE_RULES
+from substrax.notebooks.conformance import check_example, no_gpu_reason, SOURCE_RULES
 from substrax.notebooks.pages import generate_page, PageError
 from substrax.notebooks.pairs import convert
 from substrax.notebooks.run import RunError
@@ -195,9 +196,19 @@ def _page(arguments: argparse.Namespace, examples: list[Path]) -> int:
             page = generate_page(script, repo_root=arguments.repo_root, config=config)
             sys.stdout.write(f"{page}\n")
         except (RunError, PageError) as error:
-            sys.stderr.write(f"substrax-notebooks: {error}\n")
+            sys.stderr.write(f"substrax-notebooks: {_page_failure(script, error)}\n")
             status = _UNSUCCESSFUL
     return status
+
+
+def _page_failure(script: Path, error: RunError | PageError) -> str:
+    """What stopped an example's page, in one line when it is a GPU-required example's missing GPU.
+
+    Without a GPU, a GPU-required example's run stops at ``require_gpu()``: the run did what it
+    should, so its traceback would only bury the reason.
+    """
+    no_gpu = no_gpu_reason(script, error) if isinstance(error, RunError) else None
+    return str(error) if no_gpu is None else f"{script}: {no_gpu}"
 
 
 def _test(arguments: argparse.Namespace) -> int:
