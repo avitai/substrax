@@ -30,7 +30,7 @@ import re
 import shlex
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal
 from urllib.parse import quote
 
@@ -38,8 +38,8 @@ import nbformat
 from markdown_it import MarkdownIt
 from nbconvert import MarkdownExporter
 
-from substrax.examples import discover_examples
-from substrax.notebooks.config import example_source, ExamplesConfig
+from substrax.examples import discover_examples, example_source
+from substrax.notebooks.config import ExamplesConfig
 from substrax.notebooks.outputs import local_paths, publish_outputs
 from substrax.notebooks.run import ExampleRun, execute_example, Provenance, script_sha256
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
@@ -139,8 +139,8 @@ def page_path(script: Path, *, repo_root: Path) -> Path:
     Returns:
         ``docs/examples/<the example's path>.md`` under ``repo_root``.
     """
-    relative = script.resolve().relative_to((repo_root / "examples").resolve())
-    return repo_root / "docs" / "examples" / relative.with_suffix(".md")
+    source = PurePosixPath(example_source(script, repo_root=repo_root))
+    return repo_root / "docs" / source.with_suffix(".md")
 
 
 def generate_page(  # noqa: DOC503  # RunError is raised by execute_example

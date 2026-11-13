@@ -38,7 +38,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from substrax.examples import discover_examples
+from substrax.examples import discover_examples, example_source, ExamplePathError
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
 from substrax.notebooks.conformance import check_example, SOURCE_RULES
 from substrax.notebooks.pages import generate_page, PageError
@@ -99,31 +99,38 @@ def _on_examples(command: _ExamplesCommand) -> _Command:
     """``command`` given the examples its arguments name, once anything that is none is refused.
 
     A private example (a path part starting with ``_``) is skipped, as ``discover_examples`` skips
-    it; a path that is not an existing file under ``<repo root>/examples`` is refused.
+    it; a path that is not an existing file under ``<repo root>/examples``, or one a symlink below
+    the root leads to, is refused, as :func:`substrax.examples.example_source` decides.
     """
 
     def run(arguments: argparse.Namespace) -> int:
-        refused = _refused(arguments.examples, repo_root=arguments.repo_root)
-        if refused:
-            examples_root = arguments.repo_root / "examples"
-            sys.stderr.write(
-                f"substrax-notebooks: not an example under {examples_root}: {', '.join(refused)}\n"
-            )
+        selected, refusals = _named_examples(arguments.examples, repo_root=arguments.repo_root)
+        if refusals:
+            sys.stderr.write(f"substrax-notebooks: {'; '.join(refusals)}\n")
             return _REFUSED
-        known = set(discover_examples((arguments.repo_root / "examples").resolve()))
-        return command(arguments, [path for path in arguments.examples if path.resolve() in known])
+        return command(arguments, selected)
 
     return run
 
 
-def _refused(paths: list[Path], *, repo_root: Path) -> list[str]:
-    """The paths that are not existing files under ``repo_root / "examples"``."""
-    examples_root = (repo_root / "examples").resolve()
-    return [
-        str(path)
-        for path in paths
-        if not (path.is_file() and path.resolve().is_relative_to(examples_root))
-    ]
+def _named_examples(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], list[str]]:
+    """The examples among ``paths``, private ones left out, and why each other path is refused."""
+    examples = repo_root / "examples"
+    discovered = set(discover_examples(examples))
+    selected: list[Path] = []
+    refusals: list[str] = []
+    for path in paths:
+        if not path.is_file():
+            refusals.append(f"{path} is not an example under {examples}")
+            continue
+        try:
+            source = example_source(path, repo_root=repo_root)
+        except ExamplePathError as error:
+            refusals.append(str(error))
+            continue
+        if repo_root / source in discovered:
+            selected.append(path)
+    return selected, refusals
 
 
 def _convert(arguments: argparse.Namespace, examples: list[Path]) -> int:

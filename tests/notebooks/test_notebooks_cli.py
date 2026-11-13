@@ -76,6 +76,20 @@ def test_check_skips_a_private_file_under_examples(tmp_path: Path) -> None:
     assert main(["check", "--repo-root", str(repo), str(helper)]) == 0
 
 
+def test_an_example_reached_through_a_linked_examples_directory_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The plugin refuses this layout, and every command decides an example's path as it does."""
+    repo, script = write_example(tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    (repo / "examples").rename(elsewhere)
+    (repo / "examples").symlink_to(elsewhere, target_is_directory=True)
+
+    assert main(["check", "--repo-root", str(repo), str(script)]) == 2
+
+    assert "reached through a symlink" in capsys.readouterr().err
+
+
 def test_a_path_outside_examples_is_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

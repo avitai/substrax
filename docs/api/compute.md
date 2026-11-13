@@ -35,7 +35,9 @@ A misspelled key is refused, not ignored. `resources` is what the machine must h
 least it gets. Modal takes them as `gpu`, `cpu` and `memory`; SkyPilot as `accelerators`,
 `cpus = "<n>+"` and `memory = "<n>MB+"`; the local backend provisions nothing. `--accelerator`
 replaces the configured accelerator for one run. `examples` lists each directory's scripts as
-`substrax.examples.discover_examples` does, skipping every name that starts with `_`; a task's
+`substrax.examples.discover_examples` does, skipping every name that starts with `_`, and names
+each task by the example's path from the root (`substrax.examples.example_source`), so a directory
+outside `examples/`, or an example reached through a symlink below the root, is refused; a task's
 leading `"python"` is the project environment's interpreter. An example task's budget is its
 example's, the one `substrax-notebooks page` and the shared example tests hold it to: its entry in
 `[tool.substrax.examples]` `budgets`, else `budget_seconds`, so a job listing `examples` needs that

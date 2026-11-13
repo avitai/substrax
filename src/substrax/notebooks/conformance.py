@@ -23,12 +23,13 @@ import tokenize
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TypeGuard
 
 import jupytext
 from markdown_it import MarkdownIt
 
+from substrax.examples import example_source
 from substrax.notebooks.config import ExamplesConfig
 from substrax.notebooks.environment_writes import environment_writes
 from substrax.notebooks.kernel_setup import is_guarded_main_call
@@ -474,7 +475,8 @@ def _next_steps(example: _Example) -> list[str]:
 
 
 def _path_names(example: _Example) -> list[str]:
-    relative = example.script.resolve().relative_to((example.repo_root / "examples").resolve())
+    source = PurePosixPath(example_source(example.script, repo_root=example.repo_root))
+    relative = source.relative_to("examples")
     parts = [*relative.parent.parts, relative.stem]
     return [
         f"{part!r} is not a snake_case name with no number prefix"

@@ -50,10 +50,9 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-from substrax.examples import discover_examples
+from substrax.examples import discover_examples, example_source, ExamplePathError
 from substrax.notebooks import repository
 from substrax.notebooks.config import (
-    example_source,
     ExamplesConfig,
     read_examples_config,
     refuse_unusable_budget,
@@ -153,17 +152,13 @@ def _examples(repo_root: Path) -> frozenset[Path]:
     Raises:
         pytest.UsageError: If an example's resolved path differs from its path under the root.
     """
-    root = repo_root.resolve()
     examples = repo_root / "examples"
     found = discover_examples(examples) if examples.is_dir() else []
-    linked = [path for path in found if path.resolve() != root / path.relative_to(repo_root)]
-    if linked:
-        named = ", ".join(path.relative_to(repo_root).as_posix() for path in linked)
-        msg = (
-            "an example is reached through a symlink, which pages and changes cannot follow: "
-            f"{named}"
-        )
-        raise pytest.UsageError(msg)
+    try:
+        for path in found:
+            example_source(path, repo_root=repo_root)
+    except ExamplePathError as error:
+        raise pytest.UsageError(str(error)) from error
     return frozenset(path.resolve() for path in found)
 
 

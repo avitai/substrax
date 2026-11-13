@@ -34,7 +34,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from substrax.examples import discover_examples
+from substrax.examples import discover_examples, example_source
 from substrax.records import read_record, UNKNOWN_FIELDS_REFUSED
 
 
@@ -197,8 +197,9 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
     Raises:
         LookupError: If pyproject.toml has no such table, or names no ``[project]``.
         ValueError: If a key is unknown, missing or holds a value of the wrong type, the table
-            sets ``distribution``, or a ``page_size_exempt`` entry or ``budgets`` key names no
-            example of the repository.
+            sets ``distribution``, a ``page_size_exempt`` entry or ``budgets`` key names no
+            example of the repository, or a symlink below the root leads to an example
+            (:class:`~substrax.examples.ExamplePathError`).
     """
     pyproject = repo_root / "pyproject.toml"
     document = tomllib.loads(pyproject.read_text(encoding="utf-8"))
@@ -214,11 +215,9 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
         msg = f"{_TABLE} sets distribution, which is read from [project] name"
         raise ValueError(msg)
     config = read_record(ExamplesConfig, {**table, "distribution": distribution})
-    # The paths as discovered, under ``examples/`` as found: an example reached through a symlink
-    # is refused by its caller, so it must not fail here by resolving outside the repository.
-    examples = repo_root / "examples"
     known = {
-        f"examples/{path.relative_to(examples).as_posix()}" for path in discover_examples(examples)
+        example_source(path, repo_root=repo_root)
+        for path in discover_examples(repo_root / "examples")
     }
     for setting, entries in (
         ("page_size_exempt", config.page_size_exempt),
@@ -226,19 +225,6 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
     ):
         _refuse_unknown_sources(setting, entries, known=known, repo_root=repo_root)
     return config
-
-
-def example_source(script: Path, *, repo_root: Path) -> str:
-    """Return an example's path as its page records it: relative to the root, with ``/``.
-
-    Args:
-        script: The example script.
-        repo_root: The repository root.
-
-    Returns:
-        ``examples/<path>.py``.
-    """
-    return script.resolve().relative_to(repo_root.resolve()).as_posix()
 
 
 def _refuse_unknown_sources(
