@@ -7,6 +7,17 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `[tool.substrax.examples]` takes `budgets`, examples' own budgets in seconds keyed by each
+  example's path as its page records it (`examples/<path>.py`); an example's entry replaces
+  `budget_seconds` for its run in `substrax-notebooks page` and in the shared example tests. A key
+  in another form or naming no example, or a value that is not a finite number above zero, is
+  refused. `check_page` reports `over-budget` when a committed page records a run longer than its
+  example's budget, so a budget lowered below a measured run is found without running anything.
+  `ExamplesConfig.budget_for` gives an example's budget, and
+  `substrax.notebooks.config.example_source` an example's path as its page records it.
+
 ## [0.1.26] - 2026-11-12
 
 ### Added

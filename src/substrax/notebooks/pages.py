@@ -39,7 +39,7 @@ from markdown_it import MarkdownIt
 from nbconvert import MarkdownExporter
 
 from substrax.examples import discover_examples
-from substrax.notebooks.config import ExamplesConfig
+from substrax.notebooks.config import example_source, ExamplesConfig
 from substrax.notebooks.outputs import local_paths, publish_outputs
 from substrax.notebooks.run import ExampleRun, execute_example, Provenance, script_sha256
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
@@ -96,6 +96,7 @@ type ProblemKind = Literal[
     "stray-figure",
     "figures-directory-taken",
     "too-large",
+    "over-budget",
     "local-path",
     "differs-from-run",
 ]
@@ -150,7 +151,7 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
     Args:
         script: The example script, under ``repo_root / "examples"``.
         repo_root: The repository root; the run's working directory.
-        config: The repository's example settings; the run has ``config.budget_seconds``.
+        config: The repository's example settings; the run has the example's budget.
 
     Returns:
         The page written.
@@ -170,7 +171,7 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
         script,
         repo_root=repo_root,
         distribution=config.distribution,
-        budget_seconds=config.budget_seconds,
+        budget_seconds=config.budget_for(example_source(script, repo_root=repo_root)),
     )
     header = _header(run.provenance, source_url=config.source_url)
     paged = _with_header(run.notebook, header)
@@ -253,13 +254,14 @@ def check_page(script: Path, *, repo_root: Path, config: ExamplesConfig) -> list
     Args:
         script: The example script.
         repo_root: The repository root.
-        config: The repository's example settings, for the page-size limit.
+        config: The repository's example settings, for the page-size limit and the budgets.
 
     Returns:
         Every problem found: no page, no provenance, a page made from another version of the
         script, a page or figure changed since it was written, a figure its record lists that
         does not exist, a figure file the record does not list, a figures directory where other
-        examples' pages live, a page over the size limit, or a local path in it.
+        examples' pages live, a page over the size limit, a recorded run longer than the
+        example's budget, or a local path in it.
     """
     problems, _ = _check_page(script, repo_root=repo_root, config=config)
     return problems
@@ -290,6 +292,13 @@ def _check_page(
     if size is not None and size > config.page_size_bytes:
         detail = _over_the_limit(size, config)
         problems.append(PageProblem(script=script, kind="too-large", detail=detail))
+    budget = config.budget_for(provenance.source)
+    if provenance.seconds > budget:
+        detail = (
+            f"the page records a run of {provenance.seconds} s, over the {budget} s budget the "
+            "settings give the example; make the run shorter or give it a budgets entry"
+        )
+        problems.append(PageProblem(script=script, kind="over-budget", detail=detail))
     problems.extend(_figure_problems(script, page, recorded=digests.figures))
     taken = _figures_directory_taken(script, repo_root=repo_root)
     if taken:

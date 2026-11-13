@@ -213,7 +213,8 @@ addopts = "--ignore=tests/examples"   # a plain pytest leaves the tests of resul
 source_url = "https://github.com/avitai/<repository>/blob/main"
 budget_seconds = 600
 unavailable = ["<the message an example fails with when its dataset is missing>"]
-# page_size_warn_bytes = 102400, page_size_bytes = 204800 and page_size_exempt = [] by default
+# page_size_warn_bytes = 102400, page_size_bytes = 204800, page_size_exempt = [] and
+# budgets = {} by default
 ```
 
 ```yaml
@@ -237,7 +238,8 @@ validation:
   several examples.
 - `examples/<path>.py::follows-the-guide` checks every rule of this guide.
 - `examples/<path>.py::runs-as-its-page-shows`, marked `example_run`, runs the example as its clean
-  notebook within `budget_seconds` and compares the run with the committed page.
+  notebook within its budget (its `budgets` entry, else `budget_seconds`) and compares the run
+  with the committed page.
 - A pull request runs the examples it touches,
   `uv run substrax-notebooks test --changed-since origin/main`, and every example
   when `src/`, `pyproject.toml` or `uv.lock` changed, or a file under `examples/` that is no
@@ -259,7 +261,12 @@ validation:
   check's job: jax skips a listed `cuda` on a machine with no NVIDIA device node. The pytest
   process probes no device.
 - `budget_seconds` comes from the examples' measured runs, which each page records; write the
-  measurement beside the number.
+  measurement beside the number. An example whose run needs more than the default gets its own
+  entry in `budgets`, keyed by its path as its page records it (`budgets = {
+  "examples/training/long_run.py" = 1800 }`), its measurement beside it; a key in another form,
+  or naming no example, is refused. The `page` check reports a committed page whose recorded run
+  is longer than its example's budget, so a budget lowered below a measured run is found without
+  running anything.
 - A page is held to a size as Documenter.jl holds its pages: `substrax-notebooks page` warns above
   `page_size_warn_bytes` (100 KiB) and refuses a page above `page_size_bytes` (200 KiB), its
   figures not counted, and the `page` check reports a committed page over the limit. Print what

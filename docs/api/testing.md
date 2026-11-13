@@ -211,13 +211,14 @@ unavailable = ["wod_motion_tfrecord_path is not set"]
 page_size_warn_bytes = 102400   # the defaults: a larger page is written with a warning
 page_size_bytes = 204800        # and a larger one refused
 page_size_exempt = []
+budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget, else the default
 ```
 
 | Collected | Checks |
 | --- | --- |
 | `examples::corpus` | There is an example; no page under `docs/examples` lacks one; a hand-written `uv run python examples/...` command names a file that exists; `mkdocs.yml` sets `validation.nav.omitted_files: warn` |
 | `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance` |
-| `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within `budget_seconds`, changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
+| `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
 
 - `discover_examples` decides what is an example: every `.py` under `examples/` whose path has no
   part starting with `_`, so `_common` helpers are not examples. An example reached through a

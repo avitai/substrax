@@ -15,7 +15,7 @@ from importlib import metadata
 from pathlib import Path
 
 import pytest
-from _example_texts import CONFIG, write_example
+from _example_texts import CONFIG, GOOD, write_example
 
 from substrax.notebooks.config import ExamplesConfig
 from substrax.notebooks.pages import (
@@ -544,6 +544,48 @@ def test_a_committed_page_over_the_size_limit_is_a_problem(tmp_path: Path) -> No
 
     assert [problem.kind for problem in problems] == ["too-large"]
     assert "8000 bytes" in problems[0].detail
+
+
+def test_a_page_recording_a_run_longer_than_its_example_s_budget_is_a_problem(
+    tmp_path: Path,
+) -> None:
+    """A budget lowered below the run the page records is found without running the example."""
+    repo, script = _repo(tmp_path)
+    page = generate_page(script, repo_root=repo, config=CONFIG)
+    seconds = read_provenance(page).seconds
+    tight = dataclasses.replace(CONFIG, budgets={"examples/topic/demo.py": seconds / 2})
+
+    problems = check_page(script, repo_root=repo, config=tight)
+
+    assert [problem.kind for problem in problems] == ["over-budget"]
+    assert f"{seconds / 2} s budget" in problems[0].detail
+
+
+def test_a_page_within_its_example_s_own_budget_checks_clean(tmp_path: Path) -> None:
+    repo, script = _repo(tmp_path)
+    page = generate_page(script, repo_root=repo, config=CONFIG)
+    seconds = read_provenance(page).seconds
+    other = dataclasses.replace(CONFIG, budgets={"examples/topic/demo.py": seconds * 2})
+
+    assert check_page(script, repo_root=repo, config=other) == []
+
+
+def test_a_page_is_made_within_its_example_s_own_budget(tmp_path: Path) -> None:
+    """The example's entry, not the repository default, bounds the run that makes its page."""
+    # Each cell stays inside the entry's budget; together they pass it.
+    text = GOOD.replace(
+        '# %% [markdown]\n"""\n## Results',
+        "# %%\nimport time\n\ntime.sleep(1.5)\n\n# %%\ntime.sleep(1.5)\n\n\n"
+        '# %% [markdown]\n"""\n## Results',
+    )
+    assert text != GOOD
+    repo, script = write_example(tmp_path, text)
+    entry = dataclasses.replace(CONFIG, budgets={"examples/sorting.py": 2.5})
+    assert entry.budget_seconds > 3
+
+    with pytest.raises(RunError, match=r"budget of 2\.5 s"):
+        generate_page(script, repo_root=repo, config=entry)
+    assert not page_path(script, repo_root=repo).exists()
 
 
 def _rewrite_record(path: Path, **fields: object) -> None:
