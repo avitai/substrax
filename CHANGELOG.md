@@ -188,6 +188,11 @@ and uses semantic versioning while the public API stabilizes.
 - **Breaking:** `substrax.testing.source_scans.is_main_guard`. The one `__main__` guard
   recogniser is `substrax.notebooks.kernel_setup.is_main_guard`, which the source scans, the
   conformance rules and the run share.
+- **Breaking:** `substrax.testing.run_example`, `ExampleRun`, `ExampleTimeoutError` and
+  `unavailable_reason`. An example runs one way, as its clean notebook. A repository's example
+  tests move to `substrax.testing.example_suite`; a test that read `run.summary` reads the
+  `example_run` fixture's `.returned`; the messages passed to `unavailable_reason` become the
+  `unavailable` setting of `[tool.substrax.examples]`.
 - **Breaking:** `substrax.examples.discover_examples`'s `include` filter. Every example is
   discovered the same way, as the shared example tests discover it; a caller that keeps only some
   names filters the list it returns.

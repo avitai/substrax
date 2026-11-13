@@ -6,9 +6,10 @@ child sends its result with ``report``, on a channel no library writes to, and
 ``ChildResult.report_as`` reads it.
 ``cuda_is_visible`` probes the CUDA backend in such a child. ``restored_jax_config`` sets back the
 global jax configuration a block changed. ``TraceCounter`` counts the traces a jitted function
-takes and raises ``RetraceError`` when a block caused an unexpected number. ``run_example`` runs one
-example per child interpreter with its outputs redirected (``substrax.examples.discover_examples``
-lists them). The plugin, ``substrax.testing.pytest_plugin``, is
+takes and raises ``RetraceError`` when a block caused an unexpected number. A repository's example
+tests are the plugin ``substrax.testing.example_suite``, configured in its pyproject and loaded
+by ``substrax-notebooks test``. The plugin
+``substrax.testing.pytest_plugin`` is
 enabled from a ``conftest.py``: it adds the ``x64``, ``devices`` and ``accelerator`` markers and
 fails a test that changes jax's global configuration, as jax's own test harness does.
 ``counted_calls`` counts the Python functions a block's own threads start, grouped by
@@ -37,12 +38,6 @@ from substrax.testing.child_process import (
     run_python,
 )
 from substrax.testing.child_report import report, REPORT_PATH_ENV
-from substrax.testing.examples import (
-    ExampleRun,
-    ExampleTimeoutError,
-    run_example,
-    unavailable_reason,
-)
 from substrax.testing.jax_config import restored_jax_config
 from substrax.testing.traces import RetraceError, TraceCounter
 
@@ -52,8 +47,6 @@ __all__ = [
     "ChildFailedError",
     "ChildResult",
     "CountingFailedError",
-    "ExampleRun",
-    "ExampleTimeoutError",
     "RetraceError",
     "ToolIdsInUseError",
     "TraceCounter",
@@ -64,7 +57,5 @@ __all__ = [
     "per_iteration",
     "report",
     "restored_jax_config",
-    "run_example",
     "run_python",
-    "unavailable_reason",
 ]

@@ -142,7 +142,7 @@ def test_pytest_measures_coverage_by_source_directory() -> None:
     coverage treats a ``--cov`` value that is not a directory as a package and matches executed
     code to it by module name. A file run as a script executes as ``__main__`` without a module
     spec, so under ``--cov=substrax`` it never counts toward the package and reports 0%; the
-    example loader ``substrax/testing/_example_main.py`` is such a file.
+    SkyPilot runner ``substrax/compute/sky_sdk.py`` is such a file.
     """
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     sources = re.findall(r"--cov=(\S+)", _addopts(pyproject))
