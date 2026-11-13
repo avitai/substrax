@@ -124,6 +124,11 @@ modal = [
   # written and run against.
   "modal>=1.5.5"
 ]
+# Pair an example script with its clean notebook (substrax.notebooks).
+notebooks = [
+  "jupytext>=1.19.6",
+  "nbformat>=5.11.1"
+]
 plots = [
   "matplotlib>=3.8"
 ]
@@ -140,6 +145,8 @@ test = [
   "pytest-timeout>=2.1",
   "pytest-xdist>=3.6",
   "pytest>=9.0.3",
+  # The notebooks tests convert and check real example pairs.
+  "substrax[notebooks]",
   # The file and MLflow loggers draw figures with the plots extra; the tests exercise them.
   "substrax[plots]"
 ]

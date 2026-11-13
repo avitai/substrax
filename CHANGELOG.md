@@ -15,6 +15,12 @@ and uses semantic versioning while the public API stabilizes.
   job combines each Python's shards and holds them to the configured floor and the changed-line
   floor. The default, `"[1]"`, runs the suite whole, and the shards run all at once except on
   macOS, which keeps two runners at a time. substrax's own CI runs four shards per Python.
+- One way to write, pair, page and test a repository's examples, with the `notebooks` extra.
+  - `substrax.notebooks.pairs`: `convert` writes an example script's clean `.ipynb`, and
+    `check_pair` passes only when the committed notebook is exactly what `convert` writes. Both
+    read the script through `substrax.notebooks.source.read_source`, as the conformance rules
+    do: UTF-8 with a byte order mark dropped, and `ExampleSourceError` for any other encoding,
+    which `check_pair` reports as an unreadable pair.
 - `substrax-devices` prints the platform, jax's version, the default backend and each visible
   device; `--require-gpu` exits 1 unless the default backend is a GPU.
 - `substrax.devices.require_gpu()` returns the devices when jax's default backend is a GPU and
