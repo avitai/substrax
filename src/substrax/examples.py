@@ -5,11 +5,10 @@ Importing this module imports no jax.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 
 
-def discover_examples(root: Path, *, include: Callable[[Path], bool] | None = None) -> list[Path]:
+def discover_examples(root: Path) -> list[Path]:
     """List the example scripts under ``root``, sorted.
 
     A file or directory whose name starts with ``_`` is private, as ``_common`` helpers,
@@ -18,16 +17,11 @@ def discover_examples(root: Path, *, include: Callable[[Path], bool] | None = No
 
     Args:
         root: The examples directory.
-        include: Keeps a path when it returns ``True``, such as a repository's numbering rule.
 
     Returns:
-        The ``*.py`` files under ``root`` that are not private and that ``include`` keeps.
+        The ``*.py`` files under ``root`` that are not private.
     """
-    return [
-        path
-        for path in sorted(root.rglob("*.py"))
-        if not _is_private(path.relative_to(root)) and (include is None or include(path))
-    ]
+    return [path for path in sorted(root.rglob("*.py")) if not _is_private(path.relative_to(root))]
 
 
 def _is_private(relative: Path) -> bool:

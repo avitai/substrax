@@ -21,6 +21,12 @@ and uses semantic versioning while the public API stabilizes.
   raises `GPUUnavailableError`, naming the backend, otherwise; `substrax-devices --require-gpu`
   applies it.
 
+### Removed
+
+- **Breaking:** `substrax.examples.discover_examples`'s `include` filter. Every example is
+  discovered the same way, as the shared example tests discover it; a caller that keeps only some
+  names filters the list it returns.
+
 ### Changed
 
 - The macOS night runs the gates on `macos-15`. GitHub retires the `macos-14` image on
