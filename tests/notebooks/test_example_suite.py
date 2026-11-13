@@ -631,7 +631,9 @@ def test_a_figures_directory_with_no_page_fails_the_corpus(pytester: pytest.Pyte
     result = _run(pytester, "-m", "not example_run")
 
     result.assert_outcomes(passed=1, failed=1)
-    result.stdout.fnmatch_lines(["*docs/examples/renamed_files: no example makes this page*"])
+    result.stdout.fnmatch_lines(
+        ["*docs/examples/renamed_files/renamed_1_0.png: docs/examples holds generated pages*"]
+    )
 
 
 def test_each_example_runs_before_any_test_of_its_results(pytester: pytest.Pytester) -> None:

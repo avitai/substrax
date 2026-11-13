@@ -33,11 +33,18 @@ def discover_examples(root: Path) -> list[Path]:
     Returns:
         The ``*.py`` files under ``root`` that are not private.
     """
-    return [path for path in sorted(root.rglob("*.py")) if not _is_private(path.relative_to(root))]
+    return [path for path in sorted(root.rglob("*.py")) if not is_private(path.relative_to(root))]
 
 
-def _is_private(relative: Path) -> bool:
-    """Whether a part of the path below the root starts with ``_``."""
+def is_private(relative: Path) -> bool:
+    """Whether a part of a path below the examples directory starts with ``_``, as a helper's does.
+
+    Args:
+        relative: The path, from the examples directory.
+
+    Returns:
+        Whether the file is private, so no example, notebook or page.
+    """
     return any(part.startswith("_") for part in relative.parts)
 
 
