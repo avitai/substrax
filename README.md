@@ -367,6 +367,10 @@ extras = ["cuda12"]
 resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
+
+[tool.substrax.examples]                 # the example tasks' budgets, substrax.notebooks.config
+source_url = "https://github.com/avitai/demo/blob/main"
+budget_seconds = 600
 ```
 
 ```bash

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
@@ -219,14 +219,16 @@ def read_job_spec(data: Mapping[str, JsonValue]) -> JobSpec:  # noqa: DOC502  # 
 
 
 def example_tasks(
-    paths: Iterable[Path], *, project: Path, timeout_seconds: float
+    paths: Iterable[Path], *, project: Path, budget: Callable[[str], float]
 ) -> tuple[Task, ...]:
     """Make one task per example script, run by the project's interpreter from its root.
 
     Args:
         paths: The examples, such as :func:`~substrax.examples.discover_examples` lists them.
         project: The project root the paths lie under.
-        timeout_seconds: Each example's budget.
+        budget: Each example's budget, given its path relative to ``project`` with ``/``
+            separators, as its page records it; such as
+            :meth:`substrax.notebooks.config.ExamplesConfig.budget_for`.
 
     Returns:
         The tasks, in the order of ``paths``, each named by its path relative to ``project`` with
@@ -247,7 +249,7 @@ def example_tasks(
             Task(
                 name=".".join(relative.with_suffix("").parts),
                 argv=("python", relative.as_posix()),
-                timeout_seconds=timeout_seconds,
+                timeout_seconds=budget(relative.as_posix()),
             )
         )
     return tuple(tasks)

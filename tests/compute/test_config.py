@@ -105,13 +105,18 @@ examples = ["examples"]
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
-task_timeout_seconds = 300
+command_timeout_seconds = 600
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
 
 [tool.substrax.compute.jobs.examples.commands]
 gpu-tests = ["python", "-m", "pytest", "tests/gpu"]
+
+[tool.substrax.examples]
+source_url = "https://github.com/avitai/demo/blob/main"
+budget_seconds = 300
+budgets = { "examples/02_second.py" = 900 }
 """
 
 
@@ -132,12 +137,12 @@ def test_a_job_resolves_to_a_spec_with_examples_first_then_commands(tmp_path: Pa
             name="examples.01_first", argv=("python", "examples/01_first.py"), timeout_seconds=300
         ),
         Task(
-            name="examples.02_second", argv=("python", "examples/02_second.py"), timeout_seconds=300
+            name="examples.02_second", argv=("python", "examples/02_second.py"), timeout_seconds=900
         ),
         Task(
             name="gpu-tests",
             argv=("python", "-m", "pytest", "tests/gpu"),
-            timeout_seconds=300,
+            timeout_seconds=600,
         ),
     )
     assert spec.resources == Resources(
@@ -152,7 +157,7 @@ def test_a_job_resolves_to_a_spec_with_examples_first_then_commands(tmp_path: Pa
     assert spec.mounts == (Mount(name="datasets", path="/data", access=MountAccess.READ_ONLY),)
 
 
-def test_a_task_without_its_own_budget_gets_the_jobs(tmp_path: Path) -> None:
+def test_a_command_without_its_own_budget_gets_the_jobs(tmp_path: Path) -> None:
     project = _project(
         tmp_path,
         """
@@ -171,7 +176,8 @@ def test_a_task_without_its_own_budget_gets_the_jobs(tmp_path: Path) -> None:
 def test_the_accelerator_can_be_overridden_per_run(tmp_path: Path) -> None:
     project = _project(tmp_path, FULL)
     (project / "examples").mkdir()
-    (project / "examples" / "one.py").write_text("", encoding="utf-8")
+    for name in ("01_first.py", "02_second.py"):
+        (project / "examples" / name).write_text("", encoding="utf-8")
 
     spec = resolve_job(
         read_compute_config(project),
@@ -189,6 +195,32 @@ def test_an_unknown_job_is_refused_with_the_configured_names(tmp_path: Path) -> 
 
     with pytest.raises(KeyError, match="'train'; configured: examples"):
         resolve_job(read_compute_config(project), "train", project=project)
+
+
+def test_a_job_listing_examples_needs_the_examples_settings(tmp_path: Path) -> None:
+    """An example task's budget is the example's, from ``[tool.substrax.examples]``."""
+    project = _project(tmp_path, FULL.partition("[tool.substrax.examples]")[0])
+    (project / "examples").mkdir()
+    (project / "examples" / "01_first.py").write_text("", encoding="utf-8")
+
+    with pytest.raises(LookupError, match=r"\[tool\.substrax\.examples\]"):
+        resolve_job(read_compute_config(project), "examples", project=project)
+
+
+def test_the_former_per_task_budget_key_is_refused(tmp_path: Path) -> None:
+    """``task_timeout_seconds`` budgeted examples too; examples now take their own budgets."""
+    project = _project(
+        tmp_path,
+        """
+        [tool.substrax.compute.jobs.probe]
+        timeout_seconds = 120
+        task_timeout_seconds = 60
+        commands = { probe = ["python", "-c", "print(1)"] }
+        """,
+    )
+
+    with pytest.raises(ValueError, match="task_timeout_seconds"):
+        resolve_job(read_compute_config(project), "probe", project=project)
 
 
 def test_a_job_with_no_tasks_is_refused(tmp_path: Path) -> None:
