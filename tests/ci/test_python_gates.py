@@ -197,10 +197,15 @@ def test_the_tests_run_in_the_callers_shards() -> None:
 
 
 def _pytest_arguments(tmp_path: Path, *, shards: str, group: str) -> list[str]:
-    """The arguments the test step gives pytest, its ``uv`` stubbed to print them one a line."""
+    """The arguments the test step gives pytest, its ``uv`` stubbed to print them one a line.
+
+    The stub writes ``.coverage`` as pytest-cov does, for the step to hand on.
+    """
     shim = tmp_path / "shim"
     shim.mkdir()
-    (shim / "uv").write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\"\n", encoding="utf-8")
+    (shim / "uv").write_text(
+        "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\"\n: > .coverage\n", encoding="utf-8"
+    )
     (shim / "uv").chmod(0o755)
     env = {
         "PATH": os.pathsep.join([str(shim), os.environ.get("PATH", "")]),
@@ -253,8 +258,10 @@ def test_each_shard_reports_its_coverage_for_the_coverage_job_to_hold(tmp_path: 
 
     assert "--cov-fail-under=0" in arguments
     assert "--cov-report=xml" in arguments
+    assert (tmp_path / ".coverage.shard-1").is_file()
+    assert not (tmp_path / ".coverage").exists()
     assert upload["with"]["name"] == "coverage-${{ matrix.python-version }}-${{ matrix.group }}"
-    assert upload["with"]["path"] == ".coverage"
+    assert upload["with"]["path"] == ".coverage.shard-${{ matrix.group }}"
     assert upload["with"]["include-hidden-files"] == "true"
     assert upload["with"]["if-no-files-found"] == "error"
 
@@ -280,7 +287,9 @@ def test_the_coverage_job_holds_each_pythons_shards_together_to_the_floors() -> 
     assert spec["runs-on"] == "ubuntu-latest"
     assert spec["strategy"]["matrix"]["python-version"] == "${{ fromJSON(inputs.python-versions) }}"
     assert download["with"]["pattern"] == "coverage-${{ matrix.python-version }}-*"
-    for command in ("coverage combine", "coverage report", "coverage xml"):
+    assert download["with"]["path"] == "shards"
+    assert download["with"]["merge-multiple"] == "true"
+    for command in ("coverage combine shards", "coverage report", "coverage xml"):
         assert command in runs, command
     assert "--fail-under" not in runs.split("diff-cover")[0], "the floor is the configured one"
     assert "--fail-under=80" in diff["run"]
@@ -288,6 +297,63 @@ def test_the_coverage_job_holds_each_pythons_shards_together_to_the_floors() -> 
     assert "github.event_name == 'pull_request'" in diff["if"]
     assert FIRST_PYTHON.removeprefix("${{ ").removesuffix(" }}") in diff["if"]
     assert checkout["with"]["fetch-depth"] == "0"
+
+
+_MEASURED = "def one():\n    return 1\n\n\ndef two():\n    return 2\n"
+
+
+@pytest.mark.parametrize("shards", [1, 2])
+def test_the_coverage_job_combines_one_shard_or_many(tmp_path: Path, shards: int) -> None:
+    """The coverage step's own script, run where download-artifact leaves the shards' data.
+
+    download-artifact writes one artifact into its path and several into a directory each
+    (``src/download-artifact.ts:190-194``, v8.0.2), unless ``merge-multiple`` lays every file side
+    by side, so each shard's data has a name of its own and one shard reads as many do.
+    """
+    step = next(s for s in _steps("coverage") if s.get("name") == "Coverage over every shard")
+    (tmp_path / "measured.py").write_text(_MEASURED, encoding="utf-8")
+    (tmp_path / "shards").mkdir()
+    for group in range(1, shards + 1):
+        driver = tmp_path / f"drive_{group}.py"
+        driver.write_text(f"import measured\n\nmeasured.{('one', 'two')[group - 1]}()\n")
+        subprocess.run(  # noqa: S603  # nosec B603 - this interpreter with fixed arguments
+            [
+                sys.executable,
+                "-m",
+                "coverage",
+                "run",
+                "--source",
+                ".",
+                "--data-file",
+                str(tmp_path / "shards" / f".coverage.shard-{group}"),
+                str(driver),
+            ],
+            cwd=tmp_path,
+            check=True,
+        )
+    shim = tmp_path / "bin" / "uv"
+    shim.parent.mkdir()
+    shim.write_text(
+        '#!/bin/sh\n[ "$1 $2 $3" = "run --no-sync coverage" ] || exit 97\nshift 3\n'
+        f'exec "{sys.executable}" -m coverage "$@"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+
+    done = subprocess.run(  # noqa: S603  # nosec B603 - bash with the workflow's own script
+        [shutil.which("bash") or "bash", "-e", "-c", str(step["run"])],
+        cwd=tmp_path,
+        env={**os.environ, "PATH": f"{shim.parent}{os.pathsep}{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert done.returncode == 0, done.stderr
+    assert (tmp_path / "coverage.xml").is_file()
+    report = (tmp_path / "coverage.xml").read_text(encoding="utf-8")
+    # One shard calls one() only, so two()'s body is the one line left unrun; two shards run both.
+    assert report.count('hits="0"') == (1 if shards == 1 else 0)
 
 
 def test_security_audits_the_lock_after_setup_uv_through_substrax_by_commit() -> None:
