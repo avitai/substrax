@@ -109,7 +109,8 @@ left out. Checked: `skeleton`
 5. `## Implementation`: one `### Step N: <action>` per step, numbered from 1. A parameter sweep the
    example runs is a step. Checked: `steps`
 6. `## Results`: what the run shows, under concrete `###` titles. Checked: `results`. A table
-   where it helps.
+   where it helps. The code cell that defines and runs `main()` follows it, so the page shows the
+   run's output under Results; Troubleshooting and Next Steps come after that cell.
 7. `## Troubleshooting` (optional): one `### <symptom or error>` per entry. Checked:
    `troubleshooting`. Each entry gives the symptom, its cause and the solution, and how to prevent
    it where that helps.
@@ -119,7 +120,7 @@ left out. Checked: `skeleton`
 
 ## Code
 
-- The script defines `main()` at top level, not `async`, and ends with
+- The script defines `main()` at top level, not `async`, and its last code cell ends with
   `if __name__ == "__main__": main()`, with `main()` alone in that block and called with no
   arguments. Checked: `main`.
   `main()` prints the results a reader checks and may return them as a value JSON holds (a

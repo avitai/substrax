@@ -10,6 +10,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+import jupytext
 from _example_texts import CONFIG, write_example
 
 from substrax.notebooks.conformance import (
@@ -138,3 +139,18 @@ def test_the_guide_excludes_generated_pages_from_every_hook_measured_to_change_t
     exclusion = GUIDE.split("Generated pages are left out of", 1)[1].split("\n\n```", 1)[0]
 
     assert [hook for hook in PAGE_REWRITING_HOOKS if hook not in exclusion] == []
+
+
+def test_the_template_s_run_is_shown_under_results_and_next_steps_closes_it() -> None:
+    """The page shows a cell's output beneath it, so ``main()``'s cell sits under Results (K4)."""
+    cells = jupytext.reads(
+        (GUIDES / "example_template.py").read_text(encoding="utf-8"), fmt="py:percent"
+    ).cells
+    first = {
+        heading: next(i for i, cell in enumerate(cells) if f"\n{heading}\n" in f"\n{cell.source}\n")
+        for heading in ("## Results", "## Troubleshooting", "## Next Steps")
+    }
+    main = next(i for i, cell in enumerate(cells) if "def main(" in cell.source)
+
+    assert first["## Results"] < main < first["## Troubleshooting"] <= first["## Next Steps"]
+    assert [i for i, cell in enumerate(cells) if cell.cell_type == "code"][-1] == main

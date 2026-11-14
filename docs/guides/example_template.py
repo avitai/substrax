@@ -89,22 +89,7 @@ def normalise(batch: jax.Array) -> jax.Array:
 ### Statistics after normalising
 
 `main()` prints what lets a reader check the step: the shape and each feature's mean and standard
-deviation. The page shows the run's real output under this cell.
-
-## Troubleshooting
-
-### A feature's standard deviation is zero
-
-Symptom: the normalised feature is `nan`. Cause: the feature is constant across the batch.
-Solution: leave constant features out before normalising.
-
-## Next Steps
-
-- [The shared example guide](https://github.com/avitai/substrax/blob/main/docs/guides/writing-examples.md)
-
-### Experiments to Try
-
-- Draw a larger batch and watch the statistics approach zero and one.
+deviation. The page shows the run's real output below the next cell.
 """
 
 
@@ -127,3 +112,22 @@ def main() -> dict[str, float | int]:
 
 if __name__ == "__main__":
     main()
+
+
+# %% [markdown]
+"""
+## Troubleshooting
+
+### A feature's standard deviation is zero
+
+Symptom: the normalised feature is `nan`. Cause: the feature is constant across the batch.
+Solution: leave constant features out before normalising.
+
+## Next Steps
+
+- [The shared example guide](https://github.com/avitai/substrax/blob/main/docs/guides/writing-examples.md)
+
+### Experiments to Try
+
+- Draw a larger batch and watch the statistics approach zero and one.
+"""
