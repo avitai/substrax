@@ -5,6 +5,8 @@ from __future__ import annotations
 import configparser
 import json
 import re
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -671,3 +673,29 @@ def test_page_into_outputs_writes_the_page_under_the_runs_outputs(
     assert page.is_file()
     assert capsys.readouterr().out == f"{page}\n"
     assert not page_path(script, repo_root=repo).exists()
+
+
+def test_the_command_runs_as_a_module_on_the_running_interpreter(tmp_path: Path) -> None:
+    """``python -m substrax.notebooks`` is the command, as a compute task runs it (W10)."""
+    repo, _ = write_example(tmp_path)
+    missing = repo / "examples" / "typo.py"
+
+    completed = subprocess.run(  # noqa: S603  # nosec B603 - this interpreter, no shell
+        [
+            sys.executable,
+            "-m",
+            "substrax.notebooks",
+            "check",
+            "--repo-root",
+            str(repo),
+            str(missing),
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 2
+    assert completed.stderr == (
+        f"substrax-notebooks: {missing} is not an example under {repo / 'examples'}\n"
+    )

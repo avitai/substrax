@@ -18,7 +18,7 @@
 | `substrax.notebooks.repository` | The git queries the tools make |
 | `substrax.notebooks.outputs` | `publish_outputs` makes a run's outputs fit to publish on a page; `local_paths` finds what still names a person's machine |
 | `substrax.notebooks.terminal` | `strip_terminal_controls`, every terminal control sequence removed from what a page or a run error shows |
-| `substrax.notebooks.cli` | `substrax-notebooks convert`, `check`, `page` and `test` |
+| `substrax.notebooks.cli` | `substrax-notebooks convert`, `check`, `page` and `test`; `python -m substrax.notebooks` runs it on the running interpreter |
 
 The shared example tests that use them are `substrax.testing.example_suite` ([Testing](testing.md)).
 
