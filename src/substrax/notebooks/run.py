@@ -3,8 +3,9 @@
 :func:`execute_example` reads the example script as a notebook and executes it cell by cell with
 nbclient, in a kernel on this environment's interpreter (:class:`NativeKernelManager`), from the
 repository root, with ``AVITAI_OUTPUT_DIR`` set to a temporary directory for its artifacts. A run
-that writes a file the repository tracks, or an untracked file it does not ignore, fails; ignored
-paths, such as ``__pycache__``, are not checked. The committed notebook is never touched. The run
+that changes or removes anything git tracks, adds an untracked path git does not ignore, or
+changes git's own state (HEAD, the index, a hook) fails; ignored paths, such as ``__pycache__``,
+are not checked. The committed notebook is never touched. The run
 is described by its
 :class:`Provenance`: the script's sha256, the measured duration and device, and the kinds of output
 each code cell produced, which do not depend on the machine.

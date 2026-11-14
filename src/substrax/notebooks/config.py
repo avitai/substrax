@@ -2,10 +2,11 @@
 
 ```toml
 [tool.substrax.examples]
-source_url = "https://github.com/avitai/datarax/blob/main"  # a page links its script under it
+source_url = "https://github.com/avitai/<repository>/blob/main"  # a page links its script under it
 budget_seconds = 600                                  # the whole run of one example
 budgets = { "examples/training/long_run.py" = 1800 }  # an example's own budget instead
-unavailable = ["wod_motion_tfrecord_path is not set"]  # a run raising one of these is skipped
+# a run raising one of these messages is skipped:
+unavailable = ["<the message an example fails with when its dataset is missing>"]
 page_size_warn_bytes = 102400                         # a larger page is written with a warning
 page_size_bytes = 204800                              # a larger page is refused
 page_size_exempt = ["examples/gallery/overview.py"]   # examples whose pages are not measured
