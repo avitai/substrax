@@ -270,12 +270,24 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
   whatever its name. With `--examples-changed-since`, the fixture runs an example whose run the
   change left out when the requesting test's own file changed, or a file under `tests/examples`
   that is no test module (a helper any result test may import), as pytest-picked runs a changed
-  test file; otherwise it skips the test. The suite's checks run before any other test:
+  test file; otherwise it skips the test. The suite's checks run before any other test. The
+  fixture's type is `substrax.testing.example_suite.ExampleRunner`, and
+  `ExampleRun.returned_as(shape)` reads `main()`'s value as a `TypedDict` or other type, validated
+  strictly as `ChildResult.report_as` reads a child's report, so the test type-checks:
 
 ```python
-def test_the_fit_reaches_the_true_weights(example_run) -> None:
-    summary = example_run("training/linear_fit.py").returned
-    assert summary["relative_error"] < 1e-3
+from typing import TypedDict
+
+from substrax.testing.example_suite import ExampleRunner
+
+
+class Fit(TypedDict):
+    relative_error: float
+
+
+def test_the_fit_reaches_the_true_weights(example_run: ExampleRunner) -> None:
+    fit = example_run("training/linear_fit.py").returned_as(Fit)
+    assert fit["relative_error"] < 1e-3
 ```
 
 ## The pytest plugin
