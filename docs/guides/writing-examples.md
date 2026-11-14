@@ -298,13 +298,28 @@ validation:
   `python_classes` and `python_functions` do not reach the session. The naming sorts the files
   pytest finds in a directory it walks, so one named otherwise there is not collected; a file named
   as a PATH on the command line is collected whatever its name. In a session that did not collect
-  the example's run, the fixture fails the test, naming the invocation:
+  the example's run, the fixture fails the test, naming the invocation. The fixture's type is
+  `substrax.testing.example_suite.ExampleRunner`, and `returned_as` reads what `main()` returned as
+  the type the test declares, validated strictly, so the test passes the repository's ruff and
+  pyright as any other code does:
 
 ```python
 # tests/examples/test_normalising.py
-def test_the_whole_batch_is_normalised(example_run) -> None:
-    returned = example_run("statistics/normalising.py").returned
-    assert returned["count"] == 128
+from typing import TypedDict
+
+from substrax.testing.example_suite import ExampleRunner
+
+
+class Normalised(TypedDict):
+    count: int
+    mean_error: float
+    std_error: float
+
+
+def test_the_whole_batch_is_normalised(example_run: ExampleRunner) -> None:
+    normalised = example_run("statistics/normalising.py").returned_as(Normalised)
+    assert normalised["count"] == 128
+    assert normalised["mean_error"] < 1e-6
 ```
 
 ## Checklist

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import runpy
 import subprocess
 import sys
 import tomllib
@@ -19,7 +20,7 @@ from substrax.notebooks.conformance import (
     SOURCE_RULES,
     Tier,
 )
-from substrax.notebooks.run import execute_example
+from substrax.notebooks.run import ExampleRun, execute_example
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -98,10 +99,18 @@ def test_the_template_follows_every_source_rule(tmp_path: Path) -> None:
     ] == []
 
 
-def test_the_template_runs_and_reports_its_results(tmp_path: Path) -> None:
+RESULT_TEST = GUIDES / "example_result_test.py"
+"""The guide's test of the template's results, a file the repository's ruff and pyright check."""
+
+
+def test_the_guide_quotes_its_result_test_as_the_repository_checks_it() -> None:
+    """The sample passes the guide's own rule: the repository's ruff and pyright (T-5)."""
+    assert f"```python\n{RESULT_TEST.read_text(encoding='utf-8')}```" in GUIDE
+
+
+def test_the_guide_s_result_test_passes_against_the_template_s_run(tmp_path: Path) -> None:
     text = (GUIDES / "example_template.py").read_text(encoding="utf-8")
     repo, script = write_example(tmp_path, text, relative="statistics/normalising.py")
-
     run = execute_example(
         script,
         repo_root=repo,
@@ -109,8 +118,14 @@ def test_the_template_runs_and_reports_its_results(tmp_path: Path) -> None:
         budget_seconds=CONFIG.budget_seconds,
     )
 
-    assert isinstance(run.returned, dict)
-    assert run.returned["count"] == 128
+    def example_run(path: str) -> ExampleRun:
+        assert path == "statistics/normalising.py"
+        return run
+
+    sample = runpy.run_path(str(RESULT_TEST))
+    tests = [value for name, value in sample.items() if name.startswith("test_")]
+    assert len(tests) == 1
+    tests[0](example_run)
 
 
 PAGE_REWRITING_HOOKS = ("markdownlint-fix", "trailing-whitespace", "detect-secrets")

@@ -285,6 +285,7 @@ exclude = [
 ]
 include = [
   ".github/actions",
+  "docs/guides",
   "src",
   "tests"
 ]
@@ -393,6 +394,9 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Action scripts report to the job log from main().
 ".github/actions/*/*.py" = ["T20"]
+# The guide's test of an example's results is a test, with the tests' ignores but its annotations
+# checked, as an adopter's ruff checks them.
+"docs/guides/example_result_test.py" = ["D", "PLR2004", "S101"]
 # The rules the example format itself breaks (docs/guides/writing-examples.md): the first markdown
 # cell is the module docstring and opens with its # title (D212, D415), imports follow markdown
 # cells (E402), and main() prints the results the page shows (T201).
