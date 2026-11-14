@@ -282,15 +282,16 @@ validation:
   `uv run substrax-notebooks test --changed-since origin/main`, and every example
   when `src/`, `pyproject.toml` or `uv.lock` changed, or a file under `examples/` that is no
   example's own (a private helper, data); a result test that changed, or a helper beside the
-  result tests, runs the examples it asks for; a scheduled job runs every example. The job's
-  checkout fetches `origin/main`, since `actions/checkout` fetches one commit by default and the
-  command refuses a ref that names no commit:
+  result tests, runs the examples it asks for; a scheduled job runs every example. A repository
+  runs them through substrax's reusable workflow, beside the gates in its `ci.yml`, pinned by a
+  full commit SHA: on a pull request it fetches the base branch, which `actions/checkout` leaves
+  out by default and the command needs, and passes `--changed-since`; on any other event it runs
+  every example. Its runners have no GPU, so a GPU-required example skips there and runs through
+  `substrax-compute`:
 
 ```yaml
-- uses: actions/checkout@<a full commit SHA>
-  with:
-    fetch-depth: 0
-- run: uv run substrax-notebooks test --changed-since origin/main
+examples:
+  uses: avitai/substrax/.github/workflows/examples.yml@<a full commit SHA>
 ```
 
 - Every lane runs every example. Off a GPU, a GPU-required example's `require_gpu()` raises

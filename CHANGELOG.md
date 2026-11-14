@@ -31,6 +31,11 @@ and uses semantic versioning while the public API stabilizes.
   report, and `substrax.testing.example_suite.ExampleRunner` is the `example_run` fixture's type,
   so a test of an example's results type-checks: `returned` is a `JsonValue`, which a test could
   not index without a type error.
+- `.github/workflows/examples.yml`, a reusable workflow a stack repository calls, pinned by commit
+  beside the gates, to run its examples as the guide runs them: on a pull request
+  `substrax-notebooks test --changed-since` against the base branch it fetches, on any other event
+  every example, on CPU runners, under the uv the gates pin. `python-gates.yml` is unchanged, so
+  its callers keep their pins. The guide's pull-request snippet calls it.
 
 ### Changed
 
