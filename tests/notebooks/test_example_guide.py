@@ -179,3 +179,13 @@ def test_the_guide_fetches_the_base_its_pull_request_command_diffs_against() -> 
 
     assert len(workflow) == 1
     assert "fetch-depth: 0" in workflow[0]
+
+
+def test_the_guide_says_what_a_next_steps_link_is_relative_to() -> None:
+    """The same text sits in the script, the notebook and the page; only the page's base is
+    checked (``mkdocs build --strict`` fails on a page-relative link naming no page, T-19)."""
+    section = GUIDE.split("8. `## Next Steps`", 1)[1].split("\n## ", 1)[0]
+    next_steps = " ".join(section.split())
+
+    assert "relative to the example's page" in next_steps
+    assert "mkdocs build --strict" in next_steps

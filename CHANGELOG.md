@@ -103,6 +103,9 @@ and uses semantic versioning while the public API stabilizes.
 - The guide's pull-request command comes with the checkout that fetches `origin/main`
   (`fetch-depth: 0`): `actions/checkout` fetches one commit by default, and the command refuses
   a ref that names no commit.
+- The guide says what a Next Steps link is relative to: a link to the repository's docs site is
+  relative to the example's page, which `mkdocs build --strict` checks, and one outside the site
+  is a full URL.
 
 ### Fixed
 
