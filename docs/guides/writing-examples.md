@@ -214,6 +214,26 @@ digests in the page's provenance record. Each such hook excludes the directory, 
   exclude: ^docs/examples/
 ```
 
+An example's notebook is written by `convert` and nothing else. ruff lints and formats `.ipynb`
+files by default, and a fix applied to a notebook leaves it out of step with its script: with ruff
+0.16.6, `ruff check --fix` removing an unused import from the notebook left the pair
+`out-of-sync`. So ruff leaves the notebooks under `examples/` to `convert`, also when a hook passes
+one by name, which `extend-exclude` alone does not stop and `force-exclude` does; the script is
+linted as any code. A hook that writes notebooks otherwise (`nbqa-ruff --fix`, `nbqa-ruff-format`,
+`nbstripout`) excludes them the same way:
+
+```toml
+# pyproject.toml
+[tool.ruff]
+extend-exclude = ["examples/**/*.ipynb"]
+force-exclude = true
+```
+
+```yaml
+- id: nbstripout
+  exclude: ^examples/
+```
+
 The shared example tests run in pytest, from the repository's settings alone; no conftest names
 them. A repository's development dependencies hold `substrax[notebooks,testing]`:
 
