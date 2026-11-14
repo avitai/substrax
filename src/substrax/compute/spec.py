@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
@@ -22,6 +22,22 @@ from substrax.typing import JsonValue
 
 JOB_SPEC_VERSION = 2
 """The job spec layout this release writes and reads."""
+
+
+class ExampleMode(StrEnum):
+    """What a compute job's example task does with its example, on the notebook path."""
+
+    TEST = "test"
+    """``substrax-notebooks test``: the example runs and its run is compared with its page."""
+    PAGE = "page"
+    """``substrax-notebooks page --into-outputs``: the page is made and comes back with the run."""
+
+
+_EXAMPLE_COMMANDS = {
+    ExampleMode.TEST: ("test",),
+    ExampleMode.PAGE: ("page", "--into-outputs"),
+}
+"""Each mode's ``substrax-notebooks`` command."""
 
 # A name becomes a directory under the run's outputs, so it is one path component.
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -220,16 +236,19 @@ def read_job_spec(data: Mapping[str, JsonValue]) -> JobSpec:  # noqa: DOC502  # 
 
 
 def example_tasks(  # noqa: DOC502  # ExamplePathError is raised by example_source
-    paths: Iterable[Path], *, project: Path, budget: Callable[[str], float]
+    paths: Iterable[Path], *, project: Path, mode: ExampleMode, timeout_seconds: float
 ) -> tuple[Task, ...]:
-    """Make one task per example script, run by the project's interpreter from its root.
+    """Make one task per example, run as its notebook by the project's interpreter from its root.
+
+    Each task runs ``python -m substrax.notebooks`` with the mode's command on the example, so the
+    example runs as its clean notebook, held to its own budget by the run, as the shared example
+    tests and ``substrax-notebooks page`` run it; no example runs as a script.
 
     Args:
         paths: The examples, such as :func:`~substrax.examples.discover_examples` lists them.
         project: The project root the paths lie under.
-        budget: Each example's budget, given its path relative to ``project`` with ``/``
-            separators, as its page records it; such as
-            :meth:`substrax.notebooks.config.ExamplesConfig.budget_for`.
+        mode: What each task does with its example.
+        timeout_seconds: Each task's limit, outside the run's own budget.
 
     Returns:
         The tasks, in the order of ``paths``, each named by its path from ``project`` with dots
@@ -245,8 +264,14 @@ def example_tasks(  # noqa: DOC502  # ExamplePathError is raised by example_sour
         tasks.append(
             Task(
                 name=".".join(source.with_suffix("").parts),
-                argv=("python", source.as_posix()),
-                timeout_seconds=budget(source.as_posix()),
+                argv=(
+                    "python",
+                    "-m",
+                    "substrax.notebooks",
+                    *_EXAMPLE_COMMANDS[mode],
+                    source.as_posix(),
+                ),
+                timeout_seconds=timeout_seconds,
             )
         )
     return tuple(tasks)

@@ -15,17 +15,18 @@ backend = "modal"                        # used when the command line names none
 outputs_volume = "demo-outputs"
 
 [tool.substrax.compute.jobs.examples]
-examples = ["examples/metrics"]          # one task per script
+examples = ["examples/metrics"]          # one task per example, run as its notebook
+examples_mode = "test"                   # or "page": make each page, returned in the outputs
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
-command_timeout_seconds = 300            # each command's budget; the job's when unset
+command_timeout_seconds = 1200           # each task's limit; the job's when unset
 runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
 
-[tool.substrax.examples]                 # the example tasks' budgets, substrax.notebooks.config
+[tool.substrax.examples]                 # each example's budget, substrax.notebooks.config
 source_url = "https://github.com/avitai/demo/blob/main"
 budget_seconds = 600
 ```
@@ -38,10 +39,17 @@ replaces the configured accelerator for one run. `examples` lists each directory
 `substrax.examples.discover_examples` does, skipping every name that starts with `_`, and names
 each task by the example's path from the root (`substrax.examples.example_source`), so a directory
 outside `examples/`, or an example reached through a symlink below the root, is refused; a task's
-leading `"python"` is the project environment's interpreter. An example task's budget is its
-example's, the one `substrax-notebooks page` and the shared example tests hold it to: its entry in
-`[tool.substrax.examples]` `budgets`, else `budget_seconds`, so a job listing `examples` needs that
-table. `command_timeout_seconds` is each command's budget, the job's `timeout_seconds` when unset. `runtime` sets the job's JAX
+leading `"python"` is the project environment's interpreter. Each example task runs its example
+as its clean notebook, `python -m substrax.notebooks` on the project's interpreter, in the job's
+`examples_mode`, which a job listing `examples` must set: `test` runs `substrax-notebooks test` on
+it (its run compared with its committed page), `page` runs `substrax-notebooks page
+--into-outputs`, so its page and figures come back under the task's outputs at their path from
+the root, to be committed. No example runs as a script. The run holds each example to its own
+budget, the one `substrax-notebooks page` and the shared example tests hold it to (its entry in
+`[tool.substrax.examples]` `budgets`, else `budget_seconds`), so a job listing `examples` needs
+that table, and the project needs `substrax[notebooks,testing]` in the extras the job installs.
+`command_timeout_seconds` is each task's limit outside that budget, the job's `timeout_seconds`
+when unset; a limit below an example's budget is refused. `runtime` sets the job's JAX
 environment; a GPU job lists `cpu` after `cuda`, since jax's host callbacks (`jax.debug.print`,
 `jax.pure_callback`, `io_callback`) run on a CPU device. With `cuda` listed, a machine that has an
 NVIDIA device but a CUDA that cannot start raises rather than running on the CPU; a machine with

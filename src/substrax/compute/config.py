@@ -8,25 +8,28 @@ backend = "modal"                        # used when the command line names none
 outputs_volume = "demo-outputs"
 
 [tool.substrax.compute.jobs.examples]
-examples = ["examples/metrics"]          # one task per script, as discover_examples lists them
+examples = ["examples/metrics"]          # one task per example, as discover_examples lists them
+examples_mode = "test"                   # run as its notebook: "test", or "page" to make pages
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
-command_timeout_seconds = 300            # each command's budget; the job's when unset
+command_timeout_seconds = 1200           # each task's limit; the job's when unset
 runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
 
-[tool.substrax.examples]                 # the example tasks' budgets, substrax.notebooks.config
+[tool.substrax.examples]                 # each example's budget, substrax.notebooks.config
 source_url = "https://github.com/avitai/demo/blob/main"
 budget_seconds = 600
 ```
 
-An example task's budget is the example's own, from ``[tool.substrax.examples]``: its ``budgets``
-entry, else ``budget_seconds``, as ``substrax-notebooks page`` and the shared example tests hold
-it, so a job listing ``examples`` needs that table. A misspelled key is refused rather than
-ignored.
+An example task runs its example as its clean notebook in the job's ``examples_mode``
+(:class:`~substrax.compute.ExampleMode`), held by the run to the example's own budget from
+``[tool.substrax.examples]`` (its ``budgets`` entry, else ``budget_seconds``), as
+``substrax-notebooks page`` and the shared example tests hold it, so a job listing ``examples``
+needs that table; a task limit below an example's budget is refused. A misspelled key is refused
+rather than ignored.
 """
 
 from __future__ import annotations
@@ -38,34 +41,36 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from substrax.compute.spec import Accelerator, example_tasks, JobSpec, Task
-from substrax.examples import discover_examples
-from substrax.notebooks.config import read_examples_config
+from substrax.compute.spec import Accelerator, example_tasks, ExampleMode, JobSpec, Task
+from substrax.examples import discover_examples, example_source
+from substrax.notebooks.config import ExamplesConfig, read_examples_config
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.typing import JsonValue
 
 
 _TABLE = "[tool.substrax.compute]"
 _ACCELERATOR = re.compile(r"(?P<kind>[^:]+)(?::(?P<count>\d+))?")
-_TASK_SOURCE_KEYS = ("examples", "commands", "command_timeout_seconds")
+_TASK_SOURCE_KEYS = ("examples", "examples_mode", "commands", "command_timeout_seconds")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TaskSources:
-    """Where a configured job's tasks come from, and the commands' budget.
+    """Where a configured job's tasks come from, and each task's limit.
 
-    The job's other keys are :class:`~substrax.compute.JobSpec` fields. An example task's budget is
-    the example's, from the project's ``[tool.substrax.examples]``.
+    The job's other keys are :class:`~substrax.compute.JobSpec` fields. An example's run is held to
+    the example's own budget, from the project's ``[tool.substrax.examples]``.
 
     Attributes:
         timeout_seconds: The job's budget, which is also a ``JobSpec`` field.
-        examples: Directories, relative to the project, whose example scripts become tasks.
+        examples: Directories, relative to the project, whose examples become tasks.
+        examples_mode: What each example task does, required with ``examples``.
         commands: Further tasks, by name, run after the examples.
-        command_timeout_seconds: Each command's budget; ``timeout_seconds`` when ``None``.
+        command_timeout_seconds: Each task's limit; ``timeout_seconds`` when ``None``.
     """
 
     timeout_seconds: float
     examples: tuple[str, ...] = ()
+    examples_mode: ExampleMode | None = None
     commands: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     command_timeout_seconds: float | None = None
 
@@ -149,10 +154,9 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
             "timeout_seconds": table.get("timeout_seconds"),
         },
     )
-    command_budget = sources.command_timeout_seconds or sources.timeout_seconds
-    tasks = _example_tasks(sources, name, project) + [
-        Task(name=task, argv=argv, timeout_seconds=command_budget)
-        for task, argv in sources.commands.items()
+    limit = sources.command_timeout_seconds or sources.timeout_seconds
+    tasks = _example_tasks(sources, name, project, limit=limit) + [
+        Task(name=task, argv=argv, timeout_seconds=limit) for task, argv in sources.commands.items()
     ]
     spec = read_record(
         JobSpec, {**table, "name": name, "tasks": [dump_record(task) for task in tasks]}
@@ -165,36 +169,78 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
 
 
 def _example_tasks(  # noqa: DOC503  # LookupError and ValueError are raised by read_examples_config
-    sources: TaskSources, job: str, project: Path
+    sources: TaskSources, job: str, project: Path, *, limit: float
 ) -> list[Task]:
-    """The job's example tasks, each with its example's budget.
+    """The job's example tasks, each run as its notebook in the job's mode.
 
     Args:
         sources: Where the job's tasks come from.
         job: The job, for the message.
         project: The project root.
+        limit: Each task's limit, outside the run's own budget.
 
     Returns:
         One task per example of each directory, in order.
 
     Raises:
+        ValueError: If the job lists examples without ``examples_mode`` or the reverse, an
+            example's budget is longer than ``limit`` (the task would be killed before its run
+            reached it), or the examples' settings are refused.
         FileNotFoundError: If an examples directory does not exist; checked before the settings
             are read, which may name examples of a missing directory.
         LookupError: If the project has no pyproject.toml or no ``[tool.substrax.examples]``.
-        ValueError: If the examples' settings are refused.
     """
-    if not sources.examples:
+    if bool(sources.examples) != (sources.examples_mode is not None):
+        msg = (
+            f"job {job!r} sets examples_mode without examples"
+            if sources.examples_mode is not None
+            else f"job {job!r} lists examples without examples_mode; set it to "
+            f"{', '.join(repr(mode.value) for mode in ExampleMode)}"
+        )
+        raise ValueError(msg)
+    if sources.examples_mode is None:
         return []
     for directory in sources.examples:
         if not (project / directory).is_dir():
             msg = f"examples directory {directory!r} of job {job!r} does not exist in {project}"
             raise FileNotFoundError(msg)
-    budget = read_examples_config(project).budget_for
-    tasks: list[Task] = []
-    for directory in sources.examples:
-        examples = discover_examples(project / directory)
-        tasks += example_tasks(examples, project=project, budget=budget)
-    return tasks
+    examples = [
+        path for directory in sources.examples for path in discover_examples(project / directory)
+    ]
+    _refuse_budgets_over(
+        read_examples_config(project), examples, job=job, project=project, limit=limit
+    )
+    return list(
+        example_tasks(examples, project=project, mode=sources.examples_mode, timeout_seconds=limit)
+    )
+
+
+def _refuse_budgets_over(
+    settings: ExamplesConfig, examples: list[Path], *, job: str, project: Path, limit: float
+) -> None:
+    """Refuse an example whose own budget is longer than its task's limit.
+
+    Args:
+        settings: The project's example settings, which give each example's budget.
+        examples: The job's examples.
+        job: The job, for the message.
+        project: The project root.
+        limit: Each task's limit.
+
+    Raises:
+        ValueError: Naming each such example and its budget.
+    """
+    over = [
+        f"{source} ({budget} s)"
+        for source in (example_source(path, repo_root=project) for path in examples)
+        if (budget := settings.budget_for(source)) > limit
+    ]
+    if over:
+        msg = (
+            f"job {job!r} gives each task {limit} s, less than the budget of "
+            f"{', '.join(over)}; raise command_timeout_seconds or timeout_seconds"
+        )
+        raise ValueError(msg)
 
 
 def parse_accelerator(text: str) -> Accelerator:

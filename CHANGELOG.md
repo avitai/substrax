@@ -72,6 +72,16 @@ and uses semantic versioning while the public API stabilizes.
   `<script>: GPU-required and no GPU here: <the refusal>`, read from the run's own
   `GPUUnavailableError`, where it printed the run's traceback. The example tests' GPU skip and the
   command share `substrax.notebooks.conformance.no_gpu_reason`.
+- **Breaking:** a compute `examples` job runs each example as its clean notebook, one task each,
+  on the project's interpreter (`python -m substrax.notebooks`), where it ran `python
+  examples/<path>.py`. A job listing `examples` sets `examples_mode`: `"test"` runs
+  `substrax-notebooks test` on the example (its run compared with its committed page), `"page"`
+  runs `substrax-notebooks page --into-outputs`, so a page made where a GPU is comes back with the
+  run's files. The run holds each example to its own budget; the task's limit is
+  `command_timeout_seconds`, else the job's `timeout_seconds`, and a limit below an example's
+  budget is refused. `substrax.compute.example_tasks` takes `mode` (`substrax.compute.ExampleMode`)
+  and `timeout_seconds` in place of `budget`. The project needs `substrax[notebooks,testing]` in
+  the extras the job installs.
 - The Modal backend's default `ignore` keeps `.git` in the image, which an example job needs:
   each run of an example checks the checkout with git and refuses outside one.
 

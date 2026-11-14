@@ -9,6 +9,7 @@ package imports no jax and no provider library.
 from substrax.compute.spec import (
     Accelerator,
     example_tasks,
+    ExampleMode,
     JOB_SPEC_VERSION,
     JobSpec,
     Mount,
@@ -22,6 +23,7 @@ from substrax.compute.spec import (
 __all__ = [
     "JOB_SPEC_VERSION",
     "Accelerator",
+    "ExampleMode",
     "JobSpec",
     "Mount",
     "MountAccess",

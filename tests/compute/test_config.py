@@ -102,10 +102,11 @@ outputs_volume = "demo-outputs"
 
 [tool.substrax.compute.jobs.examples]
 examples = ["examples"]
+examples_mode = "test"
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
-command_timeout_seconds = 600
+command_timeout_seconds = 1200
 runtime = { platforms = ["cuda"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 mounts = [{ name = "datasets", path = "/data", access = "read-only" }]
@@ -132,17 +133,22 @@ def test_a_job_resolves_to_a_spec_with_examples_first_then_commands(tmp_path: Pa
     assert config.backend == "modal"
     assert config.backends == {"modal": {"outputs_volume": "demo-outputs"}}
     assert spec.name == "examples"
+    notebooks = ("python", "-m", "substrax.notebooks", "test")
     assert spec.tasks == (
         Task(
-            name="examples.01_first", argv=("python", "examples/01_first.py"), timeout_seconds=300
+            name="examples.01_first",
+            argv=(*notebooks, "examples/01_first.py"),
+            timeout_seconds=1200,
         ),
         Task(
-            name="examples.02_second", argv=("python", "examples/02_second.py"), timeout_seconds=900
+            name="examples.02_second",
+            argv=(*notebooks, "examples/02_second.py"),
+            timeout_seconds=1200,
         ),
         Task(
             name="gpu-tests",
             argv=("python", "-m", "pytest", "tests/gpu"),
-            timeout_seconds=600,
+            timeout_seconds=1200,
         ),
     )
     assert spec.resources == Resources(
@@ -197,8 +203,65 @@ def test_an_unknown_job_is_refused_with_the_configured_names(tmp_path: Path) -> 
         resolve_job(read_compute_config(project), "train", project=project)
 
 
+def _examples_job(tmp_path: Path, job: str, names: tuple[str, ...] = ("01_first.py",)) -> Path:
+    """A project with ``FULL``'s settings, its examples job's table replaced by ``job``."""
+    head, _, rest = FULL.partition("[tool.substrax.compute.jobs.examples]\n")
+    settings = rest[rest.index("[tool.substrax.examples]") :]
+    project = _project(tmp_path, f"{head}[tool.substrax.compute.jobs.examples]\n{job}\n{settings}")
+    (project / "examples").mkdir()
+    for name in names:
+        (project / "examples" / name).write_text("", encoding="utf-8")
+    return project
+
+
+def test_a_page_job_writes_each_page_into_the_task_s_outputs(tmp_path: Path) -> None:
+    project = _examples_job(
+        tmp_path,
+        'examples = ["examples"]\nexamples_mode = "page"\ntimeout_seconds = 1200',
+        names=("01_first.py", "02_second.py"),
+    )
+
+    tasks = resolve_job(read_compute_config(project), "examples", project=project).tasks
+
+    assert [task.argv for task in tasks] == [
+        ("python", "-m", "substrax.notebooks", "page", "--into-outputs", f"examples/{name}")
+        for name in ("01_first.py", "02_second.py")
+    ]
+    assert [task.timeout_seconds for task in tasks] == [1200, 1200]
+
+
+def test_a_job_listing_examples_names_what_their_tasks_do(tmp_path: Path) -> None:
+    """Running each example against its page and making its page are different jobs."""
+    project = _examples_job(tmp_path, 'examples = ["examples"]\ntimeout_seconds = 600')
+
+    with pytest.raises(ValueError, match="examples_mode"):
+        resolve_job(read_compute_config(project), "examples", project=project)
+
+
+def test_an_examples_mode_without_examples_is_refused(tmp_path: Path) -> None:
+    project = _examples_job(
+        tmp_path,
+        'examples_mode = "test"\ntimeout_seconds = 600\ncommands = { p = ["python", "-V"] }',
+    )
+
+    with pytest.raises(ValueError, match="examples_mode"):
+        resolve_job(read_compute_config(project), "examples", project=project)
+
+
+def test_a_task_limit_below_an_example_s_budget_is_refused(tmp_path: Path) -> None:
+    """The run holds the example to its budget; a task killed sooner never reaches it."""
+    project = _examples_job(
+        tmp_path,
+        'examples = ["examples"]\nexamples_mode = "test"\ntimeout_seconds = 600',
+        names=("01_first.py", "02_second.py"),
+    )
+
+    with pytest.raises(ValueError, match=r"examples/02_second\.py.*900"):
+        resolve_job(read_compute_config(project), "examples", project=project)
+
+
 def test_a_job_listing_examples_needs_the_examples_settings(tmp_path: Path) -> None:
-    """An example task's budget is the example's, from ``[tool.substrax.examples]``."""
+    """An example's budget is its own, from ``[tool.substrax.examples]``, held by its run."""
     project = _project(tmp_path, FULL.partition("[tool.substrax.examples]")[0])
     (project / "examples").mkdir()
     (project / "examples" / "01_first.py").write_text("", encoding="utf-8")

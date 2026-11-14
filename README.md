@@ -363,15 +363,22 @@ outputs_volume = "demo-outputs"
 
 [tool.substrax.compute.jobs.examples]
 examples = ["examples"]
+examples_mode = "page"                   # or "test"
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4" }, cpu = 8, memory_mib = 32768 }
 timeout_seconds = 1800
 runtime = { platforms = ["cuda", "cpu"], xla_flags = ["--xla_gpu_deterministic_ops=true"] }
 
-[tool.substrax.examples]                 # the example tasks' budgets, substrax.notebooks.config
+[tool.substrax.examples]                 # each example's budget, substrax.notebooks.config
 source_url = "https://github.com/avitai/demo/blob/main"
 budget_seconds = 600
 ```
+
+An `examples` job runs each example as its clean notebook, one task each, on the project's
+interpreter: `examples_mode = "test"` runs `substrax-notebooks test` on it (its run compared with
+its committed page), and `"page"` makes its page with `substrax-notebooks page --into-outputs`, so
+a page that needs a GPU comes back with the run's files to be committed. The project needs
+`substrax[notebooks,testing]` in the extras the job installs.
 
 ```bash
 uv run substrax-compute run examples                       # follow, wait, fetch

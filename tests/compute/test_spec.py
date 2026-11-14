@@ -11,6 +11,7 @@ import pytest
 from substrax.compute import (
     Accelerator,
     example_tasks,
+    ExampleMode,
     JOB_SPEC_VERSION,
     JobSpec,
     Mount,
@@ -167,35 +168,43 @@ class TestAccelerator:
 
 
 class TestExampleTasks:
-    def test_each_example_becomes_a_python_task_named_by_its_path(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        ("mode", "command"),
+        [(ExampleMode.TEST, ("test",)), (ExampleMode.PAGE, ("page", "--into-outputs"))],
+    )
+    def test_each_example_runs_as_its_notebook_named_by_its_path(
+        self, tmp_path: Path, mode: ExampleMode, command: tuple[str, ...]
+    ) -> None:
+        """The notebook path, on the project's interpreter (W10): no example runs as a script."""
         project = tmp_path / "repo"
         paths = [project / "examples" / "metrics" / "01_basic.py", project / "examples" / "top.py"]
 
-        tasks = example_tasks(paths, project=project, budget=lambda _source: 300.0)
+        tasks = example_tasks(paths, project=project, mode=mode, timeout_seconds=900.0)
 
         assert tasks == (
             Task(
                 name="examples.metrics.01_basic",
-                argv=("python", "examples/metrics/01_basic.py"),
-                timeout_seconds=300.0,
+                argv=(
+                    "python",
+                    "-m",
+                    "substrax.notebooks",
+                    *command,
+                    "examples/metrics/01_basic.py",
+                ),
+                timeout_seconds=900.0,
             ),
-            Task(name="examples.top", argv=("python", "examples/top.py"), timeout_seconds=300.0),
+            Task(
+                name="examples.top",
+                argv=("python", "-m", "substrax.notebooks", *command, "examples/top.py"),
+                timeout_seconds=900.0,
+            ),
         )
-
-    def test_each_example_task_has_the_budget_of_its_path(self, tmp_path: Path) -> None:
-        """The budget is asked for each example by its path relative to the project, with ``/``."""
-        project = tmp_path / "repo"
-        paths = [project / "examples" / "metrics" / "slow.py", project / "examples" / "top.py"]
-        budgets = {"examples/metrics/slow.py": 900.0}
-
-        tasks = example_tasks(
-            paths, project=project, budget=lambda source: budgets.get(source, 300.0)
-        )
-
-        assert [task.timeout_seconds for task in tasks] == [900.0, 300.0]
 
     def test_an_example_outside_the_project_is_refused(self, tmp_path: Path) -> None:
         with pytest.raises(ExamplePathError, match="not an example under"):
             example_tasks(
-                [tmp_path / "x.py"], project=tmp_path / "repo", budget=lambda _source: 1.0
+                [tmp_path / "x.py"],
+                project=tmp_path / "repo",
+                mode=ExampleMode.TEST,
+                timeout_seconds=1.0,
             )
