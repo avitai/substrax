@@ -1,0 +1,85 @@
+name: Examples
+
+# A stack repository's examples, run as the shared example guide runs them, defined once. A
+# repository calls this workflow from its ci.yml, pinned by commit, beside the gates:
+#
+#   examples:
+#     uses: avitai/substrax/.github/workflows/examples.yml@<commit>
+#
+# On a pull request it runs the examples the change reaches, counted from the base branch, which
+# the checkout fetches; on any other event, a schedule included, every example. The runners have no
+# GPU: a GPU-required example's own require_gpu() skips it here, and GPU runs go through
+# substrax-compute. Concurrency is the caller's, as for the gates.
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: The Python the examples run on.
+        type: string
+        default: "3.12"
+      sync-args:
+        description: The extras and groups that install substrax[notebooks,testing] from the lock.
+        type: string
+        default: --extra dev --extra test
+      budget-seconds:
+        description: This lane's budget for an example without a budgets entry; the settings' when empty.
+        type: string
+        default: ""
+      already-tested:
+        description: The caller's already-tested output; 'true' stands down work its pull request ran.
+        type: string
+        default: ""
+      uv-version:
+        description: The uv the job installs, one version across the stack.
+        type: string
+        default: "0.13.1"
+
+jobs:
+  examples:
+    name: Examples
+    if: ${{ inputs.already-tested != 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: ${{ inputs.python-version }}
+      # The lane sets the platform, as the guide allows a lane alone to.
+      JAX_PLATFORMS: cpu
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A pull request counts its changes from the base branch, which a one-commit checkout
+          # lacks; the command refuses a ref that names no commit.
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ inputs.uv-version }}
+          enable-cache: true
+          prune-cache: true
+
+      - name: Install the environment from the lock
+        env:
+          SYNC_ARGS: ${{ inputs.sync-args }}
+        run: |
+          uv python install "$UV_PYTHON"
+          uv venv
+          # SYNC_ARGS is a list of flags, split on purpose.
+          # shellcheck disable=SC2086
+          uv sync --locked $SYNC_ARGS
+
+      - name: Run the examples
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BUDGET: ${{ inputs.budget-seconds }}
+        run: |
+          arguments=()
+          if [ "$EVENT" = pull_request ] && [ -n "$BASE_REF" ]; then
+            arguments+=(--changed-since "origin/$BASE_REF")
+          fi
+          if [ -n "$BUDGET" ]; then
+            arguments+=(--budget-seconds "$BUDGET")
+          fi
+          uv run --no-sync python -m substrax.notebooks test "${arguments[@]}"

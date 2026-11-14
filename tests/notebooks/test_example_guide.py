@@ -173,12 +173,13 @@ def test_the_guide_leaves_every_notebook_to_convert_even_when_a_hook_names_it() 
     assert ruff[0]["force-exclude"] is True
 
 
-def test_the_guide_fetches_the_base_its_pull_request_command_diffs_against() -> None:
-    """A one-commit checkout has no ``origin/main``, which the command refuses (T-7)."""
-    workflow = [block for block in _fenced("yaml") if "--changed-since origin/main" in block]
+def test_the_guide_runs_the_examples_through_substrax_s_workflow_pinned_by_commit() -> None:
+    """One definition, which fetches the base a pull request counts from (T-7, W15), called as
+    avitai-portfolio's pin rule requires: by a full commit SHA (BR-11)."""
+    (call,) = [block for block in _fenced("yaml") if "workflows/examples.yml@" in block]
 
-    assert len(workflow) == 1
-    assert "fetch-depth: 0" in workflow[0]
+    assert "uses: avitai/substrax/.github/workflows/examples.yml@<a full commit SHA>" in call
+    assert [block for block in _fenced("yaml") if "substrax-notebooks test" in block] == []
 
 
 def test_the_guide_says_what_a_next_steps_link_is_relative_to() -> None:

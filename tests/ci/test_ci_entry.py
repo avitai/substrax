@@ -22,7 +22,8 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 ACTIONS = ROOT / ".github" / "actions"
 GATES = "./.github/workflows/python-gates.yml"
 GATE_SKIP = "${{ needs.already_tested.outputs.skip }}"
-WORKFLOW_FILES = {"ci.yml", "macos.yml", "publish.yml", "python-gates.yml"}
+# examples.yml is no folded check: the reusable workflow stack repositories call for their examples.
+WORKFLOW_FILES = {"ci.yml", "examples.yml", "macos.yml", "publish.yml", "python-gates.yml"}
 
 
 def _load(name: str) -> dict[str, Any]:
