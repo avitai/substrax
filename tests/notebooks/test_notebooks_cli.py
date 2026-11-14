@@ -655,3 +655,19 @@ def test_convert_reports_a_script_that_is_not_utf8_and_converts_the_others(
         f"substrax-notebooks: {other} is not UTF-8: byte 5 cannot be decoded; save it as UTF-8\n"
     )
     assert captured.out == f"{script.with_suffix('.ipynb')}\n"
+
+
+def test_page_into_outputs_writes_the_page_under_the_runs_outputs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Where a compute task's files come back from: ``$AVITAI_OUTPUT_DIR`` (W10)."""
+    repo, script = write_example(tmp_path)
+    outputs = tmp_path / "task-outputs"
+    monkeypatch.setenv("AVITAI_OUTPUT_DIR", str(outputs))
+
+    assert main(["page", "--into-outputs", "--repo-root", str(repo), str(script)]) == 0
+
+    page = outputs / "page" / page_path(script, repo_root=repo).relative_to(repo)
+    assert page.is_file()
+    assert capsys.readouterr().out == f"{page}\n"
+    assert not page_path(script, repo_root=repo).exists()

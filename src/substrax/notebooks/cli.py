@@ -3,7 +3,7 @@
 ```text
 substrax-notebooks convert EXAMPLE... [--repo-root DIR]
 substrax-notebooks check EXAMPLE... [--repo-root DIR]
-substrax-notebooks page EXAMPLE... [--repo-root DIR]
+substrax-notebooks page EXAMPLE... [--into-outputs] [--repo-root DIR]
 substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECONDS]
                         [--repo-root DIR]
 ```
@@ -12,10 +12,12 @@ substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECOND
 (:data:`substrax.notebooks.conformance.SOURCE_RULES`) and runs nothing, which is what the
 ``example-conformance`` pre-commit hook does on changed examples. ``page`` runs each example as
 its clean notebook within the repository's ``[tool.substrax.examples]`` budget and writes its docs
-page. An EXAMPLE is an existing ``.py`` under ``<repo root>/examples``, or its notebook, which names
-the script beside it: a private one (a path part starting with ``_``) is skipped, and any other
-path is refused. ``page`` reports a GPU-required example run without a GPU in one line. The
-repository root is the working directory unless ``--repo-root`` names one.
+page; with ``--into-outputs`` it writes the page and its figures under the run's outputs
+(``$AVITAI_OUTPUT_DIR/page/docs/examples/...``) instead, as a compute task does. An EXAMPLE is
+an existing ``.py`` under ``<repo root>/examples``, or its notebook, which names the script beside
+it: a private one (a path part starting with ``_``) is skipped, and any other path is refused.
+``page`` reports a GPU-required example run without a GPU in one line. The repository root is the
+working directory unless ``--repo-root`` names one.
 Exit codes: 0 for success, 1 when a check finds a problem or a run fails, 2 for a refused command.
 
 ``test`` runs pytest on the examples and the tests of their results, ``examples`` and, where it
@@ -39,6 +41,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from substrax.artifacts import resolve_output_dir
 from substrax.examples import discover_examples, example_source, ExamplePathError
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
 from substrax.notebooks.conformance import check_example, no_gpu_reason, SOURCE_RULES
@@ -52,6 +55,9 @@ _SUCCESS, _UNSUCCESSFUL, _REFUSED = 0, 1, 2
 
 EXAMPLES_PYTEST_CONFIG = Path(__file__).with_name("examples_pytest.ini")
 """The examples session's configuration file, which sets nothing."""
+
+_PAGE_OUTPUT = "page"
+"""The output, under the run's outputs, that ``page --into-outputs`` writes the pages into."""
 
 _CALLERS_PYTEST_SETTINGS = frozenset({"PYTEST_ADDOPTS", "PYTEST_PLUGINS"})
 """The variables through which pytest takes options and plugins from its caller's environment
@@ -95,6 +101,16 @@ def _parser() -> argparse.ArgumentParser:
         subparser.add_argument("examples", nargs="+", type=Path, metavar="EXAMPLE")
         subparser.add_argument("--repo-root", type=Path, default=Path.cwd())
         subparser.set_defaults(command=_on_examples(command))
+        if name == "page":
+            subparser.add_argument(
+                "--into-outputs",
+                action="store_true",
+                help=(
+                    "write each page and its figures under the run's outputs "
+                    f"($AVITAI_OUTPUT_DIR/{_PAGE_OUTPUT}/docs/examples/...), not into the "
+                    "repository, as a compute task does so they come back to be committed"
+                ),
+            )
     tester = commands.add_parser(
         "test", help="run the examples and the tests of their results apart from the other tests"
     )
@@ -190,10 +206,13 @@ def _check(arguments: argparse.Namespace, examples: list[Path]) -> int:
 
 def _page(arguments: argparse.Namespace, examples: list[Path]) -> int:
     config = _read_settings(arguments.repo_root)
+    destination = resolve_output_dir(_PAGE_OUTPUT).path if arguments.into_outputs else None
     status = _SUCCESS
     for script in examples:
         try:
-            page = generate_page(script, repo_root=arguments.repo_root, config=config)
+            page = generate_page(
+                script, repo_root=arguments.repo_root, config=config, destination=destination
+            )
             sys.stdout.write(f"{page}\n")
         except (RunError, PageError) as error:
             sys.stderr.write(f"substrax-notebooks: {_page_failure(script, error)}\n")
