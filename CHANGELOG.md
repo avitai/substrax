@@ -20,6 +20,10 @@ and uses semantic versioning while the public API stabilizes.
   `--budget-seconds`: a lane's budget for every example without a `budgets` entry, in place of
   `budget_seconds`; an example's own entry still applies. A value that is not a finite number
   above zero is a usage error.
+- `substrax-notebooks page --into-outputs` writes each page and its figures under the run's
+  outputs, at their path from the repository root (`$AVITAI_OUTPUT_DIR/page/docs/examples/...`),
+  rather than into the repository, so a page made on a remote machine comes back with the run's
+  files to be committed; `generate_page` takes `destination` for it.
 
 ### Changed
 

@@ -1017,3 +1017,23 @@ def test_the_header_goes_before_a_first_cell_that_does_not_open_with_a_title(
 
     assert text.startswith("> Ran in")
     assert markdown in text
+
+
+def test_a_page_written_elsewhere_mirrors_the_repository_and_checks_clean_copied_back(
+    tmp_path: Path,
+) -> None:
+    """A remote run writes the page into its outputs, which come back to be committed (W10)."""
+    repo, script = _repo(tmp_path)
+    elsewhere = tmp_path / "outputs"
+
+    page = generate_page(script, repo_root=repo, config=CONFIG, destination=elsewhere)
+
+    relative = page_path(script, repo_root=repo).relative_to(repo)
+    assert page == elsewhere / relative
+    assert sorted(path.suffix for path in page.parent.rglob("*") if path.is_file()) == [
+        ".md",
+        ".png",
+    ]
+    assert not (repo / "docs" / "examples").exists()
+    shutil.copytree(elsewhere / "docs", repo / "docs")
+    assert check_page(script, repo_root=repo, config=CONFIG) == []

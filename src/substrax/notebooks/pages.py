@@ -144,7 +144,7 @@ def page_path(script: Path, *, repo_root: Path) -> Path:
 
 
 def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
-    script: Path, *, repo_root: Path, config: ExamplesConfig
+    script: Path, *, repo_root: Path, config: ExamplesConfig, destination: Path | None = None
 ) -> Path:
     """Run a clean copy of an example and write its page with every output of the run.
 
@@ -152,6 +152,9 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
         script: The example script, under ``repo_root / "examples"``.
         repo_root: The repository root; the run's working directory.
         config: The repository's example settings; the run has the example's budget.
+        destination: Where the page and its figures go, at their path from the repository root
+            (``<destination>/docs/examples/...``), such as a remote run's outputs, which come
+            back to be committed; the repository root when ``None``.
 
     Returns:
         The page written.
@@ -195,6 +198,8 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
             config.page_size_warn_bytes,
         )
     page = page_path(script, repo_root=repo_root)
+    if destination is not None:
+        page = destination / page.relative_to(repo_root)
     page.parent.mkdir(parents=True, exist_ok=True)
     _remove_written_figures(page)
     page.write_text(text, encoding="utf-8")
