@@ -144,6 +144,9 @@ and uses semantic versioning while the public API stabilizes.
   usage error where pytest reported an internal error, and `substrax-notebooks` exits 2 where it
   ended in a traceback. `substrax-notebooks convert` reports a script that is not UTF-8, converts
   the others and exits 1.
+- `substrax-notebooks convert` and `page` write the notebook and the page with `\n` line endings
+  on every platform, through `substrax.notebooks.text.write_utf8`; on Windows they wrote `\r\n`,
+  so a file's bytes depended on the machine that made it.
 
 ## [0.1.26] - 2026-11-12
 
