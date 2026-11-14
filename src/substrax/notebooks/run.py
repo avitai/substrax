@@ -33,6 +33,7 @@ from jupyter_client.manager import AsyncKernelManager
 from jupyter_core.paths import jupyter_runtime_dir
 from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
+from pydantic import TypeAdapter
 from traitlets import default
 
 from substrax.examples import example_source
@@ -126,6 +127,26 @@ class ExampleRun:
     provenance: Provenance
     output_dir: Path
     returned: JsonValue = None
+
+    def returned_as[T](self, shape: type[T]) -> T:  # noqa: DOC502  # raised by pydantic
+        """Return what ``main()`` returned as a value of ``shape``, for a test of its results.
+
+        The value is validated by pydantic in strict JSON mode, as
+        :meth:`substrax.testing.ChildResult.report_as` reads a child's report: a value of another
+        type is refused rather than converted (an integer is accepted where ``shape`` has a float,
+        as JSON does not tell them apart).
+
+        Args:
+            shape: The type the value must have, such as a ``TypedDict`` or ``list[float]``.
+
+        Returns:
+            The value, of ``shape``.
+
+        Raises:
+            pydantic.ValidationError: If the value is not one of ``shape``; the message names the
+                offending field.
+        """
+        return TypeAdapter(shape).validate_json(json.dumps(self.returned), strict=True)
 
 
 class NativeKernelManager(AsyncKernelManager):

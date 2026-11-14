@@ -14,8 +14,10 @@ import time
 from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
+from typing import TypedDict
 
 import nbformat
+import pydantic
 import pytest
 from _example_texts import CONFIG, GOOD, returning_environment, write_example
 from nbconvert.preprocessors import CoalesceStreamsPreprocessor
@@ -26,10 +28,12 @@ from substrax.notebooks.run import (
     ExampleRun,
     execute_example,
     NativeKernelManager,
+    Provenance,
     RunError,
     script_sha256,
 )
 from substrax.notebooks.text import NotUtf8Error
+from substrax.typing import JsonValue
 
 
 def test_the_kernel_talks_over_ipc_not_plain_tcp() -> None:
@@ -1208,3 +1212,34 @@ def test_a_script_that_is_not_utf8_has_no_identity(tmp_path: Path) -> None:
 
     with pytest.raises(NotUtf8Error):
         script_sha256(script)
+
+
+class _Normalised(TypedDict):
+    count: int
+    mean_error: float
+
+
+def _returning(value: JsonValue) -> ExampleRun:
+    provenance = Provenance(source="examples/x.py", sha256="0" * 64, seconds=1.0, device="cpu")
+    return ExampleRun(
+        notebook=nbformat.v4.new_notebook(),
+        provenance=provenance,
+        output_dir=Path("/unused"),
+        returned=value,
+    )
+
+
+def test_returned_reads_as_the_shape_a_result_test_declares() -> None:
+    """A result test types what ``main()`` returned, as ``report_as`` types a report (T-5)."""
+    run = _returning({"count": 128, "mean_error": 1})
+
+    normalised = run.returned_as(_Normalised)
+
+    assert normalised == {"count": 128, "mean_error": 1}
+
+
+def test_returned_of_another_shape_is_refused_naming_the_field() -> None:
+    run = _returning({"count": "128", "mean_error": 0.5})
+
+    with pytest.raises(pydantic.ValidationError, match="count"):
+        run.returned_as(_Normalised)

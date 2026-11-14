@@ -63,6 +63,9 @@ from substrax.notebooks.pages import compare_with_run
 from substrax.notebooks.run import ExampleRun, execute_example, RunError
 
 
+type ExampleRunner = Callable[[str], ExampleRun]
+"""The ``example_run`` fixture's type, for a test of an example's results to annotate it with."""
+
 RUN_MARKER = "example_run"
 """The marker on each example's run, which names the run items among the session's."""
 
@@ -267,7 +270,7 @@ def _changed_paths(repo_root: Path, ref: str) -> set[str]:
 
 
 @pytest.fixture
-def example_run(request: pytest.FixtureRequest) -> Callable[[str], ExampleRun]:
+def example_run(request: pytest.FixtureRequest) -> ExampleRunner:
     """Give a test the session's run of an example, by its path below ``examples``.
 
     Args:

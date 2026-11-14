@@ -26,6 +26,11 @@ and uses semantic versioning while the public API stabilizes.
   files to be committed; `generate_page` takes `destination` for it.
 - `python -m substrax.notebooks` runs `substrax-notebooks` on the running interpreter, as a
   compute task runs it, whatever the remote machine's `PATH` holds.
+- `ExampleRun.returned_as(shape)` reads what an example's `main()` returned as a value of
+  `shape`, such as a `TypedDict`, validated strictly as `ChildResult.report_as` reads a child's
+  report, and `substrax.testing.example_suite.ExampleRunner` is the `example_run` fixture's type,
+  so a test of an example's results type-checks: `returned` is a `JsonValue`, which a test could
+  not index without a type error.
 
 ### Changed
 
