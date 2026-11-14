@@ -96,6 +96,10 @@ and uses semantic versioning while the public API stabilizes.
 - The example template's `main()` cell follows Results, so the page shows the run's output
   there, where it came after Next Steps and the page ended with it; the guide says so, and says
   the last code cell, not the script, ends with the `__main__` guard, as the `main` rule checks.
+- The guide leaves every notebook under `examples/` to `convert`: ruff's `extend-exclude` with
+  `force-exclude`, since a fix applied to a notebook (measured with `ruff check --fix`) leaves it
+  out of step with its script and `extend-exclude` alone does not stop a hook that passes the
+  path, and every other hook that writes notebooks excludes them.
 
 ### Fixed
 

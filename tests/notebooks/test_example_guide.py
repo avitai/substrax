@@ -154,3 +154,20 @@ def test_the_template_s_run_is_shown_under_results_and_next_steps_closes_it() ->
 
     assert first["## Results"] < main < first["## Troubleshooting"] <= first["## Next Steps"]
     assert [i for i, cell in enumerate(cells) if cell.cell_type == "code"][-1] == main
+
+
+def _fenced(language: str) -> list[str]:
+    """Every block of ``language`` the guide fences."""
+    return re.findall(rf"```{language}\n(.*?)```", GUIDE, flags=re.DOTALL)
+
+
+def test_the_guide_leaves_every_notebook_to_convert_even_when_a_hook_names_it() -> None:
+    """``ruff check --fix`` on a notebook left the pair out-of-sync; ``extend-exclude`` alone did
+    not stop a hook that passes the notebook's path, ``force-exclude`` did (ruff 0.16.6, K3)."""
+    ruff = [
+        tomllib.loads(block)["tool"]["ruff"] for block in _fenced("toml") if "[tool.ruff]" in block
+    ]
+
+    assert len(ruff) == 1
+    assert "examples/**/*.ipynb" in ruff[0]["extend-exclude"]
+    assert ruff[0]["force-exclude"] is True
