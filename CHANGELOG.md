@@ -89,6 +89,10 @@ and uses semantic versioning while the public API stabilizes.
   the extras the job installs.
 - The Modal backend's default `ignore` keeps `.git` in the image, which an example job needs:
   each run of an example checks the checkout with git and refuses outside one.
+- The guide's test of an example's results annotates `example_run` with `ExampleRunner` and reads
+  `main()`'s value with `returned_as`, and lives in `docs/guides/example_result_test.py`, which
+  the guide quotes and the repository's ruff and pyright check (pyright's `include` holds
+  `docs/guides`, the template included); a test runs it against the template's real run.
 
 ### Fixed
 
