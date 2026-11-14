@@ -20,7 +20,9 @@ Settings (``[tool.substrax.compute.backends.modal]``):
 - ``outputs_volume`` (required): the Modal Volume the runs' outputs go to, created when missing.
 - ``volumes``: the Modal Volume behind each of a job's mounts, by mount name.
 - ``environment``: the Modal environment; the profile's default when unset.
-- ``ignore``: patterns of project files left out of the image, ``.dockerignore`` style.
+- ``ignore``: patterns of project files left out of the image, ``.dockerignore`` style. The
+  default keeps ``.git``, which an example job needs: each run of an example checks the checkout
+  with git and refuses outside one.
 - ``state_dir``: where cancellations are recorded; the default state directory when unset.
 """
 
@@ -62,8 +64,8 @@ _UV = "/.uv/uv"
 # pick another.
 _PYTHON = f"{sys.version_info.major}.{sys.version_info.minor}"
 _VENV_PYTHON = "/.uv/.venv/bin/python"
+# `.git` is kept: every notebook run checks the checkout with git, so an example job needs it.
 _DEFAULT_IGNORE = (
-    ".git",
     ".venv",
     "**/__pycache__",
     "**/*.pyc",

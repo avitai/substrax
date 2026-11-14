@@ -91,6 +91,8 @@ def test_the_image_installs_the_lock_with_this_python_then_the_source_then_the_p
     assert add_local_dir["remote_path"] == "/project"
     assert add_local_dir["copy"] is True
     assert ".venv" in add_local_dir["ignore"]
+    # Every notebook run checks the checkout with git, so an example job needs the history (W10).
+    assert ".git" not in add_local_dir["ignore"]
     (install,) = dict(image.steps)["run_commands"]
     assert "--no-deps /project" in install
 

@@ -72,6 +72,8 @@ and uses semantic versioning while the public API stabilizes.
   `<script>: GPU-required and no GPU here: <the refusal>`, read from the run's own
   `GPUUnavailableError`, where it printed the run's traceback. The example tests' GPU skip and the
   command share `substrax.notebooks.conformance.no_gpu_reason`.
+- The Modal backend's default `ignore` keeps `.git` in the image, which an example job needs:
+  each run of an example checks the checkout with git and refuses outside one.
 
 ### Fixed
 
