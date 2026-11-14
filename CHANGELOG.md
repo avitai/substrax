@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.27] - 2026-11-14
+
 ### Added
 
 - `[tool.substrax.examples]` takes `budgets`, examples' own budgets in seconds keyed by each
@@ -1188,7 +1190,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.26...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.27...HEAD
+[0.1.27]: https://github.com/avitai/substrax/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/avitai/substrax/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/avitai/substrax/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/avitai/substrax/compare/v0.1.23...v0.1.24
