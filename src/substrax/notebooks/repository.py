@@ -1,7 +1,8 @@
 """The git queries the example tools make about a repository.
 
 Git runs by its absolute path and without the caller's ``GIT_*`` variables: inside a commit hook
-they name that commit's index, not the repository asked about.
+they name that commit's index, not the repository asked about. The queries need git 2.30 or later,
+the release whose ``rev-parse`` takes ``--end-of-options``.
 """
 
 from __future__ import annotations
@@ -31,9 +32,7 @@ def unclean_files(repo_root: Path) -> set[str]:  # noqa: DOC502  # RepositoryErr
     Raises:
         RepositoryError: If git is not installed or ``repo_root`` is not in a git repository.
     """
-    listed = _git(
-        repo_root, "ls-files", "-z", "--modified", "--others", "--exclude-standard", "--deduplicate"
-    )
+    listed = _git(repo_root, "ls-files", "-z", "--modified", "--others", "--exclude-standard")
     return set(listed.split("\0")) - {""}
 
 
