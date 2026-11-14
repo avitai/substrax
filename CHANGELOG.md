@@ -24,6 +24,8 @@ and uses semantic versioning while the public API stabilizes.
   outputs, at their path from the repository root (`$AVITAI_OUTPUT_DIR/page/docs/examples/...`),
   rather than into the repository, so a page made on a remote machine comes back with the run's
   files to be committed; `generate_page` takes `destination` for it.
+- `python -m substrax.notebooks` runs `substrax-notebooks` on the running interpreter, as a
+  compute task runs it, whatever the remote machine's `PATH` holds.
 
 ### Changed
 
