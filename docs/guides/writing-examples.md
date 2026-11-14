@@ -278,7 +278,17 @@ validation:
   `uv run substrax-notebooks test --changed-since origin/main`, and every example
   when `src/`, `pyproject.toml` or `uv.lock` changed, or a file under `examples/` that is no
   example's own (a private helper, data); a result test that changed, or a helper beside the
-  result tests, runs the examples it asks for; a scheduled job runs every example.
+  result tests, runs the examples it asks for; a scheduled job runs every example. The job's
+  checkout fetches `origin/main`, since `actions/checkout` fetches one commit by default and the
+  command refuses a ref that names no commit:
+
+```yaml
+- uses: actions/checkout@<a full commit SHA>
+  with:
+    fetch-depth: 0
+- run: uv run substrax-notebooks test --changed-since origin/main
+```
+
 - Every lane runs every example. Off a GPU, a GPU-required example's `require_gpu()` raises
   `GPUUnavailableError`, and its run and the tests of its results are skipped with that message;
   any other example raising it is held to the `unavailable` messages like any failure. A GPU lane

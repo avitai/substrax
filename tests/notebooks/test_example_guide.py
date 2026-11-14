@@ -171,3 +171,11 @@ def test_the_guide_leaves_every_notebook_to_convert_even_when_a_hook_names_it() 
     assert len(ruff) == 1
     assert "examples/**/*.ipynb" in ruff[0]["extend-exclude"]
     assert ruff[0]["force-exclude"] is True
+
+
+def test_the_guide_fetches_the_base_its_pull_request_command_diffs_against() -> None:
+    """A one-commit checkout has no ``origin/main``, which the command refuses (T-7)."""
+    workflow = [block for block in _fenced("yaml") if "--changed-since origin/main" in block]
+
+    assert len(workflow) == 1
+    assert "fetch-depth: 0" in workflow[0]

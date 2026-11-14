@@ -100,6 +100,9 @@ and uses semantic versioning while the public API stabilizes.
   `force-exclude`, since a fix applied to a notebook (measured with `ruff check --fix`) leaves it
   out of step with its script and `extend-exclude` alone does not stop a hook that passes the
   path, and every other hook that writes notebooks excludes them.
+- The guide's pull-request command comes with the checkout that fetches `origin/main`
+  (`fetch-depth: 0`): `actions/checkout` fetches one commit by default, and the command refuses
+  a ref that names no commit.
 
 ### Fixed
 
