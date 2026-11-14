@@ -126,7 +126,7 @@ modal = [
 ]
 # Pair an example script with its clean notebook, and generate its docs page (substrax.notebooks).
 notebooks = [
-  # The kernel the page generator runs an example in, with the inline figure backend.
+  # The kernel each example runs in (substrax.notebooks.run), with the inline figure backend.
   "ipykernel>=7.4.0",
   "jupyter-client>=8.10.0",
   "jupyter-core>=5.9.1",
@@ -236,7 +236,7 @@ PyYAML = ["yaml"]
 # The aggregate extras name this package; deptry reads them as a self-dependency.
 # matplotlib, mlflow and wandb are optional backends loaded through importlib.import_module
 # when a logger is constructed (substrax.tracking._optional), which deptry cannot see.
-# ipykernel is the kernel substrax.notebooks.pages starts as a process; nothing imports it.
+# ipykernel is the kernel substrax.notebooks.run starts as a process; nothing imports it.
 DEP002 = [
   "ipykernel",
   "jax-metal",

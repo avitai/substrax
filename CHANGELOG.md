@@ -152,6 +152,10 @@ and uses semantic versioning while the public API stabilizes.
   there, since its output is a set.
 - The API reference renders `substrax.notebooks.text`, which its module table listed with no
   entry; a test requires an entry for every public `substrax.notebooks` module.
+- The docs say what the code does: README's `check_pair` row names the exact-bytes check, the
+  run's docstring the whole write check (deletions, HEAD, the index, hooks), pyproject's comments
+  the module that starts the kernel, and the settings' illustrations use placeholders where they
+  showed one repository's URL and dataset message.
 
 ## [0.1.26] - 2026-11-12
 

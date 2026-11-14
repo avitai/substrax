@@ -206,9 +206,9 @@ testpaths = ["tests"]                      # examples run apart:
 addopts = "--ignore=tests/examples"         # uv run substrax-notebooks test
 
 [tool.substrax.examples]
-source_url = "https://github.com/avitai/datarax/blob/main"
+source_url = "https://github.com/avitai/<repository>/blob/main"
 budget_seconds = 600
-unavailable = ["wod_motion_tfrecord_path is not set"]
+unavailable = ["<the message an example fails with when its dataset is missing>"]
 page_size_warn_bytes = 102400   # the defaults: a larger page is written with a warning
 page_size_bytes = 204800        # and a larger one refused
 page_size_exempt = []
@@ -227,7 +227,7 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
   plugin collects a file under `examples/`, so an example named `test_*.py` is not imported as a
   test module.
 - `discover_examples` decides what is an example: every `.py` under `examples/` whose path has no
-  part starting with `_`, so `_common` helpers are not examples. `example_source`, beside it, gives
+  part starting with `_`, so a private helper beside an example is not one. `example_source`, beside it, gives
   an example's path from the root, `examples/<path>.py`, to every tool that names one: the
   commands, this session, the run's provenance, the pages, the settings and compute's tasks. An
   example reached through a symlink below the root, a linked `examples/` directory included, is
@@ -375,7 +375,7 @@ from substrax.testing.source_scans import documented_texts, unguarded_make_mesh_
 
 
 def test_documented_meshes_name_their_axis_types() -> None:
-    texts = documented_texts(ROOT, package="datarax", script_directories=("examples",))
+    texts = documented_texts(ROOT, package="<package>", script_directories=("examples",))
     assert {name: calls for name, text in texts.items() if (calls := unguarded_make_mesh_calls(text))} == {}
 ```
 

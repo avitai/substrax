@@ -12,7 +12,7 @@ testpaths = ["tests"]                                 # a plain pytest leaves th
 addopts = "--ignore=tests/examples"
 
 [tool.substrax.examples]                              # substrax.notebooks.config
-source_url = "https://github.com/avitai/datarax/blob/main"
+source_url = "https://github.com/avitai/<repository>/blob/main"
 budget_seconds = 600
 ```
 
