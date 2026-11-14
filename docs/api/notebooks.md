@@ -38,6 +38,8 @@ The shared example tests that use them are `substrax.testing.example_suite` ([Te
 
 ::: substrax.notebooks.config
 
+::: substrax.notebooks.text
+
 ::: substrax.notebooks.repository
 
 ::: substrax.notebooks.outputs

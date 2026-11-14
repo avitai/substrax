@@ -150,6 +150,8 @@ and uses semantic versioning while the public API stabilizes.
 - The example tools need git 2.30 or later, which the guide and README now state: the change
   check counts untracked files without `ls-files --deduplicate`, a git 2.31 flag that did nothing
   there, since its output is a set.
+- The API reference renders `substrax.notebooks.text`, which its module table listed with no
+  entry; a test requires an entry for every public `substrax.notebooks` module.
 
 ## [0.1.26] - 2026-11-12
 

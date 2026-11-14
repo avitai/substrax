@@ -189,3 +189,19 @@ def test_the_guide_says_what_a_next_steps_link_is_relative_to() -> None:
 
     assert "relative to the example's page" in next_steps
     assert "mkdocs build --strict" in next_steps
+
+
+NOTEBOOKS_API = REPOSITORY / "docs" / "api" / "notebooks.md"
+
+
+def test_every_public_notebooks_module_has_its_api_reference() -> None:
+    """A module the reference's table lists but no ``:::`` entry renders went unnoticed (P-20)."""
+    modules = sorted(
+        path.stem
+        for path in (REPOSITORY / "src" / "substrax" / "notebooks").glob("*.py")
+        if not path.stem.startswith("_")
+    )
+    reference = NOTEBOOKS_API.read_text(encoding="utf-8")
+
+    assert modules
+    assert [m for m in modules if f"\n::: substrax.notebooks.{m}\n" not in reference] == []
