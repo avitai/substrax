@@ -42,7 +42,7 @@ from substrax.examples import discover_examples, example_source
 from substrax.notebooks.config import ExamplesConfig
 from substrax.notebooks.outputs import local_paths, publish_outputs
 from substrax.notebooks.run import ExampleRun, execute_example, Provenance, script_sha256
-from substrax.notebooks.text import read_utf8, text_sha256, unix_line_endings
+from substrax.notebooks.text import read_utf8, text_sha256, unix_line_endings, write_utf8
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 
 
@@ -202,7 +202,7 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
         page = destination / page.relative_to(repo_root)
     page.parent.mkdir(parents=True, exist_ok=True)
     _remove_written_figures(page)
-    page.write_text(text, encoding="utf-8")
+    write_utf8(page, text)
     for name, data in figures.items():
         (page.parent / name).parent.mkdir(parents=True, exist_ok=True)
         (page.parent / name).write_bytes(data)

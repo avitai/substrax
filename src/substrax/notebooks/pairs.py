@@ -20,7 +20,7 @@ from typing import Any, Literal
 import jupytext
 import nbformat
 
-from substrax.notebooks.text import NotUtf8Error, read_utf8
+from substrax.notebooks.text import NotUtf8Error, read_utf8, write_utf8
 
 
 FORMATS = "ipynb,py:percent"
@@ -74,7 +74,7 @@ def convert(script: Path) -> Path:
         msg = f"{script} is not a .py example script"
         raise ValueError(msg)
     target = script.with_suffix(".ipynb")
-    target.write_text(_generated(script), encoding="utf-8")
+    write_utf8(target, _generated(script))
     return target
 
 

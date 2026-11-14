@@ -1,11 +1,13 @@
-r"""Read a file the example tools read the one way they all read it.
+r"""Read and write the files the example tools handle, the one way they all do.
 
 The pair check, the converter, the run, the page check and the corpus check all start from a
 file's text: an example's script, its notebook, its page, a hand-written document. They read it
 here: UTF-8, a byte order mark dropped (Python accepts one), every line ending made ``\n``, and
 :class:`NotUtf8Error` for any other encoding rather than a ``UnicodeDecodeError`` from deep inside
 a library. A checkout with Windows line endings (git's ``core.autocrlf``) therefore holds the same
-text as the commit it came from.
+text as the commit it came from. :func:`write_utf8` writes a generated notebook or page as UTF-8
+with ``\n`` line endings on every platform, so the bytes a commit holds do not depend on where
+they were made.
 """
 
 from __future__ import annotations
@@ -59,6 +61,20 @@ def read_utf8(path: Path) -> str:
     except UnicodeDecodeError as error:
         raise NotUtf8Error(path, error.start) from error
     return unix_line_endings(text)
+
+
+def write_utf8(path: Path, text: str) -> None:
+    r"""Write ``text`` to ``path`` as UTF-8, its ``\n`` line endings kept on every platform.
+
+    Text mode writes the platform's line ending for each ``\n`` (``\r\n`` on Windows) unless
+    told otherwise, which would make a generated file's bytes depend on the machine.
+
+    Args:
+        path: The file.
+        text: Its text, with Unix line endings.
+    """
+    with path.open("w", encoding="utf-8", newline="\n") as out:
+        out.write(text)
 
 
 def unix_line_endings(text: str) -> str:
