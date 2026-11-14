@@ -93,6 +93,9 @@ and uses semantic versioning while the public API stabilizes.
   `main()`'s value with `returned_as`, and lives in `docs/guides/example_result_test.py`, which
   the guide quotes and the repository's ruff and pyright check (pyright's `include` holds
   `docs/guides`, the template included); a test runs it against the template's real run.
+- The example template's `main()` cell follows Results, so the page shows the run's output
+  there, where it came after Next Steps and the page ended with it; the guide says so, and says
+  the last code cell, not the script, ends with the `__main__` guard, as the `main` rule checks.
 
 ### Fixed
 
