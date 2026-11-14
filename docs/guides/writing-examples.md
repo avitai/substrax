@@ -116,7 +116,10 @@ left out. Checked: `skeleton`
    it where that helps.
 8. `## Next Steps`: links to related examples and to the API reference, one line each. Its only
    subsection is the optional `### Experiments to Try`. Checked: `next-steps`. Experiments to Try
-   only suggests.
+   only suggests. A link to a page of the repository's docs site is relative to the example's
+   page, `docs/examples/<path>.md` (`../../api/metrics.md` from `docs/examples/metrics/fit.md`),
+   so `mkdocs build --strict` fails on one that names no page; the script and the notebook hold
+   the same text, where it does not resolve. A link outside the site is a full URL.
 
 ## Code
 
