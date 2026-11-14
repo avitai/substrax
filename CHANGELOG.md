@@ -147,6 +147,9 @@ and uses semantic versioning while the public API stabilizes.
 - `substrax-notebooks convert` and `page` write the notebook and the page with `\n` line endings
   on every platform, through `substrax.notebooks.text.write_utf8`; on Windows they wrote `\r\n`,
   so a file's bytes depended on the machine that made it.
+- The example tools need git 2.30 or later, which the guide and README now state: the change
+  check counts untracked files without `ls-files --deduplicate`, a git 2.31 flag that did nothing
+  there, since its output is a set.
 
 ## [0.1.26] - 2026-11-12
 

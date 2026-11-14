@@ -238,7 +238,8 @@ force-exclude = true
 ```
 
 The shared example tests run in pytest, from the repository's settings alone; no conftest names
-them. A repository's development dependencies hold `substrax[notebooks,testing]`:
+them. A repository's development dependencies hold `substrax[notebooks,testing]`, and the tools
+need git 2.30 or later, as each run checks the checkout with it:
 
 ```toml
 # pyproject.toml

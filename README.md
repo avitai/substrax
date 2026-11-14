@@ -398,7 +398,7 @@ group; `substrax.testing.compute.BackendContract` holds the tests every backend 
 An example is written once, as a script in jupytext's percent format under `examples/`. Its clean
 notebook is generated from it, and its docs page is made by running a clean copy, so the page
 shows what the code does today. A repository configures its examples in its pyproject and runs
-the shared checks with one command (`substrax[notebooks,testing]`):
+the shared checks with one command (`substrax[notebooks,testing]`, and git 2.30 or later):
 
 ```toml
 [tool.substrax.examples]
