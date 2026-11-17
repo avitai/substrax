@@ -191,7 +191,8 @@ left out. Checked: `skeleton`
 
 A commit runs the `example-conformance` hook on each changed example, script or notebook (a
 notebook is checked through its script, so one edited by hand fails `pair`): every rule above
-except `page`, `corpus` and `runs-as-its-page-shows`, without running anything. Each repository
+except `page`, `corpus` and `runs-as-its-page-shows`, without running anything; and on each changed
+recipe, `recipes/<path>.py`, the rules about code. Each repository
 enables it in `.pre-commit-config.yaml`:
 
 ```yaml
@@ -263,7 +264,7 @@ validation:
 ```
 
 - The examples run in their own invocation, `uv run substrax-notebooks test`: pytest on
-  `examples` and, where it exists, `tests/examples`, with the shared example tests the one plugin
+  `examples` and, where they exist, `recipes` and `tests/examples`, with the shared example tests the one plugin
   loaded: the repository's pytest configuration and conftests, every other installed plugin and
   the caller's `PYTEST_ADDOPTS` and `PYTEST_PLUGINS` are left out (a configuration file of
   substrax's that sets nothing, with the repository as rootdir; `--noconftest`;
@@ -274,7 +275,8 @@ validation:
   repository is refused. A plain `uv run pytest` runs `tests` without `tests/examples`.
 - `examples::corpus` checks the examples as a whole: the rules of [Files](#files) that span
   several examples.
-- `examples/<path>.py::follows-the-guide` checks every rule of this guide.
+- `examples/<path>.py::follows-the-guide` checks every rule of this guide, and
+  `recipes/<path>.py::follows-the-guide` its rules about code over each recipe.
 - `examples/<path>.py::runs-as-its-page-shows`, marked `example_run`, runs the example as its clean
   notebook within its budget (its `budgets` entry, else `budget_seconds`) and compares the run
   with the committed page.

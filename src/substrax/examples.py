@@ -68,7 +68,7 @@ def example_source(script: Path, *, repo_root: Path) -> str:
             the root leads to it.
     """
     root = repo_root.resolve()
-    written = _lexical(script)
+    written = lexical_path(script)
     # The path from the root starts below the first ancestor that is the root, links above it
     # followed; any link below it then shows as a resolved path that differs.
     starts = (above for above in reversed(written.parents) if above.resolve() == root)
@@ -85,9 +85,16 @@ def example_source(script: Path, *, repo_root: Path) -> str:
     return relative.as_posix()
 
 
-def _lexical(path: Path) -> Path:
-    """``path`` made absolute and normalised as written: ``..`` removed, no symlink followed.
+def lexical_path(path: Path) -> Path:
+    """Return ``path`` made absolute and normalised as written: ``..`` removed, no link followed.
 
-    ``Path.resolve`` follows links, which is what :func:`example_source` must see, not do.
+    ``Path.resolve`` follows links, which is what :func:`example_source` must see, not do, and a
+    path named on a command line is compared with the scripts a directory lists as written.
+
+    Args:
+        path: A path, relative to the working directory or absolute.
+
+    Returns:
+        The absolute path, normalised without touching the filesystem.
     """
     return Path(os.path.normpath(path.absolute()))

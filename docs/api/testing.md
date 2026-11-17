@@ -189,13 +189,13 @@ ignores what is differentiated passes a finite-difference check. A function with
 ## Example tests
 
 A repository's example tests are a pytest plugin, configured in its pyproject and written nowhere
-else. `uv run substrax-notebooks test` loads it by name and runs pytest on `examples` and, where it
-exists, `tests/examples`, without the repository's pytest configuration or conftests, any other
+else. `uv run substrax-notebooks test` loads it by name and runs pytest on `examples` and, where they
+exist, `recipes` and `tests/examples`, without the repository's pytest configuration or conftests, any other
 plugin, or the caller's `PYTEST_ADDOPTS` and `PYTEST_PLUGINS` (`examples_pytest_options` in
 `substrax.notebooks.cli`), so each kernel gets the environment a script run gets;
 `--changed-since REF` passes `--examples-changed-since=REF`, `--budget-seconds SECONDS` passes
 `--examples-budget-seconds=SECONDS`, and PATHs, from the working directory
-and under the repository, replace the two directories. pytest reads a configuration file of
+and under the repository, replace those directories. pytest reads a configuration file of
 substrax's that sets nothing, so none of the repository's ini keys (`addopts`, `filterwarnings`,
 `faulthandler_timeout`, `required_plugins`, `strict_config`) reaches the session, and takes the
 repository as its rootdir, whatever directory holds it; unusable settings are refused first.
@@ -219,6 +219,7 @@ budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget
 | --- | --- |
 | `examples::corpus` | There is an example; every file under `docs/examples` is an example's page or one of its figures, or a recipe's page (an overview lives at `docs/examples.md`); every notebook under `examples` has its script; every recipe under `recipes` has its example; a hand-written `python examples/...` or `uv run python examples/...` command names a file that exists, a placeholder such as `<name>` aside; `mkdocs.yml` sets `validation.nav.omitted_files: warn` |
 | `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance` |
+| `recipes/<path>.py::follows-the-guide` | The guide's rules about code (`RECIPE_RULES`), over a recipe; a recipe runs on a GPU lane, never here |
 | `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
 
 - The examples are collected directory by directory, as pytest's own directory walk collects, so a

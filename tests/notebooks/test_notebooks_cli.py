@@ -17,8 +17,10 @@ from _example_texts import (
     git,
     GOOD,
     GPU_REQUIRED,
+    RECIPE,
     returning_environment,
     write_example,
+    write_recipe,
 )
 
 from substrax.notebooks.cli import EXAMPLES_PYTEST_CONFIG, main
@@ -110,6 +112,42 @@ def test_a_path_outside_examples_is_refused(
     assert main(["check", "--repo-root", str(repo), str(outside)]) == 2
 
     assert "examples" in capsys.readouterr().err
+
+
+def test_check_applies_the_recipe_rules_to_a_recipe(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = write_example(tmp_path)
+    recipe = write_recipe(repo, RECIPE.replace("jax.random.key(0)", "jax.random.PRNGKey(0)"))
+
+    assert main(["check", "--repo-root", str(repo), str(recipe)]) == 1
+
+    assert f"{recipe}: typed-keys: " in capsys.readouterr().out
+
+
+def test_check_passes_a_conforming_recipe_and_skips_a_private_one(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = write_example(tmp_path)
+    recipe = write_recipe(repo)
+    helper = write_recipe(repo, "VALUE = 1\n", relative="_common/config.py")
+
+    assert main(["check", "--repo-root", str(repo), str(recipe), str(helper)]) == 0
+
+    assert capsys.readouterr().out == ""
+
+
+def test_a_file_under_recipes_that_is_no_script_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = write_example(tmp_path)
+    notes = repo / "recipes" / "notes.md"
+    notes.parent.mkdir()
+    notes.write_text("# Notes\n", encoding="utf-8")
+
+    assert main(["check", "--repo-root", str(repo), str(notes)]) == 2
+
+    assert f"{notes} is not a recipe script (.py)" in capsys.readouterr().err
 
 
 def test_a_missing_example_is_refused(tmp_path: Path) -> None:
@@ -281,7 +319,7 @@ def test_the_shared_hook_checks_changed_examples_in_the_repository_environment()
 
     assert hook["entry"] == "uv run --no-sync substrax-notebooks check"
     assert hook["language"] == "system"
-    assert hook["files"] == r"^examples/.*\.(py|ipynb)$"
+    assert hook["files"] == r"^(examples/.*\.(py|ipynb)|recipes/.*\.py)$"
 
 
 @pytest.mark.parametrize(
@@ -291,6 +329,9 @@ def test_the_shared_hook_checks_changed_examples_in_the_repository_environment()
         ("examples/topic/sorting.ipynb", True),
         ("examples/topic/notes.md", False),
         ("docs/examples/topic/sorting.md", False),
+        ("recipes/topic/sorting.py", True),
+        ("recipes/topic/notes.md", False),
+        ("docs/examples/topic/sorting.recipe.md", False),
     ],
 )
 def test_the_hook_watches_a_script_and_a_hand_edited_notebook(path: str, watched: bool) -> None:
@@ -484,6 +525,13 @@ def test_the_examples_session_s_configuration_sets_nothing() -> None:
 
     assert parser.sections() == ["pytest"]
     assert dict(parser["pytest"]) == {}
+
+
+def test_test_holds_the_recipes_to_the_guide_by_default(tmp_path: Path) -> None:
+    repo = _examples_repository(tmp_path, result_tests=False)
+    write_recipe(repo, RECIPE.replace("jax.random.key(0)", "jax.random.PRNGKey(0)"))
+
+    assert main(["test", "--repo-root", str(repo)]) == 1
 
 
 def test_test_runs_without_a_tests_examples_directory(tmp_path: Path) -> None:
