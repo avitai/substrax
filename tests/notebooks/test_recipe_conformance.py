@@ -7,16 +7,24 @@ from pathlib import Path
 import pytest
 from _example_texts import CONFIG, RECIPE, write_example, write_recipe
 
-from substrax.notebooks.conformance import check_recipe, Finding, RECIPE_RULES
+from substrax.notebooks.conformance import (
+    check_recipe,
+    Finding,
+    RECIPE_RULES,
+    RECIPE_SOURCE_RULES,
+)
+from substrax.notebooks.recipe_pages import write_recipe_page
+from substrax.notebooks.recipe_run import run_recipe
 
 
 _REQUIRE_GPU = "from substrax.devices import require_gpu\n"
 
 
 def _findings(tmp_path: Path, text: str) -> list[Finding]:
+    """The findings of the rules about the recipe's code, which need no run."""
     repo, _ = write_example(tmp_path)
     recipe = write_recipe(repo, text)
-    return check_recipe(recipe, repo_root=repo, config=CONFIG)
+    return check_recipe(recipe, repo_root=repo, config=CONFIG, rules=RECIPE_SOURCE_RULES)
 
 
 def test_the_recipe_rules_are_the_guide_s_rules_about_code_not_about_notebooks() -> None:
@@ -30,7 +38,9 @@ def test_the_recipe_rules_are_the_guide_s_rules_about_code_not_about_notebooks()
         "no-star-imports",
         "typed-keys",
         "gpu-check",
+        "page",
     ]
+    assert frozenset(RECIPE_RULES) - RECIPE_SOURCE_RULES == {"page"}
 
 
 def test_a_conforming_recipe_has_no_finding(tmp_path: Path) -> None:
@@ -104,6 +114,19 @@ def test_a_recipe_calling_require_gpu_after_work_breaks_gpu_check(tmp_path: Path
 
     assert finding.rule == "gpu-check"
     assert "right after its imports" in finding.detail
+
+
+def test_a_recipe_follows_the_page_rule_once_its_page_shows_its_run(tmp_path: Path) -> None:
+    repo, _ = write_example(tmp_path)
+    recipe = write_recipe(repo, RECIPE.replace("1_048_576", "64"))
+
+    (missing,) = check_recipe(recipe, repo_root=repo, config=CONFIG, rules=["page"])
+    write_recipe_page(
+        run_recipe(recipe, repo_root=repo, distribution="demo"), repo_root=repo, config=CONFIG
+    )
+
+    assert (missing.rule, missing.detail.split(":")[0]) == ("page", "missing")
+    assert check_recipe(recipe, repo_root=repo, config=CONFIG, rules=["page"]) == []
 
 
 def test_an_unknown_rule_is_refused(tmp_path: Path) -> None:

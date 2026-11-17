@@ -167,6 +167,36 @@ def test_recipe_runs_each_recipe_and_writes_its_record_under_the_outputs(
     assert str(outputs / "recipe_record" / "record.json") in capsys.readouterr().out
 
 
+def test_recipe_page_writes_the_page_of_a_fetched_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = write_example(tmp_path)
+    recipe = write_recipe(repo, RECIPE.replace("1_048_576", "64"))
+    outputs = tmp_path / "outputs"
+    monkeypatch.setenv("AVITAI_OUTPUT_DIR", str(outputs))
+    assert main(["recipe", "--repo-root", str(repo), str(recipe)]) == 0
+    record = outputs / "recipe_record" / "record.json"
+
+    assert main(["recipe-page", "--repo-root", str(repo), str(record)]) == 0
+
+    page = repo / "docs" / "examples" / "sorting.recipe.md"
+    assert str(page) in capsys.readouterr().out
+    assert "| `in_order` | 1.0 |" in page.read_text(encoding="utf-8")
+
+
+def test_recipe_page_refuses_a_record_whose_recipe_is_gone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _ = write_example(tmp_path)
+    recipe = write_recipe(repo, RECIPE.replace("1_048_576", "64"))
+    monkeypatch.setenv("AVITAI_OUTPUT_DIR", str(tmp_path / "outputs"))
+    assert main(["recipe", "--repo-root", str(repo), str(recipe)]) == 0
+    recipe.unlink()
+
+    record = tmp_path / "outputs" / "recipe_record" / "record.json"
+    assert main(["recipe-page", "--repo-root", str(repo), str(record)]) == 2
+
+
 def test_recipe_refuses_a_path_that_is_no_recipe(tmp_path: Path) -> None:
     repo, script = write_example(tmp_path)
 
