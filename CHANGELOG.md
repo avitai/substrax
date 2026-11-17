@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-11-17
+
 ### Added
 
 - The example guide's Full recipes section: when an example ports a published reference, its
@@ -61,10 +63,11 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Changed
 
-- The `no-backend-forcing` and `no-env-writes` findings name "the script" rather than "the
-  example", since they hold over recipes too; the path before each finding says which file it is.
-- `substrax.examples.ExamplePathError` is `ScriptPathError`, raised for a path that is no
-  example's or recipe's.
+- **Breaking:** the `no-backend-forcing` and `no-env-writes` findings name "the script" rather
+  than "the example", since they hold over recipes too; the path before each finding says which
+  file it is.
+- **Breaking:** `substrax.examples.ExamplePathError` is `ScriptPathError`, raised for a path that
+  is no example's or recipe's.
 - The header that opens a generated page and the record that closes it (the run's origin and the
   sha256 of the page's text, origin and figures) are `substrax.notebooks.page_records`, which an
   example's page and a recipe's page share; a page's record keeps its format.
@@ -1252,7 +1255,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.27...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.28...HEAD
+[0.1.28]: https://github.com/avitai/substrax/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/avitai/substrax/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/avitai/substrax/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/avitai/substrax/compare/v0.1.24...v0.1.25
