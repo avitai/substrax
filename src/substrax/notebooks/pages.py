@@ -24,15 +24,11 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import json
 import logging
-import re
-import shlex
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal
-from urllib.parse import quote
 
 import nbformat
 from markdown_it import MarkdownIt
@@ -41,32 +37,20 @@ from nbconvert import MarkdownExporter
 from substrax.examples import discover_examples, example_source
 from substrax.notebooks.config import ExamplesConfig
 from substrax.notebooks.outputs import local_paths, publish_outputs
+from substrax.notebooks.page_records import (
+    edited,
+    page_digests,
+    PageDigests,
+    read_page_record,
+    record_comment,
+    run_header,
+)
 from substrax.notebooks.run import ExampleRun, execute_example, Provenance, script_sha256
-from substrax.notebooks.text import read_utf8, text_sha256, unix_line_endings, write_utf8
-from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
+from substrax.notebooks.text import read_utf8, unix_line_endings, write_utf8
+from substrax.records import UNKNOWN_FIELDS_REFUSED
 
 
 logger = logging.getLogger(__name__)
-
-PYTHON_COMMAND = "uv run python"
-"""How an example is run from the repository root, in a page's header and in a hand-written
-command the corpus check reads."""
-
-RUN_COMMAND = f"source ./activate.sh\n{PYTHON_COMMAND} {{source}}"
-"""The command a page's header gives, from the repository root, for the example at ``source``,
-quoted for the shell (a space, ``$`` or a quote in its name)."""
-
-_MARKER = "substrax-notebooks"
-_PROVENANCE = re.compile(rf"<!-- {_MARKER}: (?P<json>\{{.*?\}}) -->")
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _PageDigests:
-    """The sha256 of a page's text before its record, of its provenance, and of each figure."""
-
-    body: str
-    record: str
-    figures: Mapping[str, str]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -80,10 +64,9 @@ class _PageRecord:
     __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
 
     provenance: Provenance
-    page: _PageDigests
+    page: PageDigests
 
 
-"""``{"body": <sha256>, "record": <sha256>, "figures": {<path beside the page>: <sha256>}}``."""
 _UNREADABLE = ValueError
 """What reading a page or its record raises: the page or its script is not UTF-8
 (:class:`~substrax.notebooks.text.NotUtf8Error`), or the record is missing or malformed."""
@@ -176,12 +159,12 @@ def generate_page(  # noqa: DOC503  # RunError is raised by execute_example
         distribution=config.distribution,
         budget_seconds=config.budget_for(example_source(script, repo_root=repo_root)),
     )
-    header = _header(run.provenance, source_url=config.source_url)
+    header = run_header(run.provenance, source_url=config.source_url, notebook=True)
     paged = _with_header(run.notebook, header)
     publish_outputs(paged, repo_root=repo_root, output_dir=run.output_dir)
     body, figures = _export(paged, stem=script.stem)
-    digests = _page_digests(body, figures, provenance=run.provenance)
-    text = body + _provenance_comment(run.provenance, digests)
+    digests = page_digests(body, figures, origin=run.provenance)
+    text = body + record_comment(_PageRecord(provenance=run.provenance, page=digests))
     leaks = local_paths(text)
     if leaks:
         msg = f"{script}: an output holds a local path: {', '.join(sorted(leaks))}"
@@ -226,13 +209,8 @@ def read_provenance(page: Path) -> Provenance:  # noqa: DOC502  # raised by read
     return provenance
 
 
-def _read_record(text: str, *, page: Path) -> tuple[Provenance, _PageDigests, str]:
+def _read_record(text: str, *, page: Path) -> tuple[Provenance, PageDigests, str]:  # noqa: DOC502  # raised by read_page_record
     """A page's provenance, the digests of the page as written, and its text without the record.
-
-    The record is the page's last marker, as generation writes it after the page's text; an
-    output that prints a marker of its own comes before it. The record's comment and the line
-    endings around it are what generation added, so the text without them is what the body
-    digest covers.
 
     Args:
         text: The page's text, as :func:`~substrax.notebooks.text.read_utf8` reads it.
@@ -243,14 +221,9 @@ def _read_record(text: str, *, page: Path) -> tuple[Provenance, _PageDigests, st
 
     Raises:
         ValueError: If the page records no provenance, or a record that is not JSON or not the
-            record a page holds: a field missing, undeclared or of the wrong type.
+            record a page holds (:func:`~substrax.notebooks.page_records.read_page_record`).
     """
-    match = next(reversed(list(_PROVENANCE.finditer(text))), None)
-    if match is None:
-        msg = f"{page} records no {_MARKER} provenance"
-        raise ValueError(msg)
-    record = read_record(_PageRecord, json.loads(match.group("json")))
-    unrecorded = text[: match.start()] + text[match.end() :].lstrip("\n")
+    record, unrecorded = read_page_record(text, page=page, record_type=_PageRecord)
     return record.provenance, record.page, unrecorded
 
 
@@ -292,9 +265,9 @@ def _check_page(
         problems.append(
             PageProblem(script=script, kind="stale", detail="made from another version")
         )
-    edited = _edited(unrecorded, digests, provenance=provenance, directory=page.parent)
-    if edited:
-        problems.append(PageProblem(script=script, kind="edited", detail=", ".join(edited)))
+    found = edited(unrecorded, digests, origin=provenance, directory=page.parent)
+    if found:
+        problems.append(PageProblem(script=script, kind="edited", detail=", ".join(found)))
     size = _measured_size(text, source=provenance.source, config=config)
     if size is not None and size > config.page_size_bytes:
         detail = _over_the_limit(size, config)
@@ -495,57 +468,3 @@ def _title_end(markdown: str) -> int | None:
     if first is None or first.type != "heading_open" or first.tag != "h1" or first.map is None:
         return None
     return first.map[1]
-
-
-def _header(provenance: Provenance, *, source_url: str) -> str:
-    """Where and how long the run took, links to the script and notebook, and the run command."""
-    versions = ", ".join(f"{name} {version}" for name, version in provenance.versions.items())
-    command = RUN_COMMAND.format(source=shlex.quote(provenance.source))
-    script_url = f"{source_url}/{quote(provenance.source)}"
-    notebook_url = script_url.removesuffix(".py") + ".ipynb"
-    return (
-        f"> Ran in {provenance.seconds} s on {provenance.device} ({versions}), from "
-        f"[`{provenance.source}`]({script_url}) ([notebook]({notebook_url})). "
-        f"Run it from the repository root:\n\n```bash\n{command}\n```"
-    )
-
-
-def _provenance_comment(provenance: Provenance, digests: _PageDigests) -> str:
-    """The comment :func:`read_provenance` reads, closing the page: provenance and page digests."""
-    record = dump_record(_PageRecord(provenance=provenance, page=digests))
-    return f"\n<!-- {_MARKER}: {json.dumps(record, sort_keys=True)} -->\n"
-
-
-def _page_digests(body: str, figures: dict[str, bytes], *, provenance: Provenance) -> _PageDigests:
-    """The sha256 of the page's text before its record, of the record, and of each figure."""
-    return _PageDigests(
-        body=text_sha256(body + "\n"),
-        record=_record_sha256(provenance),
-        figures={name: hashlib.sha256(data).hexdigest() for name, data in figures.items()},
-    )
-
-
-def _edited(
-    unrecorded: str, digests: _PageDigests, *, provenance: Provenance, directory: Path
-) -> list[str]:
-    """What differs from the page as written: its text, its record, or a figure still present.
-
-    ``unrecorded`` is the page's text without its provenance record. The record is checked as
-    the provenance it holds, so an edited script hash, source or output list is found; a figure
-    that is gone is reported as missing instead.
-    """
-    edited = []
-    if text_sha256(unrecorded) != digests.body:
-        edited.append("the page's text")
-    if _record_sha256(provenance) != digests.record:
-        edited.append("the provenance record")
-    for name, digest in sorted(digests.figures.items()):
-        figure = directory / name
-        if figure.is_file() and hashlib.sha256(figure.read_bytes()).hexdigest() != digest:
-            edited.append(name)
-    return edited
-
-
-def _record_sha256(provenance: Provenance) -> str:
-    """The sha256 of a provenance as the record writes it: ``dump_record``'s JSON, keys sorted."""
-    return hashlib.sha256(json.dumps(dump_record(provenance), sort_keys=True).encode()).hexdigest()
