@@ -14,7 +14,6 @@ under the task's outputs.
 from __future__ import annotations
 
 import ast
-import hashlib
 import inspect
 import json
 import subprocess
@@ -27,7 +26,7 @@ from pathlib import Path
 from substrax.examples import lexical_path
 from substrax.notebooks import kernel_setup
 from substrax.notebooks.kernel_setup import is_guarded_main_call
-from substrax.notebooks.run import RunOrigin
+from substrax.notebooks.run import RunOrigin, script_sha256
 from substrax.notebooks.text import read_utf8
 from substrax.recipes import recipe_source
 from substrax.records import dump_record, read_record
@@ -116,7 +115,7 @@ def run_recipe(recipe: Path, *, repo_root: Path, distribution: str) -> RecipeRec
         raise RecipeRunError(msg)
     return RecipeRecord(
         source=source,
-        sha256=hashlib.sha256(recipe.read_bytes()).hexdigest(),
+        sha256=script_sha256(recipe),
         seconds=round(reported.seconds, 1),
         device=reported.device,
         versions=reported.versions,
