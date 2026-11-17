@@ -12,7 +12,7 @@
 | `substrax.notebooks.pages` | `generate_page` writes `docs/examples/<path>.md` from a run; `check_page` and `compare_with_run` check a committed page |
 | `substrax.notebooks.conformance` | The guide's mechanical rules, by the ids the guide names them by |
 | `substrax.notebooks.environment_writes` | `environment_writes` names the variables a statement writes into the process environment, for the `no-env-writes` rule and the source scans alike |
-| `substrax.notebooks.corpus` | `corpus_problems` holds a repository's examples as a whole to the guide's corpus rules; `reaches_every_example` and `is_touched` decide which runs a change since a ref keeps |
+| `substrax.notebooks.corpus` | `corpus_problems` holds a repository's examples, and the recipes beside them, as a whole to the guide's corpus rules; `reaches_every_example` and `is_touched` decide which runs a change since a ref keeps |
 | `substrax.notebooks.config` | The `[tool.substrax.examples]` settings |
 | `substrax.notebooks.text` | `read_utf8`, the one way the tools read a script, notebook, page or hand-written document: UTF-8, a byte order mark dropped, every line ending `\n`, `NotUtf8Error` otherwise; `write_utf8`, how a notebook or page is written: UTF-8 with `\n` line endings on every platform; `text_sha256`, the digest a page records of its script and its own text |
 | `substrax.notebooks.repository` | The git queries the tools make |

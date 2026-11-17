@@ -396,6 +396,8 @@ shrinking what it reads.
 
 ::: substrax.examples
 
+::: substrax.recipes
+
 ::: substrax.testing.example_suite
 
 ::: substrax.testing.compute

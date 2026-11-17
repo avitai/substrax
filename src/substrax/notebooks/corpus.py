@@ -1,11 +1,11 @@
 """A repository's examples as a whole, and which of their runs a change reaches.
 
 :func:`corpus_problems` holds the examples to the guide's corpus rules: there is at least one, every
-file under ``docs/examples`` is an example's page or one of its figures, every notebook under
-``examples`` has its script, a hand-written ``python examples/...`` or ``uv run python
-examples/...`` command in a tracked Markdown file names a file that exists, and ``mkdocs.yml`` lets
-no page leave the nav unnoticed. :func:`reaches_every_example` and
-:func:`is_touched` decide which runs a change since a ref keeps.
+file under ``docs/examples`` is an example's page or one of its figures or a recipe's page, every
+notebook under ``examples`` has its script, every recipe under ``recipes`` has its example, a
+hand-written ``python examples/...`` or ``uv run python examples/...`` command in a tracked
+Markdown file names a file that exists, and ``mkdocs.yml`` lets no page leave the nav unnoticed.
+:func:`reaches_every_example` and :func:`is_touched` decide which runs a change since a ref keeps.
 """
 
 from __future__ import annotations
@@ -19,6 +19,13 @@ from substrax.examples import example_source, is_private
 from substrax.notebooks import repository
 from substrax.notebooks.pages import figures_directory, page_path
 from substrax.notebooks.text import NotUtf8Error, read_utf8
+from substrax.recipes import (
+    discover_recipes,
+    paired_example,
+    recipe_page_path,
+    RECIPE_PAGE_SUFFIX,
+    RECIPES_DIRECTORY,
+)
 
 
 LIBRARY_PATHS = ("src/", "pyproject.toml", "uv.lock")
@@ -48,15 +55,16 @@ def corpus_problems(repo_root: Path, examples: frozenset[Path]) -> list[str]:
 
     Returns:
         One line per problem: no example, a file under ``docs/examples`` that is no example's page
-        or figure, a notebook with no script, a hand-written command naming a missing file, a
-        mkdocs nav that lets a page go unlisted, or a Markdown file or ``mkdocs.yml`` that is not
-        UTF-8.
+        or figure nor a recipe's page, a notebook with no script, a recipe with no example, a
+        hand-written command naming a missing file, a mkdocs nav that lets a page go unlisted, or
+        a Markdown file or ``mkdocs.yml`` that is not UTF-8.
     """
     if not examples:
         return [f"no example under {repo_root / 'examples'}"]
     return [
         *_strays_under_docs_examples(repo_root, examples),
         *_notebooks_without_scripts(repo_root, examples),
+        *_recipes_without_examples(repo_root, examples),
         *_dead_commands(repo_root),
         *_unlisted_pages_allowed(repo_root),
     ]
@@ -107,29 +115,67 @@ def _own_paths(script: Path, repo_root: Path) -> set[str]:
 
 
 def _strays_under_docs_examples(repo_root: Path, examples: frozenset[Path]) -> list[str]:
-    """The files under ``docs/examples`` that are neither an example's page nor one of its figures.
+    """The files under ``docs/examples`` that are no example's page or figure, nor a recipe's page.
 
     The figures of ``examples/<path>.py`` live in its page's figures directory,
     ``docs/examples/<path>_files``; the page of ``examples/data_files/loading.py`` lives in
-    ``docs/examples/data_files``, which is then a page directory, not a figures directory.
+    ``docs/examples/data_files``, which is then a page directory, not a figures directory. A
+    recipe's page sits beside its example's (:func:`substrax.recipes.recipe_page_path`).
     """
     pages_root = repo_root / "docs" / "examples"
     if not pages_root.is_dir():
         return []
     pages = {page_path(script, repo_root=repo_root).resolve() for script in examples}
     figures = {figures_directory(page) for page in pages}
-    strays = [
-        path
-        for path in sorted(pages_root.rglob("*"))
-        if path.is_file()
-        and path.resolve() not in pages
-        and not any(path.resolve().is_relative_to(directory) for directory in figures)
-    ]
+    made = pages | _recipe_pages(repo_root)
     return [
-        f"{path.relative_to(repo_root).as_posix()}: docs/examples holds generated pages and their "
-        f"figures only, and no example makes this file; an examples overview lives at {OVERVIEW}"
-        for path in strays
+        _stray_problem(path, repo_root)
+        for path in sorted(pages_root.rglob("*"))
+        if path.is_file() and not _is_made(path.resolve(), made, figures)
     ]
+
+
+def _recipe_pages(repo_root: Path) -> set[Path]:
+    """Where the pages of a repository's recipes live, resolved."""
+    return {
+        recipe_page_path(recipe, repo_root=repo_root).resolve()
+        for recipe in discover_recipes(repo_root)
+    }
+
+
+def _is_made(path: Path, pages: set[Path], figures: set[Path]) -> bool:
+    """Whether a resolved file is one of ``pages`` or lies in one of the ``figures`` directories."""
+    return path in pages or any(path.is_relative_to(directory) for directory in figures)
+
+
+def _stray_problem(path: Path, repo_root: Path) -> str:
+    """The problem a file under ``docs/examples`` that no example or recipe makes is."""
+    relative = path.relative_to(repo_root).as_posix()
+    if relative.endswith(RECIPE_PAGE_SUFFIX):
+        below = PurePosixPath(relative).relative_to("docs/examples").as_posix()
+        recipe = f"{RECIPES_DIRECTORY}/{below.removesuffix(RECIPE_PAGE_SUFFIX)}.py"
+        return (
+            f"{relative}: no recipe makes this page; a recipe page is written from a run of "
+            f"{recipe}, so remove the page or restore the recipe"
+        )
+    return (
+        f"{relative}: docs/examples holds generated pages and their figures only, and no example "
+        f"makes this file; an examples overview lives at {OVERVIEW}"
+    )
+
+
+def _recipes_without_examples(repo_root: Path, examples: frozenset[Path]) -> list[str]:
+    """The recipes whose example is gone, as a rename or a removal of the example leaves behind."""
+    problems = []
+    for recipe in discover_recipes(repo_root):
+        example = paired_example(recipe, repo_root=repo_root)
+        if example.resolve() not in examples:
+            problems.append(
+                f"{recipe.relative_to(repo_root).as_posix()}: a recipe is the full-scale run of an "
+                f"example, and {example.relative_to(repo_root).as_posix()} is none; remove the "
+                "recipe or restore its example"
+            )
+    return problems
 
 
 def _notebooks_without_scripts(repo_root: Path, examples: frozenset[Path]) -> list[str]:
