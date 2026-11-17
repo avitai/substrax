@@ -43,8 +43,8 @@ Every command runs from the repository root after `source ./activate.sh`.
   Examples section of the docs navigation. The page records the digest of its text, of its
   provenance record and of each figure as written, so a change by hand, or by a formatter, is
   found. Checked: `page`
-- A page whose example was renamed, moved or removed goes with it, and so does its notebook; so
-  does a hand-written `python examples/...` or `uv run python examples/...` command naming a file
+- A page whose example was renamed, moved or removed goes with it, and so do its notebook, its
+  recipe and the recipe's page ([Full recipes](#full-recipes)); so does a hand-written `python examples/...` or `uv run python examples/...` command naming a file
   that no longer exists. A path written as a shape, `examples/<topic>/<name>.py`, is not a
   command. Checked: `corpus`
 
@@ -360,6 +360,60 @@ def test_the_whole_batch_is_normalised(example_run: ExampleRunner) -> None:
     assert normalised["mean_error"] < 1e-6
 ```
 
+## Full recipes
+
+An example runs at the size its page shows, on every lane. When it ports a published reference,
+the reference's own configuration at its published scale is the example's recipe,
+`recipes/<topic>/<name>.py` at the example's path below `recipes`, run on a GPU lane and never in
+CPU CI. An example with no published number has no recipe.
+
+- A recipe is a plain Python script, not a notebook; start from the
+  [template](recipe_template.py). Its module docstring opens with one line, the title of its page,
+  and names the reference: the paper, the repository and commit, the table or figure whose value
+  it reproduces, and the margin it must reproduce it within, derived from the spread the reference
+  reports across its runs.
+- Every setting is a named constant whose docstring cites the line of the reference it copies.
+  `main()` reads no arguments and returns, as a mapping JSON holds, each measured value beside the
+  published one it reproduces, `published_<name>`.
+- The example and its recipe call the repository's API and differ in their constants and in what
+  `main()` returns. Logic both need belongs in the package; a recipe that would copy a block of its
+  example shows an API the package is missing.
+- The example's Overview says what its run reduces against the reference (data, resolution,
+  steps), and its Next Steps links the recipe's page, `<name>.recipe.md`.
+- A recipe is held to the rules about code above, `RECIPE_RULES`: `parses`, `main`,
+  `no-arguments`, `no-backend-forcing`, `no-env-writes`, `artifacts`, `no-star-imports`,
+  `typed-keys`, `gpu-check` (a recipe that needs a GPU calls `require_gpu()` right after its
+  imports, and one that does not never calls it) and `page`. The commit hook checks every one but
+  `page`, and `recipes/<path>.py::follows-the-guide` checks them all. ruff and pyright check a
+  recipe like any code, so a change to the API it calls fails the pull request although CI never
+  runs it. `examples::corpus` reports a recipe whose example is gone, and a recipe's page whose
+  recipe is gone.
+- A recipe runs as a compute job's task when it is written or changed, its cost quoted first, and
+  its page is written from that run:
+
+```toml
+# pyproject.toml
+[tool.substrax.compute.jobs.recipes]
+recipes = ["recipes"]
+extras = ["cuda12"]
+resources = { accelerator = { kind = "A100", count = 1 } }
+timeout_seconds = 14400
+runtime = { platforms = ["cuda", "cpu"] }
+```
+
+```bash
+uv run substrax-compute run recipes
+uv run substrax-compute fetch <run-id> --into ~/runs
+uv run substrax-notebooks recipe-page ~/runs/<run-id>/<task>/recipe_record/record.json
+```
+
+  Each task runs `python -m substrax.notebooks recipe recipes/<path>.py`, which runs the recipe as
+  its script in a fresh interpreter and writes what `main()` returned, with the recipe's digest and
+  the run's devices and versions, to `recipe_record/record.json` under the task's outputs.
+  `recipe-page` writes the recipe's page, `docs/examples/<path>.recipe.md` beside the example's,
+  from that record, and refuses a record of another version of the recipe. Commit the page with
+  the recipe, and list it in the docs navigation after its example.
+
 ## Checklist
 
 A reviewer reads the page and the script for what no check can see:
@@ -376,3 +430,6 @@ A reviewer reads the page and the script for what no check can see:
   page shows, and each figure is shown with `plt.show()`.
 - Tables, diagrams and callouts appear where they help and nowhere else.
 - Next Steps links to examples and API pages that exist.
+- A recipe differs from its example in its constants and in what `main()` returns; logic both
+  need is in the repository's package, and each constant cites the line of the reference it
+  copies.
