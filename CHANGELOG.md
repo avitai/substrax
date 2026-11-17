@@ -28,7 +28,8 @@ and uses semantic versioning while the public API stabilizes.
 - `substrax-notebooks recipe RECIPE` runs a recipe as its script in a fresh interpreter, so no
   module the runner imported stands in for one of the recipe's (its directory first on
   `sys.path`, its path as `sys.argv[0]`, `__name__` `"__main__"`), and writes what its `main()`
-  returned, with the recipe's path, digest, wall time, devices and versions, to
+  returned, with the recipe's path, digest (`script_sha256`, the identity a page records), wall
+  time, devices and versions, to
   `$AVITAI_OUTPUT_DIR/recipe_record/record.json`: `substrax.notebooks.recipe_run` (`run_recipe`,
   `write_record`, `RecipeRecord`). A recipe without a top-level `__main__` guard calling `main()`,
   whose run exits with a status other than 0, or whose `main()` returns what JSON cannot hold

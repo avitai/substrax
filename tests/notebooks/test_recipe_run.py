@@ -11,6 +11,7 @@ import pytest
 from _example_texts import write_recipe
 
 from substrax.notebooks.recipe_run import RecipeRecord, RecipeRunError, run_recipe, write_record
+from substrax.notebooks.run import script_sha256
 from substrax.records import read_record
 
 
@@ -113,3 +114,13 @@ def test_any_other_exit_and_any_error_end_the_run_with_its_status(
         _run(tmp_path / "second", raises)
 
     assert "ValueError: diverged" in capfd.readouterr().err
+
+
+def test_a_record_names_the_recipe_by_the_identity_a_page_records(tmp_path: Path) -> None:
+    """Windows line endings, as git's core.autocrlf checks a file out, leave the same version."""
+    recipe = write_recipe(tmp_path, _RETURNS)
+    recipe.write_bytes(_RETURNS.replace("\n", "\r\n").encode())
+
+    record = run_recipe(recipe, repo_root=tmp_path, distribution="demo")
+
+    assert record.sha256 == script_sha256(recipe) == hashlib.sha256(_RETURNS.encode()).hexdigest()
