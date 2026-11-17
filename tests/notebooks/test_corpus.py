@@ -73,6 +73,45 @@ def test_a_notebook_with_no_example_script_is_a_problem(tmp_path: Path) -> None:
     ]
 
 
+def _recipe(repo: Path, relative: str) -> None:
+    (repo / "recipes" / relative).parent.mkdir(parents=True, exist_ok=True)
+    (repo / "recipes" / relative).write_text("", encoding="utf-8")
+
+
+def test_a_recipe_its_page_and_its_private_helpers_beside_their_example_are_no_problem(
+    tmp_path: Path,
+) -> None:
+    repo, _ = write_example(tmp_path)
+    _recipe(repo, "sorting.py")
+    _recipe(repo, "_common/config.py")
+    _docs_examples_file(repo, "sorting.recipe.md")
+
+    assert corpus_problems(repo, _examples(repo)) == []
+
+
+def test_a_recipe_whose_example_is_gone_is_a_problem(tmp_path: Path) -> None:
+    """A recipe is an example's full-scale run; one left behind by a rename runs nothing shown."""
+    repo, _ = write_example(tmp_path)
+    _recipe(repo, "topic/old_name.py")
+
+    assert corpus_problems(repo, _examples(repo)) == [
+        "recipes/topic/old_name.py: a recipe is the full-scale run of an example, and "
+        "examples/topic/old_name.py is none; remove the recipe or restore its example"
+    ]
+
+
+def test_a_recipe_page_whose_recipe_is_gone_is_a_problem_naming_the_recipe(
+    tmp_path: Path,
+) -> None:
+    repo, _ = write_example(tmp_path)
+    _docs_examples_file(repo, "sorting.recipe.md")
+
+    assert corpus_problems(repo, _examples(repo)) == [
+        "docs/examples/sorting.recipe.md: no recipe makes this page; a recipe page is written "
+        "from a run of recipes/sorting.py, so remove the page or restore the recipe"
+    ]
+
+
 def test_a_hand_written_command_naming_no_file_is_a_problem(tmp_path: Path) -> None:
     repo, _ = write_example(tmp_path)
     (repo / "README.md").write_text("Run `uv run python examples/gone.py`.\n", encoding="utf-8")

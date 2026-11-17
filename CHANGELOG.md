@@ -7,6 +7,15 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.recipes`: a repository's full recipes, `recipes/<path>.py`, each the published-scale
+  run of the example `examples/<path>.py` it pairs with by path. `discover_recipes` lists them by
+  the rule examples follow (a private part, starting with `_`, is no recipe), `paired_example`
+  gives a recipe's example, and `recipe_page_path` its page, `docs/examples/<path>.recipe.md`,
+  beside the example's. `corpus_problems` reports a recipe whose example is gone and a recipe page
+  whose recipe is gone, and no longer reports a recipe's page as a stray under `docs/examples`.
+
 ## [0.1.27] - 2026-11-14
 
 ### Added
