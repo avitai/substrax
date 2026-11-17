@@ -11,6 +11,7 @@
 | `substrax.notebooks.kernel_setup` | What a run gives the example's kernel before its first cell: a script run's `sys.path`, `sys.argv` and `__file__`, the guard that keeps `main()`'s value, the reporter, and the recorder IPython calls after each cell, which writes the qualified class of a cell's exception; and `run_as_script`, which runs a recipe in a fresh interpreter; sent as source, so neither the kernel nor that interpreter imports substrax |
 | `substrax.notebooks.recipe_run` | `run_recipe` runs a recipe as its script in a fresh interpreter and records what its `main()` returned, with its path, digest, wall time, devices and versions (`RecipeRecord`); `write_record` writes the record |
 | `substrax.notebooks.pages` | `generate_page` writes `docs/examples/<path>.md` from a run; `check_page` and `compare_with_run` check a committed page |
+| `substrax.notebooks.page_records` | The header that opens a generated page and the record that closes it: the run's origin and the sha256 of the page's text, origin and figures, so an edit by hand is found (`read_page_record`, `edited`) |
 | `substrax.notebooks.conformance` | The guide's mechanical rules, by the ids the guide names them by |
 | `substrax.notebooks.environment_writes` | `environment_writes` names the variables a statement writes into the process environment, for the `no-env-writes` rule and the source scans alike |
 | `substrax.notebooks.corpus` | `corpus_problems` holds a repository's examples, and the recipes beside them, as a whole to the guide's corpus rules; `reaches_every_example` and `is_touched` decide which runs a change since a ref keeps |
@@ -32,6 +33,8 @@ The shared example tests that use them are `substrax.testing.example_suite` ([Te
 ::: substrax.notebooks.recipe_run
 
 ::: substrax.notebooks.pages
+
+::: substrax.notebooks.page_records
 
 ::: substrax.notebooks.conformance
 

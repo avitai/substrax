@@ -50,6 +50,9 @@ and uses semantic versioning while the public API stabilizes.
   example", since they hold over recipes too; the path before each finding says which file it is.
 - `substrax.examples.ExamplePathError` is `ScriptPathError`, raised for a path that is no
   example's or recipe's.
+- The header that opens a generated page and the record that closes it (the run's origin and the
+  sha256 of the page's text, origin and figures) are `substrax.notebooks.page_records`, which an
+  example's page and a recipe's page share; a page's record keeps its format.
 
 ## [0.1.27] - 2026-11-14
 
