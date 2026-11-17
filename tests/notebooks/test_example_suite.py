@@ -16,6 +16,8 @@ from _example_texts import CONFIG, git, GOOD, GPU_REQUIRED, RECIPE, write_recipe
 from substrax.notebooks.cli import examples_pytest_options
 from substrax.notebooks.pages import generate_page
 from substrax.notebooks.pairs import convert
+from substrax.notebooks.recipe_pages import write_recipe_page
+from substrax.notebooks.recipe_run import run_recipe
 
 
 PYPROJECT = f"""\
@@ -120,7 +122,10 @@ def test_an_example_breaking_a_rule_fails_naming_the_rule(pytester: pytest.Pytes
 
 def test_a_recipe_is_held_to_the_guide_s_code_rules(pytester: pytest.Pytester) -> None:
     repo = _repository(pytester)
-    write_recipe(repo)
+    recipe = write_recipe(repo, RECIPE.replace("1_048_576", "64"))
+    write_recipe_page(
+        run_recipe(recipe, repo_root=repo, distribution="demo"), repo_root=repo, config=CONFIG
+    )
     write_recipe(
         repo, RECIPE.replace("jax.random.key(0)", "jax.random.PRNGKey(0)"), relative="broken.py"
     )

@@ -5,6 +5,7 @@ substrax-notebooks convert EXAMPLE... [--repo-root DIR]
 substrax-notebooks check SCRIPT... [--repo-root DIR]
 substrax-notebooks page EXAMPLE... [--into-outputs] [--repo-root DIR]
 substrax-notebooks recipe RECIPE [--repo-root DIR]
+substrax-notebooks recipe-page RECORD... [--repo-root DIR]
 substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECONDS]
                         [--repo-root DIR]
 ```
@@ -19,7 +20,9 @@ an EXAMPLE or a RECIPE, an existing ``.py`` under ``<repo root>/recipes`` that i
 page and its figures under the run's outputs (``$AVITAI_OUTPUT_DIR/page/docs/examples/...``)
 instead, as a compute task does. ``recipe`` runs a recipe as its script and writes what its
 ``main()`` returned, with where it came from, to ``$AVITAI_OUTPUT_DIR/recipe_record/record.json``
-(:mod:`substrax.notebooks.recipe_run`), as a compute task does. An EXAMPLE is an existing ``.py``
+(:mod:`substrax.notebooks.recipe_run`), as a compute task does, and ``recipe-page`` writes the
+page of each RECORD's recipe, ``docs/examples/<path>.recipe.md``, from a record fetched from such a
+run (:mod:`substrax.notebooks.recipe_pages`). An EXAMPLE is an existing ``.py``
 under ``<repo root>/examples``, or its notebook, which names the script beside it: a private one (a
 path part starting with ``_``) is skipped, and any other path is refused.
 ``page`` reports a GPU-required example run without a GPU in one line. The repository root is the
@@ -42,6 +45,7 @@ is, and one outside the repository root is refused. The settings are read first,
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -56,14 +60,23 @@ from substrax.notebooks.conformance import (
     check_example,
     check_recipe,
     no_gpu_reason,
+    RECIPE_SOURCE_RULES,
     SOURCE_RULES,
 )
 from substrax.notebooks.pages import generate_page, PageError
 from substrax.notebooks.pairs import convert
-from substrax.notebooks.recipe_run import RecipeRunError, RECORD_OUTPUT, run_recipe, write_record
+from substrax.notebooks.recipe_pages import write_recipe_page
+from substrax.notebooks.recipe_run import (
+    RecipeRecord,
+    RecipeRunError,
+    RECORD_OUTPUT,
+    run_recipe,
+    write_record,
+)
 from substrax.notebooks.run import RunError
 from substrax.notebooks.text import NotUtf8Error
 from substrax.recipes import discover_recipes, recipe_source, RECIPES_DIRECTORY
+from substrax.records import read_record
 
 
 _SUCCESS, _UNSUCCESSFUL, _REFUSED = 0, 1, 2
@@ -151,6 +164,12 @@ def _parser() -> argparse.ArgumentParser:
     runner.add_argument("recipe", type=Path, metavar="RECIPE")
     runner.add_argument("--repo-root", type=Path, default=Path.cwd())
     runner.set_defaults(command=_recipe)
+    pager = commands.add_parser(
+        "recipe-page", help="write each recipe's page from the record a run of it left"
+    )
+    pager.add_argument("records", nargs="+", type=Path, metavar="RECORD")
+    pager.add_argument("--repo-root", type=Path, default=Path.cwd())
+    pager.set_defaults(command=_recipe_page)
     tester = commands.add_parser(
         "test", help="run the examples and the tests of their results apart from the other tests"
     )
@@ -308,7 +327,9 @@ def _check(arguments: argparse.Namespace, examples: list[Path], recipes: list[Pa
         *(
             finding
             for recipe in recipes
-            for finding in check_recipe(recipe, repo_root=arguments.repo_root, config=config)
+            for finding in check_recipe(
+                recipe, repo_root=arguments.repo_root, config=config, rules=RECIPE_SOURCE_RULES
+            )
         ),
     ]
     for finding in findings:
@@ -347,6 +368,36 @@ def _recipe(arguments: argparse.Namespace) -> int:
         return _UNSUCCESSFUL
     sys.stdout.write(f"{write_record(record, resolve_output_dir(RECORD_OUTPUT).path)}\n")
     return _SUCCESS
+
+
+def _recipe_page(arguments: argparse.Namespace) -> int:
+    """Write the page of each record's recipe; refuse a record that is none, or of no recipe."""
+    records = [_read_recipe_record(path) for path in arguments.records]
+    recipes, refusals = _named_recipes(
+        [arguments.repo_root / record.source for record in records], repo_root=arguments.repo_root
+    )
+    if refusals or len(recipes) != len(records):
+        raise _UsageError("; ".join(refusals) or "a record names a private recipe")
+    config = _read_settings(arguments.repo_root)
+    status = _SUCCESS
+    for record in records:
+        try:
+            page = write_recipe_page(record, repo_root=arguments.repo_root, config=config)
+        except PageError as error:
+            sys.stderr.write(f"substrax-notebooks: {error}\n")
+            status = _UNSUCCESSFUL
+            continue
+        sys.stdout.write(f"{page}\n")
+    return status
+
+
+def _read_recipe_record(path: Path) -> RecipeRecord:
+    """The record a recipe's run wrote; a file that is none is the user's to fix."""
+    try:
+        return read_record(RecipeRecord, json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, ValueError) as error:
+        msg = f"{path} is not a recipe's record: {error}"
+        raise _UsageError(msg) from error
 
 
 def _page_failure(script: Path, error: RunError | PageError) -> str:

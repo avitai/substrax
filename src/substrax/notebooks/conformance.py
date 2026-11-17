@@ -35,6 +35,7 @@ from substrax.notebooks.environment_writes import environment_writes, OS_MUTATOR
 from substrax.notebooks.kernel_setup import is_guarded_main_call
 from substrax.notebooks.pages import check_page
 from substrax.notebooks.pairs import check_pair
+from substrax.notebooks.recipe_pages import check_recipe_page
 from substrax.notebooks.run import RunError
 from substrax.notebooks.text import NotUtf8Error, read_utf8
 
@@ -1151,6 +1152,13 @@ def _recipe_gpu_check(recipe: _Example) -> list[str]:
     ]
 
 
+def _recipe_page(recipe: _Example) -> list[str]:
+    return [
+        f"{problem.kind}: {problem.detail}"
+        for problem in check_recipe_page(recipe.script, repo_root=recipe.repo_root)
+    ]
+
+
 def _page(example: _Example) -> list[str]:
     return [
         f"{problem.kind}: {problem.detail}"
@@ -1227,6 +1235,10 @@ RECIPE_RULES: Mapping[str, Rule] = {
             "A recipe calling require_gpu() calls it, no arguments, right after its imports.",
             _recipe_gpu_check,
         ),
+        Rule("page", "The recipe's page shows a run of this recipe.", _recipe_page),
     )
 }
-"""The guide's rules about code, held over a recipe by :func:`check_recipe`, in their order."""
+"""The guide's rules about code, and its page, held over a recipe by :func:`check_recipe`."""
+
+RECIPE_SOURCE_RULES = frozenset(RECIPE_RULES) - {"page"}
+"""The recipe rules that read only the recipe, needing no run of it: what a commit checks."""

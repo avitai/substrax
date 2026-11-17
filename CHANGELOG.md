@@ -39,6 +39,14 @@ and uses semantic versioning while the public API stabilizes.
   task's limit; `substrax.compute.recipe_tasks` makes them. `substrax.recipes.recipe_source` gives
   a recipe's path from the root, and `substrax.examples.source_below` the path of a script below
   either directory, refusing one reached through a symlink.
+- `substrax-notebooks recipe-page RECORD...` writes each recipe's page,
+  `docs/examples/<path>.recipe.md`, from a record fetched from its run
+  (`substrax.notebooks.recipe_pages`): the recipe's one-line summary as the title, the header an
+  example's page opens with, a link to the example's page, and what `main()` returned, as a table
+  for a flat mapping and as JSON otherwise. A record of another version of the recipe, or a value
+  holding a local path, is refused. The recipe rules gain `page` (`check_recipe_page`: a missing,
+  stale or edited page), which `RECIPE_SOURCE_RULES`, what `substrax-notebooks check` and the
+  commit hook apply, leaves out as `SOURCE_RULES` leaves out an example's.
 - `substrax.notebooks.kernel_setup.report` returns a run's report (`Report`: the devices, the
   versions, and `main()`'s value or why JSON cannot hold it), which `write_report` writes, and
   `run_as_script` runs a script as `python` runs it and writes that report with the run's wall time.
