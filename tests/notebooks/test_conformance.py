@@ -597,7 +597,7 @@ def test_load_dotenv_is_named_in_the_finding(tmp_path: Path) -> None:
     (finding,) = _findings(tmp_path, text)
 
     assert finding.detail == (
-        "the example loads a .env file into the environment with dotenv.load_dotenv(); it reads "
+        "the script loads a .env file into the environment with dotenv.load_dotenv(); it reads "
         "its settings from the environment and sets none"
     )
 

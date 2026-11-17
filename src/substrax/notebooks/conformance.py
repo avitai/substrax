@@ -189,7 +189,7 @@ class Rule:
     check: Callable[[_Example], list[str]]
 
 
-def check_example(
+def check_example(  # noqa: DOC502  # raised by _findings
     script: Path,
     *,
     repo_root: Path,
@@ -212,17 +212,62 @@ def check_example(
     Raises:
         KeyError: If a rule id is unknown.
     """
-    chosen = set(RULES) if rules is None else set(rules)
-    unknown = sorted(chosen - set(RULES))
+    return _findings(_read(script, repo_root=repo_root, config=config), RULES, rules)
+
+
+def check_recipe(  # noqa: DOC502  # raised by _findings
+    recipe: Path,
+    *,
+    repo_root: Path,
+    config: ExamplesConfig,
+    rules: Iterable[str] | None = None,
+) -> list[Finding]:
+    """Check one recipe against the guide's rules about code (:data:`RECIPE_RULES`).
+
+    A recipe is plain Python, read as one code cell: the rules about cells, sections and pages
+    do not apply, and the rules about code read it as they read an example.
+
+    Args:
+        recipe: The recipe, under ``repo_root / "recipes"``.
+        repo_root: The repository root.
+        config: The repository's example settings.
+        rules: The ids of the rules to check; every rule in :data:`RECIPE_RULES` when ``None``.
+
+    Returns:
+        Every finding, in rule order; empty when the recipe follows every rule checked.
+
+    Raises:
+        KeyError: If a rule id is unknown.
+    """
+    return _findings(_read_recipe(recipe, repo_root=repo_root, config=config), RECIPE_RULES, rules)
+
+
+def _findings(
+    script: _Example, registry: Mapping[str, Rule], rules: Iterable[str] | None
+) -> list[Finding]:
+    """Each finding of the ``rules`` of ``registry`` on a read script, in the registry's order.
+
+    Args:
+        script: The example or recipe, read.
+        registry: The rules by id, in the order they are reported.
+        rules: The ids of the rules to check; every rule in ``registry`` when ``None``.
+
+    Returns:
+        Every finding, in the registry's order.
+
+    Raises:
+        KeyError: If a rule id is not in ``registry``.
+    """
+    chosen = set(registry) if rules is None else set(rules)
+    unknown = sorted(chosen - set(registry))
     if unknown:
-        msg = f"unknown rule {unknown[0]!r}; the rules are {', '.join(RULES)}"
+        msg = f"unknown rule {unknown[0]!r}; the rules are {', '.join(registry)}"
         raise KeyError(msg)
-    example = _read(script, repo_root=repo_root, config=config)
     return [
-        Finding(rule=rule_id, script=script, detail=detail)
-        for rule_id, rule in RULES.items()
+        Finding(rule=rule_id, script=script.script, detail=detail)
+        for rule_id, rule in registry.items()
         if rule_id in chosen
-        for detail in rule.check(example)
+        for detail in rule.check(script)
     ]
 
 
@@ -289,25 +334,48 @@ def _read(script: Path, *, repo_root: Path, config: ExamplesConfig) -> _Example:
     A file that is not UTF-8 has no cells; a byte order mark, which Python accepts, is a problem of
     its own and is dropped before the other rules read the file.
     """
-    try:
-        text = read_utf8(script)
-    except NotUtf8Error as error:
-        return _Example(script, repo_root, config, [], _outline([]), None, [str(error)])
-    problems = []
-    if script.read_bytes().startswith(codecs.BOM_UTF8):
-        problems.append("the file opens with a byte order mark; save it as UTF-8 without one")
+    text, problems = _decoded(script)
+    if text is None:
+        return _Example(script, repo_root, config, [], _outline([]), None, problems)
     problems.extend(_markdown_form_problems(text))
     problems.extend(_cell_option_problems(text))
     cells = _cells(text)
-    try:
-        tree = ast.parse(text, filename=str(script))
-    except SyntaxError as error:
-        tree = None
-        problems.append(
-            f"line {error.lineno}: {error.msg} (a docstring may close a markdown cell early)"
-        )
+    tree = _parsed(text, script, problems, hint=" (a docstring may close a markdown cell early)")
     outline = _outline([source for kind, source in cells if kind == "markdown"])
     return _Example(script, repo_root, config, cells, outline, tree, problems)
+
+
+def _read_recipe(recipe: Path, *, repo_root: Path, config: ExamplesConfig) -> _Example:
+    """A recipe read as one code cell with no outline, and what keeps its source from being read."""
+    text, problems = _decoded(recipe)
+    if text is None:
+        return _Example(recipe, repo_root, config, [], _outline([]), None, problems)
+    tree = _parsed(text, recipe, problems, hint="")
+    return _Example(recipe, repo_root, config, [("code", text)], _outline([]), tree, problems)
+
+
+def _decoded(script: Path) -> tuple[str | None, list[str]]:
+    """A script's text, or ``None`` when it is not UTF-8, and the problems reading it found.
+
+    A byte order mark, which Python accepts, is a problem of its own and is dropped before the
+    other rules read the file.
+    """
+    try:
+        text = read_utf8(script)
+    except NotUtf8Error as error:
+        return None, [str(error)]
+    if script.read_bytes().startswith(codecs.BOM_UTF8):
+        return text, ["the file opens with a byte order mark; save it as UTF-8 without one"]
+    return text, []
+
+
+def _parsed(text: str, script: Path, problems: list[str], *, hint: str) -> ast.Module | None:
+    """The script's syntax tree, or ``None`` with its syntax error added to ``problems``."""
+    try:
+        return ast.parse(text, filename=str(script))
+    except SyntaxError as error:
+        problems.append(f"line {error.lineno}: {error.msg}{hint}")
+        return None
 
 
 def _markdown_form_problems(text: str) -> list[str]:
@@ -659,9 +727,9 @@ def _ends_with_main_guard(source: str) -> bool:
 
 def _no_backend_forcing(example: _Example) -> list[str]:
     return (
-        [f"the example sets {name}; JAX chooses the backend" for name in _forced_in_code(example)]
+        [f"the script sets {name}; JAX chooses the backend" for name in _forced_in_code(example)]
         + [
-            f"the example chooses its device with {how}; JAX chooses the device"
+            f"the script chooses its device with {how}; JAX chooses the device"
             for how in _devices_chosen(example)
         ]
         + [
@@ -906,8 +974,8 @@ def _no_env_writes(example: _Example) -> list[str]:
         isinstance(node, ast.Call) and _qualified(node.func, names) == _LOADS_DOTENV
         for node in example.code_nodes
     )
-    return [f"the example writes {key}; {_SETS_NONE}" for key in sorted(written)] + (
-        [f"the example loads a .env file into the environment with {_LOADS_DOTENV}(); {_SETS_NONE}"]
+    return [f"the script writes {key}; {_SETS_NONE}" for key in sorted(written)] + (
+        [f"the script loads a .env file into the environment with {_LOADS_DOTENV}(); {_SETS_NONE}"]
         if loads
         else []
     )
@@ -1053,6 +1121,36 @@ def _precedes_the_check(statement: ast.stmt) -> bool:
     )
 
 
+def _recipe_main(recipe: _Example) -> list[str]:
+    if recipe.tree is None:
+        return []
+    problems = _main_definition_problems(recipe.tree)
+    if not recipe.tree.body or not is_guarded_main_call(recipe.tree.body[-1]):
+        problems.append('the script does not end with `if __name__ == "__main__": main()`')
+    return problems
+
+
+def _recipe_gpu_check(recipe: _Example) -> list[str]:
+    """A problem when a recipe calls ``require_gpu()`` anywhere but right after its imports.
+
+    A recipe has no Devices line; one that needs a GPU says so by calling the check, which then
+    stops it before any work, as an example's Setup does (:func:`_calls_require_gpu`).
+    """
+    names = _module_names(recipe)
+    if recipe.tree is None or not any(
+        isinstance(node, ast.Call) and _qualified(node.func, names) in _REQUIRE_GPU
+        for node in recipe.code_nodes
+    ):
+        return []
+    if _calls_require_gpu(recipe.tree.body):
+        return []
+    return [
+        "a recipe calls substrax.devices.require_gpu() with no arguments right after its imports, "
+        "as a statement of its own or the value of an assignment, so it stops before any work "
+        "when there is no GPU"
+    ]
+
+
 def _page(example: _Example) -> list[str]:
     return [
         f"{problem.kind}: {problem.detail}"
@@ -1105,3 +1203,30 @@ RULES: Mapping[str, Rule] = {
 
 SOURCE_RULES = frozenset(RULES) - {"page"}
 """The rules that read only the example and its notebook, needing no run: what a commit checks."""
+
+RECIPE_RULES: Mapping[str, Rule] = {
+    rule.id: rule
+    for rule in (
+        Rule("parses", "UTF-8 Python without a byte order mark.", _parses),
+        Rule(
+            "main", "main() at top level, run by the script's closing __main__ guard.", _recipe_main
+        ),
+        *(
+            RULES[rule_id]
+            for rule_id in (
+                "no-arguments",
+                "no-backend-forcing",
+                "no-env-writes",
+                "artifacts",
+                "no-star-imports",
+                "typed-keys",
+            )
+        ),
+        Rule(
+            "gpu-check",
+            "A recipe calling require_gpu() calls it, no arguments, right after its imports.",
+            _recipe_gpu_check,
+        ),
+    )
+}
+"""The guide's rules about code, held over a recipe by :func:`check_recipe`, in their order."""

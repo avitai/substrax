@@ -102,6 +102,45 @@ if __name__ == "__main__":
 GPU_REQUIRED = GOOD.replace("| **Devices** | CPU-compatible |", "| **Devices** | GPU-required |")
 """``GOOD`` declaring that it needs a GPU; its Setup does not yet check for one."""
 
+RECIPE = '''"""Sorting at its published scale: the recipe of examples/sorting.py."""
+
+import jax
+import jax.numpy as jnp
+
+SIZE = 1_048_576
+"""The number of values sorted, as the reference sorts them."""
+
+
+def main() -> dict[str, float]:
+    """Sort the values and return the share of neighbours in order."""
+    values = jax.random.normal(jax.random.key(0), (SIZE,))
+    ordered = jnp.sort(values)
+    return {"in_order": float(jnp.mean(ordered[1:] >= ordered[:-1]))}
+
+
+if __name__ == "__main__":
+    main()
+'''
+"""A recipe following every recipe rule: plain Python, a bare ``main()`` and its guard."""
+
+
+def write_recipe(repo: Path, text: str = RECIPE, *, relative: str = "sorting.py") -> Path:
+    """Write a recipe under ``repo / "recipes"``.
+
+    Args:
+        repo: The repository root.
+        text: The recipe script.
+        relative: The recipe's path below ``recipes``.
+
+    Returns:
+        The recipe.
+    """
+    recipe = repo / "recipes" / relative
+    recipe.parent.mkdir(parents=True, exist_ok=True)
+    recipe.write_text(text, encoding="utf-8")
+    return recipe
+
+
 _MAIN = "def main() -> None:\n    print(sort_records(make_records()))"
 
 

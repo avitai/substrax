@@ -2,18 +2,21 @@
 
 ```text
 substrax-notebooks convert EXAMPLE... [--repo-root DIR]
-substrax-notebooks check EXAMPLE... [--repo-root DIR]
+substrax-notebooks check SCRIPT... [--repo-root DIR]
 substrax-notebooks page EXAMPLE... [--into-outputs] [--repo-root DIR]
 substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECONDS]
                         [--repo-root DIR]
 ```
 
 ``convert`` writes each example's clean notebook. ``check`` applies the guide's source rules
-(:data:`substrax.notebooks.conformance.SOURCE_RULES`) and runs nothing, which is what the
-``example-conformance`` pre-commit hook does on changed examples. ``page`` runs each example as
-its clean notebook within the repository's ``[tool.substrax.examples]`` budget and writes its docs
-page; with ``--into-outputs`` it writes the page and its figures under the run's outputs
-(``$AVITAI_OUTPUT_DIR/page/docs/examples/...``) instead, as a compute task does. An EXAMPLE is
+(:data:`substrax.notebooks.conformance.SOURCE_RULES`) to each example and its rules about code
+(:data:`~substrax.notebooks.conformance.RECIPE_RULES`) to each recipe, and runs nothing, which is
+what the ``example-conformance`` pre-commit hook does on changed examples and recipes; a SCRIPT is
+an EXAMPLE or a RECIPE, an existing ``.py`` under ``<repo root>/recipes`` that is not private.
+``page`` runs each example as its clean notebook within the repository's
+``[tool.substrax.examples]`` budget and writes its docs page; with ``--into-outputs`` it writes the
+page and its figures under the run's outputs (``$AVITAI_OUTPUT_DIR/page/docs/examples/...``)
+instead, as a compute task does. An EXAMPLE is
 an existing ``.py`` under ``<repo root>/examples``, or its notebook, which names the script beside
 it: a private one (a path part starting with ``_``) is skipped, and any other path is refused.
 ``page`` reports a GPU-required example run without a GPU in one line. The repository root is the
@@ -42,13 +45,25 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from substrax.artifacts import resolve_output_dir
-from substrax.examples import discover_examples, example_source, ExamplePathError
+from substrax.examples import (
+    discover_examples,
+    example_source,
+    ExamplePathError,
+    is_private,
+    lexical_path,
+)
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
-from substrax.notebooks.conformance import check_example, no_gpu_reason, SOURCE_RULES
+from substrax.notebooks.conformance import (
+    check_example,
+    check_recipe,
+    no_gpu_reason,
+    SOURCE_RULES,
+)
 from substrax.notebooks.pages import generate_page, PageError
 from substrax.notebooks.pairs import convert
 from substrax.notebooks.run import RunError
 from substrax.notebooks.text import NotUtf8Error
+from substrax.recipes import discover_recipes, RECIPES_DIRECTORY
 
 
 _SUCCESS, _UNSUCCESSFUL, _REFUSED = 0, 1, 2
@@ -70,6 +85,7 @@ class _UsageError(Exception):
 
 type _Command = Callable[[argparse.Namespace], int]
 type _ExamplesCommand = Callable[[argparse.Namespace, list[Path]], int]
+type _ScriptsCommand = Callable[[argparse.Namespace, list[Path], list[Path]], int]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -92,15 +108,25 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="substrax-notebooks", description=__doc__)
     commands = parser.add_subparsers(required=True)
-    for name, command, help_text in (
-        ("convert", _convert, "write each example's clean notebook"),
-        ("check", _check, "apply the guide's source rules; runs nothing"),
-        ("page", _page, "run each example as its clean notebook and write its docs page"),
+    for name, command, metavar, help_text in (
+        ("convert", _on_examples(_convert), "EXAMPLE", "write each example's clean notebook"),
+        (
+            "check",
+            _on_examples_and_recipes(_check),
+            "SCRIPT",
+            "apply the guide's source rules to examples and recipes; runs nothing",
+        ),
+        (
+            "page",
+            _on_examples(_page),
+            "EXAMPLE",
+            "run each example as its clean notebook and write its docs page",
+        ),
     ):
         subparser = commands.add_parser(name, help=help_text)
-        subparser.add_argument("examples", nargs="+", type=Path, metavar="EXAMPLE")
+        subparser.add_argument("examples", nargs="+", type=Path, metavar=metavar)
         subparser.add_argument("--repo-root", type=Path, default=Path.cwd())
-        subparser.set_defaults(command=_on_examples(command))
+        subparser.set_defaults(command=command)
         if name == "page":
             subparser.add_argument(
                 "--into-outputs",
@@ -140,6 +166,51 @@ def _on_examples(command: _ExamplesCommand) -> _Command:
         return command(arguments, selected)
 
     return run
+
+
+def _on_examples_and_recipes(command: _ScriptsCommand) -> _Command:
+    """``command`` given the examples and the recipes its arguments name, once all are accepted.
+
+    A path below ``<repo root>/recipes`` names a recipe and any other an example, as
+    :func:`_on_examples` takes it. A recipe is an existing ``.py`` that
+    :func:`substrax.recipes.discover_recipes` lists; a private one is skipped, and any other path
+    there is refused.
+    """
+
+    def run(arguments: argparse.Namespace) -> int:
+        recipes_root = lexical_path(arguments.repo_root / RECIPES_DIRECTORY)
+        named = [
+            (path, lexical_path(path).is_relative_to(recipes_root)) for path in arguments.examples
+        ]
+        examples, refusals = _named_examples(
+            [path for path, is_recipe in named if not is_recipe], repo_root=arguments.repo_root
+        )
+        recipes, recipe_refusals = _named_recipes(
+            [path for path, is_recipe in named if is_recipe], repo_root=arguments.repo_root
+        )
+        if refusals or recipe_refusals:
+            raise _UsageError("; ".join([*refusals, *recipe_refusals]))
+        return command(arguments, examples, recipes)
+
+    return run
+
+
+def _named_recipes(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], list[str]]:
+    """The recipes ``paths`` name, each once and private ones left out, and the refusals."""
+    root = lexical_path(repo_root / RECIPES_DIRECTORY)
+    discovered = {lexical_path(recipe) for recipe in discover_recipes(repo_root)}
+    selected: list[Path] = []
+    refusals: list[str] = []
+    for path in paths:
+        lexical = lexical_path(path)
+        if path.suffix != ".py" or not path.is_file():
+            refusals.append(f"{path} is not a recipe script (.py) under {root}")
+        elif lexical not in discovered:
+            if not is_private(lexical.relative_to(root)):
+                refusals.append(f"{path} is not a recipe under {root}")
+        elif path not in selected:
+            selected.append(path)
+    return selected, refusals
 
 
 def _named_examples(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], list[str]]:
@@ -190,14 +261,21 @@ def _convert(arguments: argparse.Namespace, examples: list[Path]) -> int:
     return status
 
 
-def _check(arguments: argparse.Namespace, examples: list[Path]) -> int:
+def _check(arguments: argparse.Namespace, examples: list[Path], recipes: list[Path]) -> int:
     config = _read_settings(arguments.repo_root)
     findings = [
-        finding
-        for script in examples
-        for finding in check_example(
-            script, repo_root=arguments.repo_root, config=config, rules=SOURCE_RULES
-        )
+        *(
+            finding
+            for script in examples
+            for finding in check_example(
+                script, repo_root=arguments.repo_root, config=config, rules=SOURCE_RULES
+            )
+        ),
+        *(
+            finding
+            for recipe in recipes
+            for finding in check_recipe(recipe, repo_root=arguments.repo_root, config=config)
+        ),
     ]
     for finding in findings:
         sys.stdout.write(f"{finding}\n")
@@ -299,10 +377,17 @@ def _pytest_command(arguments: argparse.Namespace, *, repo_root: Path) -> list[s
 
 
 def _default_paths(repo_root: Path) -> list[str]:
-    """``examples``, and ``tests/examples`` where it exists: pytest refuses a missing path."""
+    """``examples``, and ``recipes`` and ``tests/examples`` where they exist.
+
+    pytest refuses a missing path.
+    """
     return [
         "examples",
-        *(["tests/examples"] if (repo_root / "tests" / "examples").is_dir() else []),
+        *(
+            directory
+            for directory in (RECIPES_DIRECTORY, "tests/examples")
+            if (repo_root / directory).is_dir()
+        ),
     ]
 
 

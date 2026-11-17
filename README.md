@@ -418,7 +418,7 @@ settings reach an example's run, and a repository's tests of an example's result
 `tests/examples`, read the session's one run through the `example_run` fixture. The rules are the
 shared example guide, `docs/guides/writing-examples.md`, which starts from
 `docs/guides/example_template.py`; the `example-conformance` pre-commit hook runs `check` on the
-examples a commit changes.
+examples and the recipes (`recipes/<path>.py`, an example's published-scale run) a commit changes.
 
 ## Development setup
 

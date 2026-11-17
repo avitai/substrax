@@ -24,6 +24,8 @@ It collects, with no example-test code in the repository:
   warn``, so ``mkdocs build --strict`` fails on a page left out of the nav (mkdocs defaults it to
   ``info``).
 - ``examples/<path>.py::follows-the-guide``: every rule of :mod:`substrax.notebooks.conformance`.
+- ``recipes/<path>.py::follows-the-guide``: the guide's rules about code
+  (:data:`~substrax.notebooks.conformance.RECIPE_RULES`), for each recipe (:mod:`substrax.recipes`).
 - ``examples/<path>.py::runs-as-its-page-shows``, marked ``example_run``: the example runs as its
   clean notebook (:func:`substrax.notebooks.run.execute_example`) and its page shows that run
   (:func:`substrax.notebooks.pages.compare_with_run`). A run whose raised exception, as
@@ -57,10 +59,11 @@ from substrax.notebooks.config import (
     read_examples_config,
     refuse_unusable_budget,
 )
-from substrax.notebooks.conformance import check_example, no_gpu_reason
+from substrax.notebooks.conformance import check_example, check_recipe, no_gpu_reason
 from substrax.notebooks.corpus import corpus_problems, is_touched, reaches_every_example
 from substrax.notebooks.pages import compare_with_run
 from substrax.notebooks.run import ExampleRun, execute_example, RunError
+from substrax.recipes import discover_recipes, RECIPES_DIRECTORY
 
 
 type ExampleRunner = Callable[[str], ExampleRun]
@@ -72,6 +75,7 @@ RUN_MARKER = "example_run"
 
 _CONFIG = pytest.StashKey[ExamplesConfig]()
 _EXAMPLES = pytest.StashKey[frozenset[Path]]()
+_RECIPES = pytest.StashKey[frozenset[Path]]()
 _RUNS = pytest.StashKey[dict[Path, ExampleRun | RunError]]()
 _COLLECTED = pytest.StashKey[frozenset[Path]]()
 """The examples whose runs this session collected, before any deselection."""
@@ -127,6 +131,7 @@ def pytest_configure(config: pytest.Config) -> None:
     except (LookupError, ValueError) as error:
         raise pytest.UsageError(str(error)) from error
     config.stash[_EXAMPLES] = _examples(config.rootpath)
+    config.stash[_RECIPES] = frozenset(path.resolve() for path in discover_recipes(config.rootpath))
     config.stash[_RUNS] = {}
     config.stash[_COLLECTED] = frozenset()
     config.stash[_SELECTED] = frozenset()
@@ -183,17 +188,20 @@ def _lane_settings(  # noqa: DOC502  # the ValueError is raised by refuse_unusab
 
 
 def pytest_collect_directory(path: Path, parent: pytest.Collector) -> pytest.Collector | None:
-    """Collect the repository's ``examples`` directory with its corpus check.
+    """Collect the repository's ``examples`` directory with its corpus check, and its recipes.
 
     Args:
         path: A directory pytest is about to collect.
         parent: Its parent collector.
 
     Returns:
-        The examples directory's collector, or ``None`` for any other directory.
+        The examples or recipes directory's collector, or ``None`` for any other directory.
     """
-    if path.resolve() == (parent.config.rootpath / "examples").resolve():
+    root = parent.config.rootpath
+    if path.resolve() == (root / "examples").resolve():
         return ExamplesDirectory.from_parent(parent, path=path)
+    if path.resolve() == (root / RECIPES_DIRECTORY).resolve():
+        return RecipesDirectory.from_parent(parent, path=path)
     return None
 
 
@@ -338,30 +346,47 @@ class ExamplesSubdirectory(pytest.Directory):
         yield from _collect_below(self)
 
 
+class RecipesDirectory(pytest.Directory):
+    """The ``recipes`` directory, or one below it: the recipes and recipe directories in it."""
+
+    def collect(self) -> Iterator[pytest.Collector]:
+        """Yield the recipes and recipe directories directly in it.
+
+        Yields:
+            pytest.Collector: Each recipe's collector, and each directory holding recipes.
+        """
+        yield from _collect_below(self)
+
+
 def _collect_below(directory: pytest.Directory) -> Iterator[pytest.Collector]:
-    """Each example and each directory holding examples directly in ``directory``, by name.
+    """Each script and each directory holding scripts directly in ``directory``, by name.
 
     pytest matches a command-line path one directory at a time, so a nested example is reached
     through a collector for each directory above it, as pytest's own ``Dir`` collects; and as
     ``Dir`` does, an entry ``pytest_ignore_collect`` refuses (``--ignore``, ``--ignore-glob``) is
     left out.
 
+    The scripts are the examples below an examples directory and the recipes below a recipes one.
+
     Args:
-        directory: The examples directory, or one below it.
+        directory: The examples or recipes directory, or one below it.
 
     Yields:
-        pytest.Collector: Each example's collector, and each directory holding examples.
+        pytest.Collector: Each script's collector, and each directory holding scripts.
     """
-    examples = directory.config.stash[_EXAMPLES]
+    is_recipes = isinstance(directory, RecipesDirectory)
+    scripts = directory.config.stash[_RECIPES if is_recipes else _EXAMPLES]
+    below = RecipesDirectory if is_recipes else ExamplesSubdirectory
+    script_file = RecipeFile if is_recipes else ExampleFile
     for entry in sorted(directory.path.iterdir()):
         if directory.ihook.pytest_ignore_collect(collection_path=entry, config=directory.config):
             continue
         resolved = entry.resolve()
         if entry.is_dir():
-            if any(example.is_relative_to(resolved) for example in examples):
-                yield ExamplesSubdirectory.from_parent(directory, path=entry)
-        elif resolved in examples:
-            yield ExampleFile.from_parent(directory, path=entry)
+            if any(script.is_relative_to(resolved) for script in scripts):
+                yield below.from_parent(directory, path=entry)
+        elif resolved in scripts:
+            yield script_file.from_parent(directory, path=entry)
 
 
 class ExampleFile(pytest.File):
@@ -377,6 +402,18 @@ class ExampleFile(pytest.File):
         run = ExampleRunItem.from_parent(self, name="runs-as-its-page-shows")
         run.add_marker(RUN_MARKER)
         yield run
+
+
+class RecipeFile(pytest.File):
+    """One recipe: its guide check. A recipe runs on a GPU lane as a compute job, never here."""
+
+    def collect(self) -> Iterator[pytest.Item]:
+        """Yield the guide check.
+
+        Yields:
+            pytest.Item: The recipe's guide check.
+        """
+        yield RecipeGuideItem.from_parent(self, name="follows-the-guide")
 
 
 class _ExampleCheck(pytest.Item):
@@ -408,6 +445,21 @@ class GuideItem(_ExampleCheck):
             [
                 str(finding)
                 for finding in check_example(
+                    self.path, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
+                )
+            ]
+        )
+
+
+class RecipeGuideItem(_ExampleCheck):
+    """One recipe against the guide's rules about code."""
+
+    def runtest(self) -> None:
+        """Fail with every rule the recipe breaks, one per line."""
+        _fail_with(
+            [
+                str(finding)
+                for finding in check_recipe(
                     self.path, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
                 )
             ]

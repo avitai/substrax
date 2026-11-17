@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _example_texts import CONFIG, git, GOOD, GPU_REQUIRED
+from _example_texts import CONFIG, git, GOOD, GPU_REQUIRED, RECIPE, write_recipe
 
 from substrax.notebooks.cli import examples_pytest_options
 from substrax.notebooks.pages import generate_page
@@ -116,6 +116,25 @@ def test_an_example_breaking_a_rule_fails_naming_the_rule(pytester: pytest.Pytes
 
     result.assert_outcomes(passed=1, failed=1)
     result.stdout.fnmatch_lines(["*typed-keys*"])
+
+
+def test_a_recipe_is_held_to_the_guide_s_code_rules(pytester: pytest.Pytester) -> None:
+    repo = _repository(pytester)
+    write_recipe(repo)
+    write_recipe(
+        repo, RECIPE.replace("jax.random.key(0)", "jax.random.PRNGKey(0)"), relative="broken.py"
+    )
+
+    result = pytester.runpytest_subprocess(*_suite(pytester), "recipes", "-v")
+
+    result.assert_outcomes(passed=1, failed=1)
+    result.stdout.fnmatch_lines(
+        [
+            "*recipes/broken.py::follows-the-guide FAILED*",
+            "*recipes/sorting.py::follows-the-guide PASSED*",
+            "*typed-keys*",
+        ]
+    )
 
 
 def test_an_empty_corpus_fails(pytester: pytest.Pytester) -> None:

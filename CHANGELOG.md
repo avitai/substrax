@@ -15,6 +15,21 @@ and uses semantic versioning while the public API stabilizes.
   gives a recipe's example, and `recipe_page_path` its page, `docs/examples/<path>.recipe.md`,
   beside the example's. `corpus_problems` reports a recipe whose example is gone and a recipe page
   whose recipe is gone, and no longer reports a recipe's page as a stray under `docs/examples`.
+- Recipes are held to the guide's rules about code. `check_recipe` and `RECIPE_RULES` in
+  `substrax.notebooks.conformance` apply `parses`, `main` (a top-level `main()` and a closing
+  `__main__` guard), `no-arguments`, `no-backend-forcing`, `no-env-writes`, `artifacts`,
+  `no-star-imports`, `typed-keys` and `gpu-check` (a recipe calling `require_gpu()` calls it right
+  after its imports) to a recipe read as plain Python. `substrax-notebooks check` takes recipes
+  beside examples, the `example-conformance` hook watches `recipes/*.py`, the example tests collect
+  `recipes/<path>.py::follows-the-guide`, and `substrax-notebooks test` runs `recipes` by default
+  where it exists.
+- `substrax.examples.lexical_path`: a path made absolute and normalised as written, without
+  following a link, as `example_source` and `substrax-notebooks check` compare paths.
+
+### Changed
+
+- The `no-backend-forcing` and `no-env-writes` findings name "the script" rather than "the
+  example", since they hold over recipes too; the path before each finding says which file it is.
 
 ## [0.1.27] - 2026-11-14
 
