@@ -174,8 +174,7 @@ def test_the_guide_leaves_every_notebook_to_convert_even_when_a_hook_names_it() 
 
 
 def test_the_guide_runs_the_examples_through_substrax_s_workflow_pinned_by_commit() -> None:
-    """One definition, which fetches the base a pull request counts from (T-7, W15), called as
-    avitai-portfolio's pin rule requires: by a full commit SHA (BR-11)."""
+    """Reuse the workflow, fetch the pull-request base, and pin its full commit SHA."""
     (call,) = [block for block in _fenced("yaml") if "workflows/examples.yml@" in block]
 
     assert "uses: avitai/substrax/.github/workflows/examples.yml@<a full commit SHA>" in call
