@@ -9,6 +9,13 @@ and uses semantic versioning while the public API stabilizes.
 
 ### Added
 
+- The example guide's Full recipes section: when an example ports a published reference, its
+  recipe is the reference's configuration at its published scale, `recipes/<path>.py`, a plain
+  script whose constants cite the reference, whose `main()` returns each measured value beside the
+  published one, and which calls the same API as its example; it is held to `RECIPE_RULES`, runs as
+  a compute job's task when written or changed, and its page is written from that run's record.
+  `docs/guides/recipe_template.py` is the template, and the guide's checklist asks a reviewer for
+  logic shared through the package rather than copied.
 - `substrax.recipes`: a repository's full recipes, `recipes/<path>.py`, each the published-scale
   run of the example `examples/<path>.py` it pairs with by path. `discover_recipes` lists them by
   the rule examples follow (a private part, starting with `_`, is no recipe), `paired_example`

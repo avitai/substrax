@@ -11,16 +11,20 @@ import tomllib
 from pathlib import Path
 
 import jupytext
-from _example_texts import CONFIG, write_example
+from _example_texts import CONFIG, write_example, write_recipe
 
 from substrax.notebooks.conformance import (
     check_example,
+    check_recipe,
     Devices,
+    RECIPE_RULES,
+    RECIPE_SOURCE_RULES,
     RULES,
     SECTIONS,
     SOURCE_RULES,
     Tier,
 )
+from substrax.notebooks.recipe_run import run_recipe
 from substrax.notebooks.run import ExampleRun, execute_example
 
 
@@ -98,6 +102,55 @@ def test_the_template_follows_every_source_rule(tmp_path: Path) -> None:
         str(finding)
         for finding in check_example(script, repo_root=repo, config=CONFIG, rules=SOURCE_RULES)
     ] == []
+
+
+RECIPE_TEMPLATE = GUIDES / "recipe_template.py"
+
+
+def _full_recipes() -> str:
+    """The guide's Full recipes section."""
+    return GUIDE.split("\n## Full recipes\n", 1)[1].split("\n## ", 1)[0]
+
+
+def test_the_guide_names_every_rule_a_recipe_is_held_to() -> None:
+    section = _full_recipes()
+
+    assert [rule for rule in RECIPE_RULES if f"`{rule}`" not in section] == []
+    assert "`RECIPE_RULES`" in section
+
+
+def test_the_recipe_template_follows_every_recipe_source_rule(tmp_path: Path) -> None:
+    repo, _ = write_example(tmp_path, relative="statistics/normalising.py")
+    recipe = write_recipe(
+        repo, RECIPE_TEMPLATE.read_text(encoding="utf-8"), relative="statistics/normalising.py"
+    )
+
+    assert [
+        str(finding)
+        for finding in check_recipe(
+            recipe, repo_root=repo, config=CONFIG, rules=RECIPE_SOURCE_RULES
+        )
+    ] == []
+
+
+def test_the_recipe_template_returns_each_measured_value_beside_the_published_one(
+    tmp_path: Path,
+) -> None:
+    """Run here at a size CPU CI holds; the template's own size is its reference's."""
+    text = RECIPE_TEMPLATE.read_text(encoding="utf-8")
+    assert "COUNT = 1_000_000\n" in text
+    repo, _ = write_example(tmp_path, relative="statistics/normalising.py")
+    recipe = write_recipe(
+        repo,
+        text.replace("COUNT = 1_000_000\n", "COUNT = 4_096\n"),
+        relative="statistics/normalising.py",
+    )
+
+    returned = run_recipe(recipe, repo_root=repo, distribution="demo").returned
+
+    assert isinstance(returned, dict)
+    assert set(returned) == {"mean_error", "published_mean_error"}
+    assert all(isinstance(value, float) for value in returned.values())
 
 
 RESULT_TEST = GUIDES / "example_result_test.py"
