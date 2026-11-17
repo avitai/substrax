@@ -4,6 +4,7 @@
 substrax-notebooks convert EXAMPLE... [--repo-root DIR]
 substrax-notebooks check SCRIPT... [--repo-root DIR]
 substrax-notebooks page EXAMPLE... [--into-outputs] [--repo-root DIR]
+substrax-notebooks recipe RECIPE [--repo-root DIR]
 substrax-notebooks test [PATH...] [--changed-since REF] [--budget-seconds SECONDS]
                         [--repo-root DIR]
 ```
@@ -16,18 +17,21 @@ an EXAMPLE or a RECIPE, an existing ``.py`` under ``<repo root>/recipes`` that i
 ``page`` runs each example as its clean notebook within the repository's
 ``[tool.substrax.examples]`` budget and writes its docs page; with ``--into-outputs`` it writes the
 page and its figures under the run's outputs (``$AVITAI_OUTPUT_DIR/page/docs/examples/...``)
-instead, as a compute task does. An EXAMPLE is
-an existing ``.py`` under ``<repo root>/examples``, or its notebook, which names the script beside
-it: a private one (a path part starting with ``_``) is skipped, and any other path is refused.
+instead, as a compute task does. ``recipe`` runs a recipe as its script and writes what its
+``main()`` returned, with where it came from, to ``$AVITAI_OUTPUT_DIR/recipe_record/record.json``
+(:mod:`substrax.notebooks.recipe_run`), as a compute task does. An EXAMPLE is an existing ``.py``
+under ``<repo root>/examples``, or its notebook, which names the script beside it: a private one (a
+path part starting with ``_``) is skipped, and any other path is refused.
 ``page`` reports a GPU-required example run without a GPU in one line. The repository root is the
 working directory unless ``--repo-root`` names one.
 Exit codes: 0 for success, 1 when a check finds a problem or a run fails, 2 for a refused command.
 
-``test`` runs pytest on the examples and the tests of their results, ``examples`` and, where it
-exists, ``tests/examples`` unless PATHs name others, apart from the repository's own tests: with
-:func:`examples_pytest_options` and without the caller's ``PYTEST_ADDOPTS`` and
-``PYTEST_PLUGINS``, so the session holds pytest and the example suite alone, reads none of the
-repository's ini keys, and each kernel gets the environment ``uv run python examples/...`` gets.
+``test`` runs pytest on the examples, the recipes and the tests of their results, ``examples``
+and, where they exist, ``recipes`` and ``tests/examples`` unless PATHs name others, apart from the
+repository's own tests: with :func:`examples_pytest_options` and without the caller's
+``PYTEST_ADDOPTS`` and ``PYTEST_PLUGINS``, so the session holds pytest and the example suite
+alone, reads none of the repository's ini keys, and each kernel gets the environment
+``uv run python examples/...`` gets.
 ``--changed-since`` is the example suite's ``--examples-changed-since``, and ``--budget-seconds``
 its ``--examples-budget-seconds``. A PATH is taken from the working directory, as an EXAMPLE
 is, and one outside the repository root is refused. The settings are read first, and refused as
@@ -43,15 +47,10 @@ import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Protocol
 
 from substrax.artifacts import resolve_output_dir
-from substrax.examples import (
-    discover_examples,
-    example_source,
-    ExamplePathError,
-    is_private,
-    lexical_path,
-)
+from substrax.examples import discover_examples, example_source, lexical_path, ScriptPathError
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
 from substrax.notebooks.conformance import (
     check_example,
@@ -61,9 +60,10 @@ from substrax.notebooks.conformance import (
 )
 from substrax.notebooks.pages import generate_page, PageError
 from substrax.notebooks.pairs import convert
+from substrax.notebooks.recipe_run import RecipeRunError, RECORD_OUTPUT, run_recipe, write_record
 from substrax.notebooks.run import RunError
 from substrax.notebooks.text import NotUtf8Error
-from substrax.recipes import discover_recipes, RECIPES_DIRECTORY
+from substrax.recipes import discover_recipes, recipe_source, RECIPES_DIRECTORY
 
 
 _SUCCESS, _UNSUCCESSFUL, _REFUSED = 0, 1, 2
@@ -86,6 +86,14 @@ class _UsageError(Exception):
 type _Command = Callable[[argparse.Namespace], int]
 type _ExamplesCommand = Callable[[argparse.Namespace, list[Path]], int]
 type _ScriptsCommand = Callable[[argparse.Namespace, list[Path], list[Path]], int]
+
+
+class _SourceOf(Protocol):
+    """A script's path from the root: ``example_source`` or ``recipe_source``."""
+
+    def __call__(self, script: Path, /, *, repo_root: Path) -> str:
+        """Return the script's path from ``repo_root``, or raise ``ScriptPathError``."""
+        ...
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -137,6 +145,12 @@ def _parser() -> argparse.ArgumentParser:
                     "repository, as a compute task does so they come back to be committed"
                 ),
             )
+    runner = commands.add_parser(
+        "recipe", help="run a recipe as its script and write its record under the run's outputs"
+    )
+    runner.add_argument("recipe", type=Path, metavar="RECIPE")
+    runner.add_argument("--repo-root", type=Path, default=Path.cwd())
+    runner.set_defaults(command=_recipe)
     tester = commands.add_parser(
         "test", help="run the examples and the tests of their results apart from the other tests"
     )
@@ -197,39 +211,59 @@ def _on_examples_and_recipes(command: _ScriptsCommand) -> _Command:
 
 def _named_recipes(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], list[str]]:
     """The recipes ``paths`` name, each once and private ones left out, and the refusals."""
-    root = lexical_path(repo_root / RECIPES_DIRECTORY)
-    discovered = {lexical_path(recipe) for recipe in discover_recipes(repo_root)}
-    selected: list[Path] = []
-    refusals: list[str] = []
-    for path in paths:
-        lexical = lexical_path(path)
-        if path.suffix != ".py" or not path.is_file():
-            refusals.append(f"{path} is not a recipe script (.py) under {root}")
-        elif lexical not in discovered:
-            if not is_private(lexical.relative_to(root)):
-                refusals.append(f"{path} is not a recipe under {root}")
-        elif path not in selected:
-            selected.append(path)
-    return selected, refusals
+    root = repo_root / RECIPES_DIRECTORY
+    return _named_scripts(
+        paths,
+        repo_root=repo_root,
+        script_named=lambda path: (
+            path
+            if path.suffix == ".py" and path.is_file()
+            else f"{path} is not a recipe script (.py) under {root}"
+        ),
+        source=recipe_source,
+        discovered=set(discover_recipes(repo_root)),
+    )
 
 
 def _named_examples(paths: list[Path], *, repo_root: Path) -> tuple[list[Path], list[str]]:
     """The example scripts ``paths`` name, each once and private ones left out, and the refusals."""
     examples = repo_root / "examples"
-    discovered = set(discover_examples(examples))
+    return _named_scripts(
+        paths,
+        repo_root=repo_root,
+        script_named=lambda path: _script_named(path, examples=examples),
+        source=example_source,
+        discovered=set(discover_examples(examples)),
+    )
+
+
+def _named_scripts(
+    paths: list[Path],
+    *,
+    repo_root: Path,
+    script_named: Callable[[Path], Path | str],
+    source: _SourceOf,
+    discovered: set[Path],
+) -> tuple[list[Path], list[str]]:
+    """The scripts ``paths`` name, each once and private ones left out, and the refusals.
+
+    ``script_named`` gives the script a path names or why it names none, ``source`` its path from
+    the root or a :class:`~substrax.examples.ScriptPathError`, and a script not ``discovered``
+    there is private, so skipped.
+    """
     selected: list[Path] = []
     refusals: list[str] = []
     for path in paths:
-        script = _script_named(path, examples=examples)
+        script = script_named(path)
         if isinstance(script, str):
             refusals.append(script)
             continue
         try:
-            source = example_source(script, repo_root=repo_root)
-        except ExamplePathError as error:
+            relative = source(script, repo_root=repo_root)
+        except ScriptPathError as error:
             refusals.append(str(error))
             continue
-        if repo_root / source in discovered and script not in selected:
+        if repo_root / relative in discovered and script not in selected:
             selected.append(script)
     return selected, refusals
 
@@ -296,6 +330,23 @@ def _page(arguments: argparse.Namespace, examples: list[Path]) -> int:
             sys.stderr.write(f"substrax-notebooks: {_page_failure(script, error)}\n")
             status = _UNSUCCESSFUL
     return status
+
+
+def _recipe(arguments: argparse.Namespace) -> int:
+    """Run one recipe and write its record; refuse a path that is no recipe or a private one."""
+    recipes, refusals = _named_recipes([arguments.recipe], repo_root=arguments.repo_root)
+    if refusals or not recipes:
+        raise _UsageError("; ".join(refusals) or f"{arguments.recipe} is private, so no recipe")
+    config = _read_settings(arguments.repo_root)
+    try:
+        record = run_recipe(
+            recipes[0], repo_root=arguments.repo_root, distribution=config.distribution
+        )
+    except RecipeRunError as error:
+        sys.stderr.write(f"substrax-notebooks: {error}\n")
+        return _UNSUCCESSFUL
+    sys.stdout.write(f"{write_record(record, resolve_output_dir(RECORD_OUTPUT).path)}\n")
+    return _SUCCESS
 
 
 def _page_failure(script: Path, error: RunError | PageError) -> str:

@@ -15,6 +15,7 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
 from substrax.examples import example_source
+from substrax.recipes import recipe_source
 from substrax.records import read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.runtime import JaxRuntime
 from substrax.typing import JsonValue
@@ -235,7 +236,7 @@ def read_job_spec(data: Mapping[str, JsonValue]) -> JobSpec:  # noqa: DOC502  # 
     return read_record(JobSpec, data)
 
 
-def example_tasks(  # noqa: DOC502  # ExamplePathError is raised by example_source
+def example_tasks(  # noqa: DOC502  # ScriptPathError is raised by example_source
     paths: Iterable[Path], *, project: Path, mode: ExampleMode, timeout_seconds: float
 ) -> tuple[Task, ...]:
     """Make one task per example, run as its notebook by the project's interpreter from its root.
@@ -255,26 +256,58 @@ def example_tasks(  # noqa: DOC502  # ExamplePathError is raised by example_sour
         for separators and without the suffix.
 
     Raises:
-        ExamplePathError: If a path is not an example under ``project / "examples"``, or a
+        ScriptPathError: If a path is not an example under ``project / "examples"``, or a
             symlink below the project root leads to it (:func:`~substrax.examples.example_source`).
     """
-    tasks: list[Task] = []
-    for path in paths:
-        source = PurePosixPath(example_source(path, repo_root=project))
-        tasks.append(
-            Task(
-                name=".".join(source.with_suffix("").parts),
-                argv=(
-                    "python",
-                    "-m",
-                    "substrax.notebooks",
-                    *_EXAMPLE_COMMANDS[mode],
-                    source.as_posix(),
-                ),
-                timeout_seconds=timeout_seconds,
-            )
+    return tuple(
+        _notebooks_task(
+            example_source(path, repo_root=project),
+            _EXAMPLE_COMMANDS[mode],
+            timeout_seconds=timeout_seconds,
         )
-    return tuple(tasks)
+        for path in paths
+    )
+
+
+def recipe_tasks(  # noqa: DOC502  # ScriptPathError is raised by recipe_source
+    paths: Iterable[Path], *, project: Path, timeout_seconds: float
+) -> tuple[Task, ...]:
+    """Make one task per recipe, run by the recipe runner on the project's interpreter.
+
+    Each task runs ``python -m substrax.notebooks recipe`` on the recipe, which runs it as its
+    script and writes what ``main()`` returned, with where it came from, under the task's outputs
+    (:mod:`substrax.notebooks.recipe_run`). A recipe has no budget of its own: its limit is the
+    task's.
+
+    Args:
+        paths: The recipes, such as :func:`~substrax.recipes.discover_recipes` lists them.
+        project: The project root the paths lie under.
+        timeout_seconds: Each task's limit.
+
+    Returns:
+        The tasks, in the order of ``paths``, each named by its path from ``project`` with dots
+        for separators and without the suffix.
+
+    Raises:
+        ScriptPathError: If a path is not a recipe under ``project / "recipes"``, or a symlink
+            below the project root leads to it (:func:`~substrax.recipes.recipe_source`).
+    """
+    return tuple(
+        _notebooks_task(
+            recipe_source(path, repo_root=project), ("recipe",), timeout_seconds=timeout_seconds
+        )
+        for path in paths
+    )
+
+
+def _notebooks_task(source: str, command: tuple[str, ...], *, timeout_seconds: float) -> Task:
+    """A task running ``python -m substrax.notebooks <command> <source>``, named by the source."""
+    path = PurePosixPath(source)
+    return Task(
+        name=".".join(path.with_suffix("").parts),
+        argv=("python", "-m", "substrax.notebooks", *command, path.as_posix()),
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _check_version(version: object) -> None:

@@ -150,6 +150,29 @@ def test_a_file_under_recipes_that_is_no_script_is_refused(
     assert f"{notes} is not a recipe script (.py)" in capsys.readouterr().err
 
 
+def test_recipe_runs_each_recipe_and_writes_its_record_under_the_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, _ = write_example(tmp_path)
+    recipe = write_recipe(repo, RECIPE.replace("1_048_576", "64"))
+    outputs = tmp_path / "outputs"
+    monkeypatch.setenv("AVITAI_OUTPUT_DIR", str(outputs))
+    monkeypatch.chdir(repo)
+
+    assert main(["recipe", "--repo-root", str(repo), str(recipe)]) == 0
+
+    record = json.loads((outputs / "recipe_record" / "record.json").read_text(encoding="utf-8"))
+    assert record["source"] == "recipes/sorting.py"
+    assert record["returned"] == {"in_order": 1.0}
+    assert str(outputs / "recipe_record" / "record.json") in capsys.readouterr().out
+
+
+def test_recipe_refuses_a_path_that_is_no_recipe(tmp_path: Path) -> None:
+    repo, script = write_example(tmp_path)
+
+    assert main(["recipe", "--repo-root", str(repo), str(script)]) == 2
+
+
 def test_a_missing_example_is_refused(tmp_path: Path) -> None:
     repo, _ = write_example(tmp_path)
 

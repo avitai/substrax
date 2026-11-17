@@ -89,18 +89,16 @@ class RunError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Provenance:
-    """Where a page came from and what its run produced.
+class RunOrigin:
+    """Where a run came from: the script, as it was, and the machine and versions it ran on.
 
     Attributes:
-        source: The example script, relative to the repository root.
-        sha256: The script's sha256 when the page was made.
+        source: The script, relative to the repository root.
+        sha256: The script's sha256 when it ran.
         seconds: The run's measured wall time.
         device: The devices the run saw, or ``cpu`` when it imported no jax.
         versions: Python's and, where installed, jax's, substrax's and the repository's
             distribution's versions.
-        outputs: Per code cell, the kinds of output it produced (``text``, ``figure``, ``rich``,
-            ``error``), standard error left out.
     """
 
     source: str
@@ -108,6 +106,17 @@ class Provenance:
     seconds: float
     device: str
     versions: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Provenance(RunOrigin):
+    """Where a page came from (:class:`RunOrigin`) and what its run produced.
+
+    Attributes:
+        outputs: Per code cell, the kinds of output it produced (``text``, ``figure``, ``rich``,
+            ``error``), standard error left out.
+    """
+
     outputs: tuple[tuple[str, ...], ...] = ()
 
 

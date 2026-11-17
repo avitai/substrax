@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from substrax.compute import JobSpec, Task
+from substrax.compute import JobSpec, recipe_tasks, Task
 from substrax.compute.worker import (
     DEVICES_LOG,
     JobManifest,
@@ -82,6 +82,37 @@ def test_a_task_logs_its_streams_and_its_outputs_land_in_its_directory(
     assert (outputs / "figure" / STDOUT_LOG).read_text(encoding="utf-8") == "loss 0.25\n"
     assert (outputs / "figure" / STDERR_LOG).read_text(encoding="utf-8") == "careful\n"
     assert manifest.succeeded
+
+
+def test_a_recipe_task_runs_its_recipe_and_keeps_its_record_in_its_outputs(
+    project: Path, outputs: Path
+) -> None:
+    """The job a ``recipes`` key makes, run as a provider runs it: the record comes back."""
+    (project / "pyproject.toml").write_text(
+        '[project]\nname = "demo"\n\n[tool.substrax.examples]\n'
+        'source_url = "https://example.invalid/demo"\nbudget_seconds = 60\n',
+        encoding="utf-8",
+    )
+    recipe = project / "recipes" / "sorting.py"
+    recipe.parent.mkdir()
+    recipe.write_text(
+        'def main() -> dict[str, float]:\n    return {"error": 0.25}\n\n\n'
+        'if __name__ == "__main__":\n    main()\n',
+        encoding="utf-8",
+    )
+    (task,) = recipe_tasks([recipe], project=project, timeout_seconds=_BUDGET)
+
+    manifest = run_job(_job(task), project=project, outputs=outputs, echo=False)
+
+    (outcome,) = manifest.tasks
+    assert outcome.status is TaskStatus.SUCCEEDED, (outputs / task.name / STDERR_LOG).read_text(
+        encoding="utf-8"
+    )
+    assert outcome.outputs == ("recipe_record/record.json",)
+    record = json.loads(
+        (outputs / task.name / "recipe_record" / "record.json").read_text(encoding="utf-8")
+    )
+    assert (record["source"], record["returned"]) == ("recipes/sorting.py", {"error": 0.25})
 
 
 def test_the_manifest_on_disk_is_the_one_returned(project: Path, outputs: Path) -> None:

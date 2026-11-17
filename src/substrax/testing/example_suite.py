@@ -52,7 +52,7 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-from substrax.examples import discover_examples, example_source, ExamplePathError
+from substrax.examples import discover_examples, example_source, ScriptPathError
 from substrax.notebooks import repository
 from substrax.notebooks.config import (
     ExamplesConfig,
@@ -158,7 +158,7 @@ def _examples(repo_root: Path) -> frozenset[Path]:
     try:
         for path in found:
             example_source(path, repo_root=repo_root)
-    except ExamplePathError as error:
+    except ScriptPathError as error:
         raise pytest.UsageError(str(error)) from error
     return frozenset(path.resolve() for path in found)
 

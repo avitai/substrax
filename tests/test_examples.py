@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from substrax.examples import discover_examples, example_source, ExamplePathError
+from substrax.examples import discover_examples, example_source, ScriptPathError
 
 
 def test_discovery_skips_private_parts_and_package_markers(tmp_path: Path) -> None:
@@ -100,14 +100,14 @@ def test_an_example_reached_through_a_link_below_the_root_is_refused(
     repo = _repository(tmp_path)
     script = link(repo)
 
-    with pytest.raises(ExamplePathError, match="reached through a symlink"):
+    with pytest.raises(ScriptPathError, match="reached through a symlink"):
         example_source(script, repo_root=repo)
 
 
 def test_a_file_outside_the_examples_directory_is_refused(tmp_path: Path) -> None:
     repo = _repository(tmp_path)
 
-    with pytest.raises(ExamplePathError, match="not an example under"):
+    with pytest.raises(ScriptPathError, match="not an example under"):
         example_source(repo / "scripts" / "tool.py", repo_root=repo)
 
 
@@ -116,5 +116,5 @@ def test_a_file_outside_the_repository_is_refused(tmp_path: Path) -> None:
     outside = tmp_path / "outside.py"
     outside.write_text("", encoding="utf-8")
 
-    with pytest.raises(ExamplePathError, match="not an example under"):
+    with pytest.raises(ScriptPathError, match="not an example under"):
         example_source(outside, repo_root=repo)

@@ -25,11 +25,30 @@ and uses semantic versioning while the public API stabilizes.
   where it exists.
 - `substrax.examples.lexical_path`: a path made absolute and normalised as written, without
   following a link, as `example_source` and `substrax-notebooks check` compare paths.
+- `substrax-notebooks recipe RECIPE` runs a recipe as its script in a fresh interpreter, so no
+  module the runner imported stands in for one of the recipe's (its directory first on
+  `sys.path`, its path as `sys.argv[0]`, `__name__` `"__main__"`), and writes what its `main()`
+  returned, with the recipe's path, digest, wall time, devices and versions, to
+  `$AVITAI_OUTPUT_DIR/recipe_record/record.json`: `substrax.notebooks.recipe_run` (`run_recipe`,
+  `write_record`, `RecipeRecord`). A recipe without a top-level `__main__` guard calling `main()`,
+  whose run exits with a status other than 0, or whose `main()` returns what JSON cannot hold
+  leaves no record (`RecipeRunError`).
+- A compute job takes `recipes`, directories under `recipes/`, whose recipes become tasks after the
+  examples' and before the commands, each running `python -m substrax.notebooks recipe` with the
+  task's limit; `substrax.compute.recipe_tasks` makes them. `substrax.recipes.recipe_source` gives
+  a recipe's path from the root, and `substrax.examples.source_below` the path of a script below
+  either directory, refusing one reached through a symlink.
+- `substrax.notebooks.kernel_setup.report` returns a run's report (`Report`: the devices, the
+  versions, and `main()`'s value or why JSON cannot hold it), which `write_report` writes, and
+  `run_as_script` runs a script as `python` runs it and writes that report with the run's wall time.
+  A recipe's record and a page's `Provenance` share `RunOrigin`.
 
 ### Changed
 
 - The `no-backend-forcing` and `no-env-writes` findings name "the script" rather than "the
   example", since they hold over recipes too; the path before each finding says which file it is.
+- `substrax.examples.ExamplePathError` is `ScriptPathError`, raised for a path that is no
+  example's or recipe's.
 
 ## [0.1.27] - 2026-11-14
 

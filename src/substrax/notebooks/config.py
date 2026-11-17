@@ -201,7 +201,7 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
         ValueError: If a key is unknown, missing or holds a value of the wrong type, the table
             sets ``distribution``, a ``page_size_exempt`` entry or ``budgets`` key names no
             example of the repository, or a symlink below the root leads to an example
-            (:class:`~substrax.examples.ExamplePathError`).
+            (:class:`~substrax.examples.ScriptPathError`).
     """
     pyproject = repo_root / "pyproject.toml"
     if not pyproject.is_file():
