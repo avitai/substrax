@@ -17,6 +17,7 @@ outputs_volume = "demo-outputs"
 [tool.substrax.compute.jobs.examples]
 examples = ["examples/metrics"]          # one task per example, run as its notebook
 examples_mode = "test"                   # or "page": make each page, returned in the outputs
+recipes = ["recipes/metrics"]            # one task per recipe, run as its script, its record kept
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
@@ -48,6 +49,11 @@ the root, to be committed. No example runs as a script. The run holds each examp
 budget, the one `substrax-notebooks page` and the shared example tests hold it to (its entry in
 `[tool.substrax.examples]` `budgets`, else `budget_seconds`), so a job listing `examples` needs
 that table, and the project needs `substrax[notebooks,testing]` in the extras the job installs.
+`recipes` lists directories under `recipes/` the same way; each recipe task runs
+`python -m substrax.notebooks recipe recipes/<path>.py`, which runs the recipe as its script and
+writes what its `main()` returned, with its path, digest, wall time, devices and versions, to
+`recipe_record/record.json` under the task's outputs. A recipe has no budget of its own: its limit
+is the task's. A directory outside `recipes/` is refused.
 `command_timeout_seconds` is each task's limit outside that budget, the job's `timeout_seconds`
 when unset; a limit below an example's budget is refused. `runtime` sets the job's JAX
 environment; a GPU job lists `cpu` after `cuda`, since jax's host callbacks (`jax.debug.print`,
@@ -82,6 +88,7 @@ project.
   <task>/stdout.log
   <task>/stderr.log
   <task>/<name>/...        # what the task saved through resolve_output_dir(name)
+  <task>/recipe_record/record.json   # a recipe task's record
 ```
 
 Each task runs from the project root with `AVITAI_OUTPUT_DIR` set to its own directory and the

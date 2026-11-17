@@ -15,6 +15,7 @@ from substrax.compute.spec import (
     Mount,
     MountAccess,
     read_job_spec,
+    recipe_tasks,
     Resources,
     Task,
 )
@@ -31,4 +32,5 @@ __all__ = [
     "Task",
     "example_tasks",
     "read_job_spec",
+    "recipe_tasks",
 ]

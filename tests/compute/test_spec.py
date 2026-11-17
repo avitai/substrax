@@ -20,7 +20,7 @@ from substrax.compute import (
     Resources,
     Task,
 )
-from substrax.examples import ExamplePathError
+from substrax.examples import ScriptPathError
 from substrax.records import dump_record
 from substrax.runtime import JaxRuntime
 
@@ -201,7 +201,7 @@ class TestExampleTasks:
         )
 
     def test_an_example_outside_the_project_is_refused(self, tmp_path: Path) -> None:
-        with pytest.raises(ExamplePathError, match="not an example under"):
+        with pytest.raises(ScriptPathError, match="not an example under"):
             example_tasks(
                 [tmp_path / "x.py"],
                 project=tmp_path / "repo",

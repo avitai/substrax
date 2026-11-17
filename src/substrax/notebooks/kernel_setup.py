@@ -12,21 +12,27 @@ devices, the versions and ``main()``'s value to the report's file, through refer
 cannot rebind: this namespace's, bound before the example runs. After every cell IPython calls
 :func:`record_raised`, which writes the qualified class of an exception the cell raised, so the run
 names the class itself where the kernel's error reply gives only its unqualified name.
+
+A recipe's run sends the same source to a fresh interpreter, which calls :func:`run_as_script`:
+the recipe runs as ``python <script>`` runs it, with no module of the runner's imported before it,
+and the report, with the run's wall time, goes to a file the runner reads.
 """
 
 from __future__ import annotations
 
 import ast
+import builtins
 import copy
 import json
 import platform
 import sys
+import time
 from builtins import open as open_file
 from collections.abc import Callable, MutableMapping
 from contextlib import suppress
 from functools import partial
 from importlib import metadata
-from typing import Protocol, TypeGuard
+from typing import NotRequired, Protocol, TypedDict, TypeGuard
 
 
 MAIN_RETURNED = "_substrax_main_returned"
@@ -47,6 +53,19 @@ _KEEP_AND_EXIT_CLEANLY = ast.parse(
     "    ):\n"
     "        raise\n"
 ).body[0]
+
+
+class Report(TypedDict):
+    """A run's report: the devices jax saw, the versions, and ``main()``'s value.
+
+    ``returned`` is the value, decoded from JSON; ``returned_error`` replaces it, naming what JSON
+    cannot hold, when it holds none.
+    """
+
+    device: str
+    versions: dict[str, str]
+    returned: NotRequired[object]
+    returned_error: NotRequired[str]
 
 
 class Events(Protocol):
@@ -97,12 +116,52 @@ def setup_kernel(
         distribution: The distribution the repository builds, whose version the report
             holds.
     """
-    sys.path[:] = [directory, *(entry for entry in sys.path if entry not in ("", directory))]
+    _put_first_on_path(directory)
     sys.argv = [argv0]
     user_ns["__file__"] = file
     user_ns[REPORTER] = partial(write_report, user_ns, report_path, distribution=distribution)
     shell.ast_transformers.append(MainResult())
     shell.events.register("post_run_cell", partial(record_raised, raised_path))
+
+
+def run_as_script(
+    path: str, *, directory: str, argv0: str, report_path: str, distribution: str
+) -> None:
+    """Run a script as ``python <script>`` runs it, keep ``main()``'s value, and write the report.
+
+    The script's directory goes first on ``sys.path``, ``sys.argv`` is its path as the run names
+    it, and it runs as ``__main__`` with its own ``__file__``. Its ``__main__`` guard keeps
+    ``main()``'s value (:class:`MainResult`), so a clean ``SystemExit`` ends it as Python would and
+    any other exit or error ends this process. The report (:func:`report`) holds the wall time of
+    the script's run too, as ``seconds``.
+
+    Args:
+        path: The script's absolute path, its ``__file__``.
+        directory: The script's directory.
+        argv0: The script's path as the run names it, ``sys.argv[0]``.
+        report_path: Where the report is written.
+        distribution: The distribution the repository builds, whose version the report holds.
+    """
+    with open_file(path, encoding="utf-8") as script:  # noqa: PTH123
+        tree = MainResult().visit(ast.parse(script.read(), filename=path))
+    _put_first_on_path(directory)
+    sys.argv = [argv0]
+    namespace: dict[str, object] = {
+        "__name__": "__main__",
+        "__file__": path,
+        "__builtins__": builtins,
+    }
+    started = time.perf_counter()
+    exec(compile(tree, path, "exec"), namespace)  # noqa: S102  # nosec B102 - running the script is the run
+    seconds = time.perf_counter() - started
+    result = {**report(namespace.get(MAIN_RETURNED), distribution=distribution), "seconds": seconds}
+    with open_file(report_path, "w", encoding="utf-8") as out:  # noqa: PTH123
+        json.dump(result, out)
+
+
+def _put_first_on_path(directory: str) -> None:
+    """Put ``directory`` first on ``sys.path``, as Python puts a script's, and drop ``""``."""
+    sys.path[:] = [directory, *(entry for entry in sys.path if entry not in ("", directory))]
 
 
 def record_raised(raised_path: str, result: ExecutionResult | None) -> None:
@@ -132,15 +191,35 @@ def write_report(
         distribution: The distribution the repository builds; its version is reported
             where installed, as jax's and substrax's are.
     """
-    versions = {"python": platform.python_version()}
-    for name in ("jax", "substrax", distribution):
-        with suppress(metadata.PackageNotFoundError):
-            versions[name] = metadata.version(name)
-    result = {"device": _device(), "versions": versions, **_returned(user_ns.get(MAIN_RETURNED))}
+    result = report(user_ns.get(MAIN_RETURNED), distribution=distribution)
     # The open bound before the example ran: Path.open looks io.open up when called, which the
     # example could have rebound.
     with open_file(report_path, "w", encoding="utf-8") as out:  # noqa: PTH123
         json.dump(result, out)
+
+
+def report(returned: object, *, distribution: str) -> Report:
+    """The devices jax saw, the versions, and ``main()``'s value, or why JSON cannot hold it.
+
+    Args:
+        returned: ``main()``'s value.
+        distribution: The distribution the repository builds; its version is reported where
+            installed, as jax's and substrax's are.
+
+    Returns:
+        The report, with ``returned`` or ``returned_error`` (:func:`_returned`).
+    """
+    versions = {"python": platform.python_version()}
+    for name in ("jax", "substrax", distribution):
+        with suppress(metadata.PackageNotFoundError):
+            versions[name] = metadata.version(name)
+    result = Report(device=_device(), versions=versions)
+    value = _returned(returned)
+    if "returned_error" in value:
+        result["returned_error"] = str(value["returned_error"])
+    else:
+        result["returned"] = value["returned"]
+    return result
 
 
 def _device() -> str:

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from substrax.recipes import discover_recipes, paired_example, recipe_page_path
+import pytest
+
+from substrax.examples import ScriptPathError
+from substrax.recipes import discover_recipes, paired_example, recipe_page_path, recipe_source
 
 
 def _write(repo: Path, *relatives: str) -> None:
@@ -46,3 +49,28 @@ def test_a_recipe_s_example_and_page_share_its_path(tmp_path: Path) -> None:
     assert recipe_page_path(recipe, repo_root=tmp_path) == (
         tmp_path / "docs" / "examples" / "pinns" / "burgers.recipe.md"
     )
+
+
+def test_a_recipe_s_source_is_its_path_from_the_root(tmp_path: Path) -> None:
+    _write(tmp_path, "recipes/pinns/burgers.py")
+
+    assert recipe_source(tmp_path / "recipes" / "pinns" / "burgers.py", repo_root=tmp_path) == (
+        "recipes/pinns/burgers.py"
+    )
+
+
+def test_a_recipe_reached_through_a_link_below_the_root_is_refused(tmp_path: Path) -> None:
+    """A link would give a recipe a second name, or put it outside the repository."""
+    _write(tmp_path, "elsewhere/burgers.py")
+    (tmp_path / "recipes").mkdir()
+    (tmp_path / "recipes" / "burgers.py").symlink_to(tmp_path / "elsewhere" / "burgers.py")
+
+    with pytest.raises(ScriptPathError, match="reached through a symlink"):
+        recipe_source(tmp_path / "recipes" / "burgers.py", repo_root=tmp_path)
+
+
+def test_a_file_outside_the_recipes_directory_is_refused(tmp_path: Path) -> None:
+    _write(tmp_path, "examples/pinns/burgers.py")
+
+    with pytest.raises(ScriptPathError, match="is not a recipe under"):
+        recipe_source(tmp_path / "examples" / "pinns" / "burgers.py", repo_root=tmp_path)

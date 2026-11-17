@@ -23,6 +23,7 @@ from substrax.compute.config import (
     require_locked_substrax,
     resolve_job,
 )
+from substrax.examples import ScriptPathError
 from substrax.runtime import JaxRuntime
 
 
@@ -71,8 +72,9 @@ def test_each_documented_job_lists_its_accelerator_first_and_the_cpu_after(
     for index, (where, block) in enumerate(examples):
         (tmp_path / str(index)).mkdir()
         project = _project(tmp_path / str(index), block)
-        (project / "examples" / "metrics").mkdir(parents=True)
-        (project / "examples" / "metrics" / "accuracy.py").write_text("", encoding="utf-8")
+        for directory in ("examples", "recipes"):
+            (project / directory / "metrics").mkdir(parents=True)
+            (project / directory / "metrics" / "accuracy.py").write_text("", encoding="utf-8")
         settings = read_compute_config(project)
         for job in settings.jobs:
             spec = resolve_job(settings, job, project=project)
@@ -194,6 +196,52 @@ def test_the_accelerator_can_be_overridden_per_run(tmp_path: Path) -> None:
 
     assert spec.resources.accelerator == Accelerator(kind="H100", count=2)
     assert (spec.resources.cpu, spec.resources.memory_mib) == (8.0, 32768)
+
+
+_RECIPES_JOB = """
+[tool.substrax.compute.jobs.recipes]
+recipes = ["recipes/pinns"]
+timeout_seconds = 7200
+"""
+
+
+def test_a_job_listing_recipes_runs_each_through_the_recipe_runner(tmp_path: Path) -> None:
+    project = _project(tmp_path, _RECIPES_JOB)
+    (project / "recipes" / "pinns").mkdir(parents=True)
+    for name in ("burgers.py", "allen_cahn.py", "_shared.py"):
+        (project / "recipes" / "pinns" / name).write_text("", encoding="utf-8")
+
+    tasks = resolve_job(read_compute_config(project), "recipes", project=project).tasks
+
+    runner = ("python", "-m", "substrax.notebooks", "recipe")
+    assert tasks == (
+        Task(
+            name="recipes.pinns.allen_cahn",
+            argv=(*runner, "recipes/pinns/allen_cahn.py"),
+            timeout_seconds=7200,
+        ),
+        Task(
+            name="recipes.pinns.burgers",
+            argv=(*runner, "recipes/pinns/burgers.py"),
+            timeout_seconds=7200,
+        ),
+    )
+
+
+def test_a_recipes_directory_that_does_not_exist_is_refused(tmp_path: Path) -> None:
+    project = _project(tmp_path, _RECIPES_JOB)
+
+    with pytest.raises(FileNotFoundError, match="recipes directory 'recipes/pinns'"):
+        resolve_job(read_compute_config(project), "recipes", project=project)
+
+
+def test_a_recipes_entry_outside_the_recipes_directory_is_refused(tmp_path: Path) -> None:
+    project = _project(tmp_path, _RECIPES_JOB.replace('"recipes/pinns"', '"examples"'))
+    (project / "examples").mkdir()
+    (project / "examples" / "burgers.py").write_text("", encoding="utf-8")
+
+    with pytest.raises(ScriptPathError, match="is not a recipe under"):
+        resolve_job(read_compute_config(project), "recipes", project=project)
 
 
 def test_an_unknown_job_is_refused_with_the_configured_names(tmp_path: Path) -> None:

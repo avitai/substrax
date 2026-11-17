@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 
-from substrax.examples import discover_examples
+from substrax.examples import discover_examples, source_below
 
 
 RECIPES_DIRECTORY = "recipes"
@@ -31,6 +31,23 @@ def discover_recipes(repo_root: Path) -> list[Path]:
         The ``*.py`` files under ``recipes`` that are not private; none without the directory.
     """
     return discover_examples(repo_root / RECIPES_DIRECTORY)
+
+
+def recipe_source(recipe: Path, *, repo_root: Path) -> str:  # noqa: DOC502  # raised by source_below
+    """Return a recipe's path from the repository root, as its record and page name it.
+
+    Args:
+        recipe: The recipe.
+        repo_root: The repository root.
+
+    Returns:
+        ``recipes/<path>.py``, with ``/`` separators.
+
+    Raises:
+        ScriptPathError: If ``recipe`` is not under ``repo_root / "recipes"``, or a symlink below
+            the root leads to it (:func:`substrax.examples.source_below`).
+    """
+    return source_below(recipe, repo_root=repo_root, directory=RECIPES_DIRECTORY, noun="a recipe")
 
 
 def paired_example(recipe: Path, *, repo_root: Path) -> Path:

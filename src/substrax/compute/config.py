@@ -10,6 +10,7 @@ outputs_volume = "demo-outputs"
 [tool.substrax.compute.jobs.examples]
 examples = ["examples/metrics"]          # one task per example, as discover_examples lists them
 examples_mode = "test"                   # run as its notebook: "test", or "page" to make pages
+recipes = ["recipes/metrics"]            # one task per recipe, run and its record kept
 commands = { gpu-tests = ["python", "-m", "pytest", "tests/gpu"] }
 extras = ["cuda12"]
 resources = { accelerator = { kind = "L4", count = 1 }, cpu = 8, memory_mib = 32768 }
@@ -28,8 +29,10 @@ An example task runs its example as its clean notebook in the job's ``examples_m
 (:class:`~substrax.compute.ExampleMode`), held by the run to the example's own budget from
 ``[tool.substrax.examples]`` (its ``budgets`` entry, else ``budget_seconds``), as
 ``substrax-notebooks page`` and the shared example tests hold it, so a job listing ``examples``
-needs that table; a task limit below an example's budget is refused. A misspelled key is refused
-rather than ignored.
+needs that table; a task limit below an example's budget is refused. A recipe task runs its recipe
+as its script through ``python -m substrax.notebooks recipe``, which writes what ``main()``
+returned under the task's outputs; its limit is the task's. A misspelled key is refused rather than
+ignored.
 """
 
 from __future__ import annotations
@@ -41,16 +44,24 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from substrax.compute.spec import Accelerator, example_tasks, ExampleMode, JobSpec, Task
+from substrax.compute.spec import (
+    Accelerator,
+    example_tasks,
+    ExampleMode,
+    JobSpec,
+    recipe_tasks,
+    Task,
+)
 from substrax.examples import discover_examples, example_source
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
+from substrax.recipes import RECIPES_DIRECTORY
 from substrax.records import dump_record, read_record, UNKNOWN_FIELDS_REFUSED
 from substrax.typing import JsonValue
 
 
 _TABLE = "[tool.substrax.compute]"
 _ACCELERATOR = re.compile(r"(?P<kind>[^:]+)(?::(?P<count>\d+))?")
-_TASK_SOURCE_KEYS = ("examples", "examples_mode", "commands", "command_timeout_seconds")
+_TASK_SOURCE_KEYS = ("examples", "examples_mode", "recipes", "commands", "command_timeout_seconds")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -64,13 +75,16 @@ class TaskSources:
         timeout_seconds: The job's budget, which is also a ``JobSpec`` field.
         examples: Directories, relative to the project, whose examples become tasks.
         examples_mode: What each example task does, required with ``examples``.
-        commands: Further tasks, by name, run after the examples.
+        recipes: Directories, relative to the project, whose recipes become tasks, run after the
+            examples.
+        commands: Further tasks, by name, run after the recipes.
         command_timeout_seconds: Each task's limit; ``timeout_seconds`` when ``None``.
     """
 
     timeout_seconds: float
     examples: tuple[str, ...] = ()
     examples_mode: ExampleMode | None = None
+    recipes: tuple[str, ...] = ()
     commands: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     command_timeout_seconds: float | None = None
 
@@ -122,8 +136,9 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
 ) -> JobSpec:
     """Build the spec of a configured job, listing its examples now.
 
-    The job's table holds ``examples``, ``commands`` and ``command_timeout_seconds``, which make
-    its tasks, and otherwise the fields of :class:`~substrax.compute.JobSpec` under their own names.
+    The job's table holds ``examples``, ``recipes``, ``commands`` and ``command_timeout_seconds``,
+    which make its tasks, and otherwise the fields of :class:`~substrax.compute.JobSpec` under
+    their own names.
     An example task's budget is the example's, from the project's ``[tool.substrax.examples]``.
 
     Args:
@@ -137,7 +152,7 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
 
     Raises:
         KeyError: If the job is not configured; the message lists the configured ones.
-        FileNotFoundError: If an examples directory does not exist.
+        FileNotFoundError: If an examples or recipes directory does not exist.
         LookupError: If the job lists examples and the project has no ``[tool.substrax.examples]``.
         ValueError: If a key of the job's table is unknown or a value of the wrong type, or the
             examples' settings are refused.
@@ -155,8 +170,13 @@ def resolve_job(  # noqa: DOC503  # pydantic.ValidationError, a ValueError, is r
         },
     )
     limit = sources.command_timeout_seconds or sources.timeout_seconds
-    tasks = _example_tasks(sources, name, project, limit=limit) + [
-        Task(name=task, argv=argv, timeout_seconds=limit) for task, argv in sources.commands.items()
+    tasks = [
+        *_example_tasks(sources, name, project, limit=limit),
+        *_recipe_tasks(sources, name, project, limit=limit),
+        *(
+            Task(name=task, argv=argv, timeout_seconds=limit)
+            for task, argv in sources.commands.items()
+        ),
     ]
     spec = read_record(
         JobSpec, {**table, "name": name, "tasks": [dump_record(task) for task in tasks]}
@@ -213,6 +233,38 @@ def _example_tasks(  # noqa: DOC503  # LookupError and ValueError are raised by 
     return list(
         example_tasks(examples, project=project, mode=sources.examples_mode, timeout_seconds=limit)
     )
+
+
+def _recipe_tasks(  # noqa: DOC503  # ScriptPathError is raised by recipe_tasks
+    sources: TaskSources, job: str, project: Path, *, limit: float
+) -> list[Task]:
+    """The job's recipe tasks, each run as its script with its record kept.
+
+    Args:
+        sources: Where the job's tasks come from.
+        job: The job, for the message.
+        project: The project root.
+        limit: Each task's limit.
+
+    Returns:
+        One task per recipe of each directory, in order.
+
+    Raises:
+        FileNotFoundError: If a recipes directory does not exist.
+        ScriptPathError: If a listed directory lies outside ``recipes``, so its scripts are no
+            recipes (:func:`~substrax.recipes.recipe_source`).
+    """
+    for directory in sources.recipes:
+        if not (project / directory).is_dir():
+            msg = (
+                f"{RECIPES_DIRECTORY} directory {directory!r} of job {job!r} does not exist in "
+                f"{project}"
+            )
+            raise FileNotFoundError(msg)
+    recipes = [
+        path for directory in sources.recipes for path in discover_examples(project / directory)
+    ]
+    return list(recipe_tasks(recipes, project=project, timeout_seconds=limit))
 
 
 def _refuse_budgets_over(
