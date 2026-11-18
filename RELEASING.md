@@ -21,7 +21,9 @@ Publishing an existing GitHub Release also runs the PyPI upload path.
 2. Bump `version` in `pyproject.toml` (the one source of the version; `substrax.__version__`
    reads it from the installed package).
 3. Update `CHANGELOG.md` by moving unreleased entries under the new version and
-   date.
+   date, and update its links at the end of the file: `[Unreleased]` compares from the new tag,
+   and a new `[X.Y.Z]` link compares the previous tag with it
+   (`tests/ci/test_changelog.py` checks that every heading has exactly that link).
 4. Run the release checks.
 
    ```bash

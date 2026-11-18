@@ -20,6 +20,9 @@ and uses semantic versioning while the public API stabilizes.
 - `testing.gradients.check_parameter_gradients` and `check_input_gradients` leave a Variable
   holding a Python value as it is; they raised `AttributeError: 'float' object has no attribute
   'dtype'` on one.
+- `RELEASING.md` names the CHANGELOG link update that `tests/ci/test_changelog.py` requires of
+  a release: the `[Unreleased]` link compares from the new tag, and the new version has its own
+  compare link.
 
 ## [0.1.29] - 2026-11-18
 
