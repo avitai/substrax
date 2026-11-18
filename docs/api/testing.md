@@ -385,6 +385,89 @@ every Markdown page under `docs` and every Python file under the script director
 that does not exist raises `FileNotFoundError`, so a mistyped directory fails the check instead of
 shrinking what it reads.
 
+## Flax NNX rules and conformance
+
+Three modules hold the checks a Flax NNX library runs over its own code. Each rule and check
+names a defect class found in the stack's libraries, and each has a snippet or module that must
+pass it and one that must fail it.
+
+**Source rules.** `substrax.testing.nnx_rules` reads a repository's files without importing
+them and finds seven defect classes:
+
+- `seed-literal`: `nnx.Rngs(0)`, `jax.random.key(0)`, `np.random.default_rng(7)`, `seed = 0` and
+  `seed=0` defaults.
+- `rngs-probe`: `"sample" in rngs`, `hasattr(rngs, ...)`.
+- `rngs-fallback`: `rngs or nnx.Rngs(...)`.
+- `trainable-metadata`: `nnx.Param(..., trainable=False)`, which still trains.
+- `salted-hash`.
+- `mode-flag-default`: `deterministic: bool = False`, which overrides `.eval()` when forwarded.
+- `noop-super-init`.
+
+A repository enables a rule once its sites are fixed:
+
+```python
+from pathlib import Path
+
+from substrax.testing.nnx_rules import findings
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_library_code_seeds_no_randomness_of_its_own() -> None:
+    assert findings(ROOT, ("src/<package>",), rules=("seed-literal",)) == []
+```
+
+A rule cannot tell some sites from legitimate uses, such as an in-process cache key built with
+`hash` or a fixed key filling a shape-only input. Such a site is exempted on its own line, with
+the rule and a reason. An exemption missing either raises `MalformedExemptionError`.
+
+```python
+key = jax.random.key(0)  # substrax-allow: seed-literal: shape-only dummy input
+```
+
+**Premises.** The rules and checks rest on behaviours of flax, jax and Python. For example,
+`"sample" in nnx.Rngs(0)` is `False` although `rngs.sample()` draws, and tree mode refuses a
+Variable that two modules share. `substrax.testing.nnx_premises.check_premises()` measures each
+premise on what is installed. If one no longer holds, it raises `PremiseChangedError`, naming the
+premise and the rules resting on it. Run it where the newest jax and flax a repository admits are
+installed, so a release that changes a premise is found before code relying on it misbehaves.
+
+**Conformance.** `substrax.testing.nnx_conformance` checks the properties every module owes under
+NNX's transforms:
+
+- state fixed at construction;
+- Variables holding arrays;
+- tree-mode splitting;
+- a deterministic `.eval()`;
+- dropout under `.train()`;
+- batch statistics that move in training only;
+- `nnx.jit` matching eager with one trace;
+- independent rows under `nnx.vmap`;
+- gradients that are finite and match float64 finite differences.
+
+A repository describes each module class as a `Case` and runs the checks each case owes.
+`module_classes(package)` is the denominator, so a class without a case is found:
+
+```python
+import pytest
+
+from substrax.testing.nnx_conformance import CHECKS, Case
+
+CASES: dict[str, Case] = {...}  # one per class module_classes(<package>) finds
+
+
+@pytest.mark.parametrize("check", sorted(CHECKS))
+@pytest.mark.parametrize("name", sorted(CASES))
+def test_module_conforms(name: str, check: str) -> None:
+    run, applies = CHECKS[check]
+    if applies(CASES[name]):
+        run(CASES[name])
+```
+
+A check comparing two computations of one function allows `DEPTH * eps(dtype) * scale`. Both
+computations start from cloned state, so a module that draws randomness in the wrong mode fails
+`eval_deterministic` alone rather than every check.
+
 ::: substrax.testing
 
 ::: substrax.testing.compiles
@@ -394,6 +477,12 @@ shrinking what it reads.
 ::: substrax.testing.gradients
 
 ::: substrax.testing.source_scans
+
+::: substrax.testing.nnx_rules
+
+::: substrax.testing.nnx_premises
+
+::: substrax.testing.nnx_conformance
 
 ::: substrax.examples
 
