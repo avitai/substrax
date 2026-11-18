@@ -151,6 +151,17 @@ class WritesSharedState(nnx.Module):
         return y
 
 
+class PythonBranch(nnx.Module):
+    """Branches in Python on a traced value, which ``nnx.jit`` refuses."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        y = self.linear(x)
+        return y if jnp.sum(y) > 0 else -y
+
+
 class DetachedParams(nnx.Module):
     """Stops the gradient at its weights."""
 
@@ -215,6 +226,16 @@ BROKEN = [
     ("gradient_matches_finite_differences", _case(WrongDerivative)),
 ]
 
+# Each check that runs a module under a transform, and a module the transform refuses: a
+# refusal is the module failing the check, so it raises ConformanceError like any other.
+REFUSED = [
+    ("jit_matches_eager", _case(PythonBranch)),
+    ("gradient_finite", _case(EvalOverride, has_dropout=True)),
+    ("gradient_finite", _case(WritesSharedState)),
+    ("gradient_matches_finite_differences", _case(EvalOverride, has_dropout=True)),
+    ("gradient_matches_finite_differences", _case(WritesSharedState)),
+]
+
 
 @pytest.mark.parametrize("check", sorted(CHECKS))
 @pytest.mark.parametrize("case", [GOOD, ROWWISE], ids=["batch-norm", "rowwise"])
@@ -230,6 +251,15 @@ def test_a_module_built_to_break_a_check_fails_it(check: str, case: Case) -> Non
 
     assert applies(case)
     with pytest.raises(ConformanceError):
+        run(case)
+
+
+@pytest.mark.parametrize(("check", "case"), REFUSED, ids=[check for check, _ in REFUSED])
+def test_a_module_a_transform_refuses_fails_the_check(check: str, case: Case) -> None:
+    run, applies = CHECKS[check]
+
+    assert applies(case)
+    with pytest.raises(ConformanceError, match="refused"):
         run(case)
 
 

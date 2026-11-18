@@ -30,7 +30,10 @@ the output's largest magnitude, at least 1; a semantic difference (a skipped bra
 key, a wrong mode) is of the order of ``scale``. Checks comparing two runs start both from cloned
 state, RNG counts included, so a module that draws randomness in the wrong mode fails
 ``eval_deterministic`` alone rather than every check. A failed check raises
-:class:`ConformanceError`.
+:class:`ConformanceError`, and so does a transform refusing the module: flax's errors (a Variable
+mutated from another trace level, as dropout drawn or statistics written in ``.eval()`` are under
+a gradient), JAX's tracer errors (Python control flow on a traced value) and the ``ValueError`` of
+a split or a mapping flax cannot do. The refusal is chained as the error's cause.
 """
 
 from __future__ import annotations
@@ -38,13 +41,15 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from types import ModuleType
 
 import jax
 import jax.numpy as jnp
 from flax import nnx
+from flax.errors import FlaxError
 from flax.typing import Key
 
 from substrax.nnx_typing import NnxState
@@ -65,6 +70,20 @@ _SEED = 0
 
 class ConformanceError(AssertionError):
     """A module does not have a property a conformance check requires of it."""
+
+
+_REFUSALS = (FlaxError, jax.errors.JAXTypeError, ValueError)
+"""What flax and JAX raise when a transform refuses a module (see the module docstring)."""
+
+
+@contextmanager
+def _refused(transform: str) -> Generator[None]:
+    """Raise a transform's refusal of the module as a :class:`ConformanceError`."""
+    try:
+        yield
+    except _REFUSALS as error:
+        message = f"{transform} refused the module: {type(error).__name__}: {error}"
+        raise ConformanceError(message) from error
 
 
 def _call(module: nnx.Module, *inputs: jax.Array) -> PyTree:
@@ -208,11 +227,10 @@ def check_tree_mode_split(case: Case) -> None:
     module, inputs = _built(case)
     module.eval()
     expected = case.call(nnx.clone(module), *inputs)
-    try:
+    with _refused("tree mode"):
         graphdef, state = nnx.split(module, graph=False)
-    except ValueError as error:
-        raise ConformanceError(f"tree mode cannot split the module: {error}") from error
-    _require_same_function(case.call(nnx.merge(graphdef, state), *inputs), expected, "tree mode")
+        actual = case.call(nnx.merge(graphdef, state), *inputs)
+    _require_same_function(actual, expected, "tree mode")
 
 
 def check_eval_deterministic(case: Case) -> None:
@@ -260,9 +278,10 @@ def check_jit_matches_eager(case: Case) -> None:
     counter = TraceCounter()
     compiled = nnx.jit(counter.wrap(case.call))
     first = counter.count
-    actual = compiled(module, *inputs)
-    traced = counter.count
-    compiled(module, *inputs)
+    with _refused("nnx.jit"):
+        actual = compiled(module, *inputs)
+        traced = counter.count
+        compiled(module, *inputs)
     _require(traced - first == 1, f"the first call traced {traced - first} times")
     _require(counter.count == traced, "a second call with the same shapes traced again")
     _require_same_function(actual, expected, "nnx.jit against eager")
@@ -277,10 +296,8 @@ def check_rows_independent(case: Case) -> None:
     def one_row(module: nnx.Module, *row: jax.Array) -> PyTree:
         return jax.tree.map(lambda leaf: leaf[0], case.call(module, *(x[None] for x in row)))
 
-    try:
+    with _refused("nnx.vmap"):
         actual = nnx.vmap(one_row, in_axes=(None, *[0] * len(inputs)))(module, *inputs)
-    except ValueError as error:
-        raise ConformanceError(f"the module cannot be mapped over rows: {error}") from error
     _require_same_function(actual, expected, "rows mapped one at a time")
 
 
@@ -293,7 +310,8 @@ def check_gradient_finite(case: Case) -> None:
     def loss(params: NnxState) -> jax.Array:
         return _scalar(case.call(nnx.merge(graphdef, params, rest), *inputs))
 
-    leaves = jax.tree.leaves(jax.grad(loss)(params))
+    with _refused("jax.grad"):
+        leaves = jax.tree.leaves(jax.grad(loss)(params))
     _require(bool(leaves), "the module has no nnx.Param")
     _require(all(bool(jnp.all(jnp.isfinite(leaf))) for leaf in leaves), "a gradient is not finite")
     _require(any(bool(jnp.any(leaf != 0)) for leaf in leaves), "the gradient is zero everywhere")
@@ -308,7 +326,10 @@ def check_gradient_matches_finite_differences(case: Case) -> None:
         return _scalar(case.call(module, *(x.astype(jnp.float64) for x in inputs)))
 
     try:
-        check_parameter_gradients(module, loss, modes=("rev",))
+        with _refused("the float64 gradient check"):
+            check_parameter_gradients(module, loss, modes=("rev",))
+    except ConformanceError:
+        raise
     except AssertionError as error:
         raise ConformanceError(f"float64 gradient against finite differences: {error}") from error
 

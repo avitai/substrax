@@ -7,6 +7,20 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `testing.nnx_conformance`: a transform refusing a module fails the check with
+  `ConformanceError`, as a failed check always did: flax's errors (dropout drawn or statistics
+  written in `.eval()`, refused under `jax.grad` as a Variable mutated from another trace
+  level), JAX's tracer errors (Python control flow on a traced value under `nnx.jit`) and the
+  `ValueError` of a split or mapping flax cannot do, in `tree_mode_split`, `jit_matches_eager`,
+  `rows_independent`, `gradient_finite` and `gradient_matches_finite_differences`. Before, the
+  gradient and jit checks let these escape as flax's or JAX's own errors, indistinguishable from
+  a defect in the check. The refusal is the error's cause.
+- `testing.gradients.check_parameter_gradients` and `check_input_gradients` leave a Variable
+  holding a Python value as it is; they raised `AttributeError: 'float' object has no attribute
+  'dtype'` on one.
+
 ## [0.1.29] - 2026-11-18
 
 ### Added

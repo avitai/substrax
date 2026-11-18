@@ -101,9 +101,17 @@ def check_input_gradients[M: nnx.Module](  # noqa: DOC502  # raised by check_gra
 
 
 def _float64[T](tree: T) -> T:
-    """The tree with its floating leaves cast to float64 and every other leaf as it is."""
+    """The tree with its floating arrays cast to float64 and every other leaf as it is.
+
+    A leaf that is not an array, such as a Python value a module keeps in a Variable, has no
+    dtype and is left as it is.
+    """
     return jax.tree.map(
-        lambda leaf: leaf.astype(jnp.float64) if jnp.issubdtype(leaf.dtype, jnp.floating) else leaf,
+        lambda leaf: (
+            leaf.astype(jnp.float64)
+            if isinstance(leaf, jax.Array | np.ndarray) and jnp.issubdtype(leaf.dtype, jnp.floating)
+            else leaf
+        ),
         tree,
     )
 
