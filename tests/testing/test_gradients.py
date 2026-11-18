@@ -142,3 +142,17 @@ def test_a_module_holding_a_key_is_checked_in_its_parameters() -> None:
     gradient = check_parameter_gradients(_Keyed(), _loss_in_parameters)
 
     np.testing.assert_allclose(_value(gradient, "w"), np.outer(_X, _C), rtol=1e-12)
+
+
+class _Configured(_Affine):
+    """An affine module that also keeps a Python value in a Variable."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rate = nnx.Variable(0.5)
+
+
+def test_a_python_value_in_the_state_is_left_as_it_is() -> None:
+    gradient = check_parameter_gradients(_Configured(), _loss_in_parameters)
+
+    np.testing.assert_allclose(_value(gradient, "w"), np.outer(_X, _C), rtol=1e-12)
