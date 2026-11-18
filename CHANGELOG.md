@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-11-18
+
 ### Added
 
 - `substrax.testing.nnx_rules`, source rules for Flax NNX library code, read from the syntax tree
@@ -1285,7 +1287,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.28...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.29...HEAD
+[0.1.29]: https://github.com/avitai/substrax/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/avitai/substrax/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/avitai/substrax/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/avitai/substrax/compare/v0.1.25...v0.1.26
