@@ -79,9 +79,10 @@ forbidden_modules =
     opifex
 
 [importlinter:contract:source_scans]
-name = the source scans read files with the standard library only
+name = the source scans and NNX source rules read files with the standard library only
 type = forbidden
 source_modules =
+    substrax.testing.nnx_rules
     substrax.testing.source_scans
 forbidden_modules =
     flax

@@ -7,6 +7,36 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.testing.nnx_rules`, source rules for Flax NNX library code, read from the syntax tree
+  without importing it:
+  - `seed-literal` is the union of the copies DiffBio and datarax carried: `nnx.Rngs(<int>)`,
+    `jax.random.key`/`PRNGKey(<int>)`, numpy `default_rng`/`RandomState`/`Philox(<int>)`,
+    `np.random.seed(<int>)`, `seed = <int>` and `seed=<int>` defaults and keywords;
+  - `rngs-probe`, `rngs-fallback`, `trainable-metadata`, `salted-hash` (calls inside `__hash__`
+    are exempt), `mode-flag-default` and `noop-super-init`.
+
+  `findings(root, directories, rules=...)` reports each unexempted site. A site is exempted on its
+  line with `# substrax-allow: <rule>: <reason>`; an exemption naming no known rule, or no
+  reason, raises `MalformedExemptionError`. It imports the standard library only, held by the
+  `.importlinter` contract it shares with `source_scans`.
+- `substrax.testing.nnx_premises`: the framework facts those rules and the conformance checks
+  rest on, measured on the installed flax, jax and Python. `check_premises()` raises
+  `PremiseChangedError` naming each changed premise and the rules resting on it, so a job
+  installing the newest releases finds a change before code relying on it misbehaves.
+  `graph-mode-is-default` turns false when flax adopts tree mode (FLIP 5310).
+- `substrax.testing.nnx_conformance`:
+  - `Case` describes how to build and call a module and what it claims.
+  - `module_classes(package)` is the denominator of a repository's cases.
+  - `CHECKS` holds ten checks: state structure fixed at construction, Variables holding arrays,
+    tree-mode split, deterministic and keyless `.eval()`, `.train()` dropout, batch statistics
+    moving in training only, `nnx.jit` matching eager with one trace, independent rows under
+    `nnx.vmap`, a finite float32 gradient, and a float64 gradient matching finite differences.
+  - A failed check raises `ConformanceError`.
+  - Comparisons allow `DEPTH * eps(dtype) * scale`, and runs that are compared start from cloned
+    state, so one defect fails one check.
+
 ## [0.1.28] - 2026-11-17
 
 ### Added

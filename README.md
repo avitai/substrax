@@ -185,7 +185,12 @@ and the threads it starts run, and with `substrax.testing.jax_calls` its compile
 placements, so a test bounds a code path's work per iteration by count instead of time.
 `substrax.testing.gradients` checks a module's
 gradient in its parameters or its input against finite differences in float64 and returns it, so
-a test asserts the gradient's value, not only that it exists. A child sends its result with
+a test asserts the gradient's value, not only that it exists. For Flax NNX libraries,
+`substrax.testing.nnx_rules` finds seed literals, `nnx.Rngs` probes and fallbacks, ignored
+`trainable=` metadata, salted hashes, bool mode-flag defaults and no-op `super().__init__()` in
+source; `substrax.testing.nnx_premises` measures the framework facts those rules rest on; and
+`substrax.testing.nnx_conformance` checks each module class under NNX's transforms (tree mode,
+`.eval()`, `nnx.jit`, `nnx.vmap`, gradients). A child sends its result with
 `report(value)`, on a channel no library writes to, and `report_as(shape)` reads it validated
 against a `TypedDict` or another type. A repository's example tests are
 `substrax.testing.example_suite`, configured in its pyproject and run by
