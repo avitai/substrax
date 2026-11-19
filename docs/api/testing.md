@@ -170,7 +170,8 @@ since 3.12 and records the calls of every thread, with no way to leave a thread 
 
 A test that only checks that a gradient exists, is finite or is non-zero passes on a wrong one.
 `substrax.testing.gradients` compares a module's gradient with finite differences, through
-`jax.test_util.check_grads` (forward and reverse mode along one random direction), and returns it:
+`jax.test_util.check_grads` (forward and reverse mode along one random direction of unit norm),
+and returns it:
 
 ```python
 from substrax.testing.gradients import check_input_gradients, check_parameter_gradients
@@ -179,10 +180,19 @@ gradient = check_parameter_gradients(module, lambda m: loss(m(x), y))  # in its 
 input_gradient = check_input_gradients(module, lambda m, v: loss(m(v), y), x)
 ```
 
+The direction has unit norm, as JAX's automatic-differentiation docs and PyTorch's fast
+`gradcheck` take it: `check_grads` differentiates `t -> loss(m + t * u)` at `t = 0`, so its
+finite-difference step is a length in parameter space whatever the number of parameters.
+`check_grads` applied to the parameters directly draws a direction of norm about `sqrt(n)`, and on
+a module with thousands of parameters its truncation error fails a correct gradient.
+
 The check runs on a float64 copy of the module, split in tree mode: a derivative summed over many
 output elements is below a float32 finite difference's resolution (`check_grads`'s default
-tolerance is 1e-5 in float64 against 2e-3 in float32). The caller's module keeps its dtype and
-values. A gradient that is zero everywhere is refused unless `allow_zero=True`, since a loss that
+tolerance is 1e-5 in float64 against 2e-3 in float32). `as_float64` makes the copy, casting
+floating arrays and leaving integer arrays, such as labels that index a table, as they are. The
+copy raises the parameters, not a dtype a module fixed when it was built: `nnx.Embed` keeps
+`self.dtype = dtype or self.embedding.dtype` from its float32 table, so its float64 copy still
+computes in float32. The caller's module keeps its dtype and values. A gradient that is zero everywhere is refused unless `allow_zero=True`, since a loss that
 ignores what is differentiated passes a finite-difference check. A function with a
 `jax.custom_vjp` has no forward mode; check it with `modes=("rev",)`.
 

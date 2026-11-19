@@ -156,3 +156,29 @@ def test_a_python_value_in_the_state_is_left_as_it_is() -> None:
     gradient = check_parameter_gradients(_Configured(), _loss_in_parameters)
 
     np.testing.assert_allclose(_value(gradient, "w"), np.outer(_X, _C), rtol=1e-12)
+
+
+class _Wide(nnx.Module):
+    """Two 64-wide layers through ``tanh``: 8,320 parameters with real curvature."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.first = nnx.Linear(64, 64, rngs=rngs)
+        self.second = nnx.Linear(64, 64, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        return self.second(jnp.tanh(self.first(x)))
+
+
+def test_a_wide_module_with_a_correct_gradient_passes() -> None:
+    """The finite-difference step is a length in parameter space, whatever the parameter count.
+
+    An unnormalised random direction has norm about sqrt(8320) = 91 here, so ``check_grads``'
+    1e-4 step moved the parameters by about 1e-2 and its truncation error failed a gradient
+    autodiff computes exactly.
+    """
+    module = _Wide(rngs=nnx.Rngs(0))
+    x = 3.0 * jnp.linspace(-1.0, 1.0, 4 * 64).reshape(4, 64)
+
+    check_parameter_gradients(
+        module, lambda m: jnp.sum(jnp.sin(m(x.astype(m.first.kernel[...].dtype)))), modes=("rev",)
+    )

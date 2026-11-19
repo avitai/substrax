@@ -7,6 +7,20 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `testing.gradients.check_parameter_gradients` and `check_input_gradients` compare the gradient
+  with finite differences along one random direction of unit norm, as JAX's
+  automatic-differentiation docs and PyTorch's fast `gradcheck` do: `check_grads` differentiates
+  `t -> loss(m + t * u)` at `t = 0`. `check_grads` applied to the parameters drew an unnormalised
+  direction of norm about `sqrt(n)`, so on a module with thousands of parameters its 1e-4 step
+  moved them by about 1e-2 and its truncation error failed a correct gradient: an 8,320-parameter
+  two-layer `tanh` module fails before and passes after; a 7,721-parameter UNet showed an error
+  falling as the step squared. `check_grads`' step and float64 tolerance are unchanged.
+- `testing.nnx_conformance`'s float64 gradient check casts only floating inputs, through the new
+  `testing.gradients.as_float64`; an integer label input was cast to float64 and refused by the
+  table lookup it indexes.
+
 ## [0.1.30] - 2026-11-18
 
 ### Fixed
