@@ -54,7 +54,7 @@ from flax.typing import Key
 
 from substrax.nnx_typing import NnxState
 from substrax.rng import rngs_from_seed
-from substrax.testing.gradients import check_parameter_gradients
+from substrax.testing.gradients import as_float64, check_parameter_gradients
 from substrax.testing.traces import TraceCounter
 from substrax.typing import PyTree
 
@@ -323,7 +323,7 @@ def check_gradient_matches_finite_differences(case: Case) -> None:
     module.eval()
 
     def loss(module: nnx.Module) -> jax.Array:
-        return _scalar(case.call(module, *(x.astype(jnp.float64) for x in inputs)))
+        return _scalar(case.call(module, *as_float64(inputs)))
 
     try:
         with _refused("the float64 gradient check"):

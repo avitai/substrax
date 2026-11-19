@@ -162,6 +162,21 @@ class PythonBranch(nnx.Module):
         return y if jnp.sum(y) > 0 else -y
 
 
+class EmbedsLabels(nnx.Module):
+    """Looks integer labels up in a table, so its input must stay an integer in the float64 check.
+
+    The table is a plain ``nnx.Param``: ``nnx.Embed`` fixes its compute dtype when built
+    (``self.dtype = dtype or self.embedding.dtype``), so a float64 copy of it still computes in
+    float32, which is not what this module tests.
+    """
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.table = nnx.Param(jax.random.normal(rngs.params(), (5, 4)))
+
+    def __call__(self, labels: jax.Array) -> jax.Array:
+        return jnp.tanh(jnp.take(self.table[...], labels, axis=0))
+
+
 class DetachedParams(nnx.Module):
     """Stops the gradient at its weights."""
 
@@ -261,6 +276,17 @@ def test_a_module_a_transform_refuses_fails_the_check(check: str, case: Case) ->
     assert applies(case)
     with pytest.raises(ConformanceError, match="refused"):
         run(case)
+
+
+def test_integer_inputs_stay_integers_in_the_gradient_checks() -> None:
+    """Only floating inputs are cast to float64; an integer label indexes a table."""
+    case = Case(
+        build=lambda rngs: EmbedsLabels(rngs=rngs),
+        inputs=lambda key: (jax.random.randint(key, (4,), 0, 5),),
+    )
+
+    CHECKS["gradient_finite"][0](case)
+    CHECKS["gradient_matches_finite_differences"][0](case)
 
 
 def test_every_check_has_a_module_that_breaks_it() -> None:
