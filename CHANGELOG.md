@@ -7,6 +7,18 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `testing.gradients.check_parameter_gradients` and `check_input_gradients` take their finite
+  differences with a step of 1e-6, PyTorch `gradcheck`'s float64 default, instead of
+  `check_grads`' 1e-4. A central difference's truncation error grows as the step squared, and at
+  1e-4 it failed correct gradients: `sin(150 p)` at 0 differs by 1.2e-4 relative against the
+  1e-5 tolerance, and a parameter 5e-5 from a `leaky_relu` kink differences across it. Both pass
+  at 1e-6. In artifex's conformance suite an SE(3) equivariant layer (relative error 1.9e-5 at
+  1e-4, converging quadratically) and a StyleGAN3 generator (whose error collapsed by six orders
+  once the step fell below the distance to a kink) failed with correct gradients. The float64
+  tolerance is unchanged, and a wrong gradient still fails.
+
 ## [0.1.31] - 2026-11-19
 
 ### Fixed
