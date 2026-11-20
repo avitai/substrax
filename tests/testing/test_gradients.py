@@ -182,3 +182,32 @@ def test_a_wide_module_with_a_correct_gradient_passes() -> None:
     check_parameter_gradients(
         module, lambda m: jnp.sum(jnp.sin(m(x.astype(m.first.kernel[...].dtype)))), modes=("rev",)
     )
+
+
+class _Scalar(nnx.Module):
+    """One parameter, so the unit direction is the parameter axis and the step is exact."""
+
+    def __init__(self, value: float) -> None:
+        self.p = nnx.Param(jnp.array(value, dtype=jnp.float32))
+
+
+def test_a_correct_gradient_with_strong_curvature_passes() -> None:
+    """The step keeps the central difference's truncation error below the tolerance.
+
+    For ``sin(150 p)`` at 0 a central difference with step ``h`` errs, relative to the derivative,
+    by about ``(150 h)^2 / 6``. ``check_grads`` steps by its ``eps`` times a random tangent (1.76
+    at its seed): at ``eps = 1e-4`` the error is 1.2e-4, above its float64 tolerance of 1e-5, and
+    at ``eps = 1e-6`` it is 1.2e-8.
+    """
+    check_parameter_gradients(_Scalar(0.0), lambda m: jnp.sin(150.0 * m.p[...]))
+
+
+def test_a_correct_gradient_near_a_kink_passes() -> None:
+    """A step shorter than the distance to a kink does not difference across it.
+
+    The parameter is 5e-5 from ``leaky_relu``'s kink. ``check_grads`` steps by its ``eps`` times a
+    random tangent (1.76 at its seed): at ``eps = 1e-4`` the step reaches 1.8e-4, straddles the
+    kink and differences to 1.26 where the derivative gives 1.76; at ``eps = 1e-6`` it stays on
+    one side.
+    """
+    check_parameter_gradients(_Scalar(5e-5), lambda m: jax.nn.leaky_relu(m.p[...], 0.2))

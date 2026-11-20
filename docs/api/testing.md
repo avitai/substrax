@@ -186,6 +186,12 @@ finite-difference step is a length in parameter space whatever the number of par
 `check_grads` applied to the parameters directly draws a direction of norm about `sqrt(n)`, and on
 a module with thousands of parameters its truncation error fails a correct gradient.
 
+The step is 1e-6, PyTorch `gradcheck`'s default, not `check_grads`' own 1e-4. A central
+difference's truncation error grows as the step squared: at 1e-4 it failed correct gradients of
+modules with strong curvature along the direction, and of modules with a parameter within a step of
+a `leaky_relu` kink, where the difference straddles the kink. In float64 the rounding a smaller step
+brings stays near 1e-10 relative.
+
 The check runs on a float64 copy of the module, split in tree mode: a derivative summed over many
 output elements is below a float32 finite difference's resolution (`check_grads`'s default
 tolerance is 1e-5 in float64 against 2e-3 in float32). `as_float64` makes the copy, casting

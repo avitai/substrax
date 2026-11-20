@@ -9,10 +9,17 @@ The comparison is along one random direction of unit norm, as JAX's automatic-di
 (``docs/automatic-differentiation.md``, "finite differences in a random direction") and PyTorch's
 fast ``gradcheck`` (``torch/autograd/gradcheck.py``, ``_vec_from_tensor``) take it:
 ``check_grads`` differentiates ``t -> loss(m + t * u)`` at ``t = 0``, so its finite-difference step
-(1e-4) is a length in parameter space whatever the number of parameters. Applied to the parameters
+is a length in parameter space whatever the number of parameters. Applied to the parameters
 directly, ``check_grads`` draws an unnormalised normal direction of norm about ``sqrt(n)``; on a
 module with thousands of parameters its step then grows a hundredfold and its truncation error
 fails a correct gradient.
+
+The step is 1e-6, PyTorch's ``gradcheck`` default (``torch/autograd/gradcheck.py``, ``eps``), not
+``check_grads``' own 1e-4. A central difference's truncation error grows as the step squared,
+and at 1e-4 it exceeded the 1e-5 tolerance on correct gradients: a module whose third derivative
+along the direction is large, and one whose parameters sit within a step of a ``leaky_relu`` kink,
+where the difference straddles the kink. In float64 the rounding error a smaller step brings, about
+``2.2e-16 * |loss| / step``, stays near 1e-10 relative.
 
 They run on a float64 copy of the module: a derivative summed over many output elements is below a
 float32 finite difference's resolution (``check_grads``'s default tolerance is 1e-5 in float64
@@ -38,6 +45,9 @@ from substrax.nnx_typing import NnxState
 
 _SEED = 0
 """Seed of the random direction, so a failure is reproducible."""
+
+_STEP = 1e-6
+"""Finite-difference step along the unit direction, PyTorch ``gradcheck``'s float64 default."""
 
 
 def check_parameter_gradients[M: nnx.Module](  # noqa: DOC502  # raised by check_grads and _refuse_all_zero
@@ -74,7 +84,13 @@ def check_parameter_gradients[M: nnx.Module](  # noqa: DOC502  # raised by check
         def along(step: jax.Array) -> jax.Array:
             return of_params(jax.tree.map(lambda p, u: p + step * u, params64, direction))
 
-        check_grads(jax.jit(along), (jnp.zeros((), jnp.float64),), order=1, modes=tuple(modes))
+        check_grads(
+            jax.jit(along),
+            (jnp.zeros((), jnp.float64),),
+            order=1,
+            modes=tuple(modes),
+            eps=_STEP,
+        )
         gradient: NnxState = jax.jit(jax.grad(of_params))(params64)
     _refuse_all_zero(gradient, allow_zero=allow_zero)
     return gradient
@@ -116,7 +132,13 @@ def check_input_gradients[M: nnx.Module](  # noqa: DOC502  # raised by check_gra
         def along(step: jax.Array) -> jax.Array:
             return of_input(at + step * direction)
 
-        check_grads(jax.jit(along), (jnp.zeros((), jnp.float64),), order=1, modes=tuple(modes))
+        check_grads(
+            jax.jit(along),
+            (jnp.zeros((), jnp.float64),),
+            order=1,
+            modes=tuple(modes),
+            eps=_STEP,
+        )
         gradient = jax.jit(jax.grad(of_input))(at)
     _refuse_all_zero(gradient, allow_zero=allow_zero)
     return gradient
