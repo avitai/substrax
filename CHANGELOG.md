@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.33] - 2026-11-21
+
 ### Changed
 
 - **Breaking:** `testing.nnx_rules` replaces `mode-flag-default` with three rules for flax's mode
@@ -1361,7 +1363,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.32...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.33...HEAD
+[0.1.33]: https://github.com/avitai/substrax/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/avitai/substrax/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/avitai/substrax/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/avitai/substrax/compare/v0.1.29...v0.1.30
