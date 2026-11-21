@@ -15,6 +15,12 @@ found rather than silently skipped. The checks:
 - ``eval_deterministic``: after ``.eval()`` two calls agree exactly and no RNG stream advances.
 - ``train_dropout_varies``: after ``.train()`` a module with dropout draws a fresh mask per call.
 - ``batch_stats``: ``.train()`` updates ``nnx.BatchStat``; ``.eval()`` leaves it alone.
+- ``view_matches_modes``: ``nnx.view(module, deterministic=..., use_running_average=...)``
+  computes what ``.eval()`` and ``.train()`` do and advances the RNG streams they advance.
+  ``.eval()`` sets every ``deterministic`` attribute, but ``nnx.view`` reaches a module only
+  through its ``set_view``, so a custom leaf owning its mode without one keeps its old mode in a
+  view; and ``nnx.view`` calls ``set_view`` on anything answering ``hasattr``, which a stored
+  ``nnx.Rngs`` with a ``default`` stream does by drawing a key.
 - ``jit_matches_eager``: ``nnx.jit`` computes what an eager call does, and a second call of the
   same shapes does not trace again.
 - ``rows_independent``: in ``.eval()``, ``nnx.vmap`` over single rows reproduces the batched call.
@@ -270,6 +276,29 @@ def check_batch_stats(case: Case) -> None:
     _require(kept, ".eval() changed the running statistics")
 
 
+def check_view_matches_modes(case: Case) -> None:
+    """``nnx.view`` computes what ``.eval()`` and ``.train()`` do, from the other mode."""
+    module, inputs = _built(case)
+    for mode, start, is_eval in (("eval", "train", True), ("train", "eval", False)):
+        getattr(module, start)()
+        switched = nnx.clone(module)
+        getattr(switched, mode)()
+        with _refused("nnx.view"):
+            viewed = nnx.view(
+                nnx.clone(module),
+                deterministic=is_eval,
+                use_running_average=is_eval,
+                raise_if_not_found=False,
+            )
+        expected, actual = case.call(switched, *inputs), case.call(viewed, *inputs)
+        what = f"nnx.view(..., deterministic={is_eval}) against .{mode}()"
+        pairs = zip(_arrays(actual), _arrays(expected), strict=True)
+        _require(all(bool(jnp.array_equal(a, b)) for a, b in pairs), f"{what}: outputs differ")
+        _require(
+            _rng_counts(viewed) == _rng_counts(switched), f"{what}: RNG streams advanced apart"
+        )
+
+
 def check_jit_matches_eager(case: Case) -> None:
     """``nnx.jit`` computes what an eager call does, and traces once for one input shape."""
     module, inputs = _built(case)
@@ -345,6 +374,7 @@ CHECKS: Mapping[str, tuple[Callable[[Case], None], Callable[[Case], bool]]] = {
     "eval_deterministic": (check_eval_deterministic, _always),
     "train_dropout_varies": (check_train_dropout_varies, lambda case: case.has_dropout),
     "batch_stats": (check_batch_stats, lambda case: case.has_batch_stats),
+    "view_matches_modes": (check_view_matches_modes, _always),
     "jit_matches_eager": (check_jit_matches_eager, _always),
     "rows_independent": (check_rows_independent, lambda case: case.is_rowwise),
     "gradient_finite": (check_gradient_finite, lambda case: case.is_differentiable),

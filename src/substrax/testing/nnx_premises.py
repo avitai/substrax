@@ -82,6 +82,47 @@ def _call_time_flag_overrides_eval() -> bool:
     return bool(jnp.any(dropout(jnp.ones(64), deterministic=False) == 0.0))
 
 
+_MODE_NAMES = ("deterministic", "use_running_average", "training", "is_training", "_deterministic")
+
+
+class _ModeNames(nnx.Module):
+    """Holds each candidate name for a mode, all ``False``."""
+
+    def __init__(self) -> None:
+        for name in _MODE_NAMES:
+            setattr(self, name, False)
+
+
+def _eval_sets_only_flax_mode_names() -> bool:
+    module = _ModeNames()
+    module.eval()
+    switched = {name for name in _MODE_NAMES if getattr(module, name)}
+    return switched == {"deterministic", "use_running_average"}
+
+
+class _OwnMode(nnx.Module):
+    """A leaf owning ``deterministic``, without ``set_view``."""
+
+    def __init__(self) -> None:
+        self.deterministic = False
+
+
+class _OwnModeWithView(_OwnMode):
+    """The same leaf with ``set_view``."""
+
+    def set_view(self, deterministic: bool | None = None) -> None:
+        if deterministic is not None:
+            self.deterministic = deterministic
+
+
+def _viewed_deterministic(module: _OwnMode) -> bool:
+    return nnx.view(module, deterministic=True, raise_if_not_found=False).deterministic
+
+
+def _view_reaches_only_set_view() -> bool:
+    return not _viewed_deterministic(_OwnMode()) and _viewed_deterministic(_OwnModeWithView())
+
+
 def _module_defines_no_init() -> bool:
     return "__init__" not in vars(nnx.Module)
 
@@ -146,8 +187,20 @@ PREMISES: tuple[Premise, ...] = (
     Premise(
         name="call-time-flag-overrides-eval",
         why="a deterministic=False passed at call time still drops units after .eval()",
-        relied_on_by=("mode-flag-default", "conformance"),
+        relied_on_by=("mode-override", "conformance"),
         measure=_call_time_flag_overrides_eval,
+    ),
+    Premise(
+        name="eval-sets-only-flax-mode-names",
+        why=".eval() sets deterministic and use_running_average, not training or a private name",
+        relied_on_by=("unreachable-mode",),
+        measure=_eval_sets_only_flax_mode_names,
+    ),
+    Premise(
+        name="view-reaches-only-set-view",
+        why="nnx.view changes a module's mode through set_view alone, unlike .eval()",
+        relied_on_by=("conformance",),
+        measure=_view_reaches_only_set_view,
     ),
     Premise(
         name="module-defines-no-init",

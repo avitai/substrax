@@ -41,6 +41,41 @@ class RowwiseGood(nnx.Module):
         return self.dropout(jnp.tanh(self.linear(x)))
 
 
+class ModeWithoutView(nnx.Module):
+    """A custom dropout leaf owning its mode: ``.eval()`` reaches it, ``nnx.view`` does not."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.deterministic = False
+        self.stream = rngs.dropout.fork()
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        y = jnp.tanh(self.linear(x))
+        if self.deterministic:
+            return y
+        return jnp.where(jax.random.bernoulli(self.stream(), 0.5, y.shape), 2 * y, 0.0)
+
+
+class CustomLeafGood(ModeWithoutView):
+    """The same leaf with ``set_view``, as flax's own stochastic layers define it."""
+
+    def set_view(self, deterministic: bool | None = None) -> None:
+        """Set the mode ``nnx.view`` asks for; ``None`` keeps it."""
+        if deterministic is not None:
+            self.deterministic = deterministic
+
+
+class StoredRngs(nnx.Module):
+    """Keeps an ``nnx.Rngs``, whose ``default`` stream answers ``nnx.view``'s ``set_view`` probe."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.rngs = rngs
+        self.child = RowwiseGood(rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        return self.child(x)
+
+
 class LazyParam(nnx.Module):
     """Creates its weight on the first call."""
 
@@ -225,6 +260,7 @@ def _case(
 
 GOOD = _case(Good, has_dropout=True, has_batch_stats=True, is_rowwise=False)
 ROWWISE = _case(RowwiseGood, has_dropout=True)
+CUSTOM_LEAF = _case(CustomLeafGood, has_dropout=True)
 
 # Each broken module, the check it must fail, and the claims its case makes.
 BROKEN = [
@@ -233,6 +269,8 @@ BROKEN = [
     ("tree_mode_split", _case(SharedRngs, has_dropout=True)),
     ("eval_deterministic", _case(EvalOverride, has_dropout=True)),
     ("train_dropout_varies", _case(DropoutNeverOn, has_dropout=True)),
+    ("view_matches_modes", _case(ModeWithoutView, has_dropout=True)),
+    ("view_matches_modes", _case(StoredRngs, has_dropout=True)),
     ("batch_stats", _case(FrozenBatchNorm, has_batch_stats=True, is_rowwise=False)),
     ("jit_matches_eager", _case(Retraces)),
     ("rows_independent", _case(BatchCoupled)),
@@ -253,7 +291,9 @@ REFUSED = [
 
 
 @pytest.mark.parametrize("check", sorted(CHECKS))
-@pytest.mark.parametrize("case", [GOOD, ROWWISE], ids=["batch-norm", "rowwise"])
+@pytest.mark.parametrize(
+    "case", [GOOD, ROWWISE, CUSTOM_LEAF], ids=["batch-norm", "rowwise", "custom-leaf"]
+)
 def test_a_correct_module_passes_every_check_it_claims(check: str, case: Case) -> None:
     run, applies = CHECKS[check]
     if applies(case):

@@ -408,7 +408,7 @@ names a defect class found in the stack's libraries, and each has a snippet or m
 pass it and one that must fail it.
 
 **Source rules.** `substrax.testing.nnx_rules` reads a repository's files without importing
-them and finds seven defect classes:
+them and finds nine defect classes:
 
 - `seed-literal`: `nnx.Rngs(0)`, `jax.random.key(0)`, `np.random.default_rng(7)`, `seed = 0` and
   `seed=0` defaults.
@@ -416,8 +416,19 @@ them and finds seven defect classes:
 - `rngs-fallback`: `rngs or nnx.Rngs(...)`.
 - `trainable-metadata`: `nnx.Param(..., trainable=False)`, which still trains.
 - `salted-hash`.
-- `mode-flag-default`: `deterministic: bool = False`, which overrides `.eval()` when forwarded.
+- `mode-override`: `deterministic: bool = False` on a call path, which decides the mode on every
+  call that omits it, whatever `.train()`, `.eval()` or `nnx.view` set. A constructor's default
+  is the initial mode, as in `nnx.Dropout(deterministic=False)`, and is allowed.
+- `unread-mode-flag`: a mode flag the function never reads, so passing it changes nothing.
+- `unreachable-mode`: a mode `.train()` and `.eval()` cannot switch, because they set only
+  `deterministic` and `use_running_average`: `self.training = ...`, or a constructor flag that
+  only decides at build time.
 - `noop-super-init`.
+
+Together the three mode rules describe flax's mode contract: a stochastic leaf holds its mode in
+`self.deterministic` or `self.use_running_average` and defines `set_view`, as `nnx.Dropout` and
+`nnx.BatchNorm` do, and a composite takes no mode flag and lets `.train()`, `.eval()` and
+`nnx.view` reach its leaves.
 
 A repository enables a rule once its sites are fixed:
 
@@ -457,6 +468,8 @@ NNX's transforms:
 - a deterministic `.eval()`;
 - dropout under `.train()`;
 - batch statistics that move in training only;
+- `nnx.view` computing what `.eval()` and `.train()` do, which a leaf owning its mode without
+  `set_view`, or a module storing an `nnx.Rngs`, fails;
 - `nnx.jit` matching eager with one trace;
 - independent rows under `nnx.vmap`;
 - gradients that are finite and match float64 finite differences.

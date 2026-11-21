@@ -119,16 +119,62 @@ def test_a_seed_the_caller_chose_is_not_a_literal(source: str) -> None:
             ],
         ),
         (
-            "mode-flag-default",
+            "mode-override",
             [
-                "def f(x, deterministic: bool = False): ...",
+                "def __call__(self, x, deterministic: bool = False): ...",
                 "def g(x, *, training=True): ...",
                 "def h(x, use_running_average: bool = True): ...",
                 "def k(x, train=False): ...",
+                "def f(x, deterministic: bool | None = False): ...",
+                "def set_view(self, deterministic: bool = True): ...",
             ],
             [
                 "def f(x, deterministic: bool | None = None): ...",
+                "def f(x, deterministic): ...",
                 "def g(x, *, verbose: bool = False): ...",
+                "def __init__(self, deterministic: bool = False):\n"
+                "    self.deterministic = deterministic",
+            ],
+        ),
+        (
+            "unread-mode-flag",
+            [
+                "def __call__(self, x, deterministic=None):\n    return self.linear(x)",
+                "def __call__(self, x, *, training: bool = False):\n    del training\n    return x",
+                "def __init__(self, deterministic=False):\n    self.rate = 0.5",
+            ],
+            [
+                "def __call__(self, x, deterministic=None):\n"
+                "    return self.dropout(x, deterministic=deterministic)",
+                'def __call__(self, x, deterministic=None):\n    """An interface."""\n    ...',
+                "def __call__(self, x, deterministic=None):\n    raise NotImplementedError",
+                "def f(x, training):\n    def g():\n        return training\n    return g()",
+            ],
+        ),
+        (
+            "unreachable-mode",
+            [
+                "class A(nnx.Module):\n    def __init__(self):\n        self.training = True",
+                "def __init__(self, deterministic=False):\n    self._deterministic = deterministic",
+                "def __init__(self, deterministic=False):\n"
+                "    if not deterministic:\n        self.dropout = nnx.Dropout(0.5)",
+                "def __init__(self, training=True):\n    self.mode = training",
+                "def reset(self):\n    self.is_training = False",
+                "model.training = False",
+            ],
+            [
+                "def __init__(self, deterministic=False):\n    self.deterministic = deterministic",
+                "def __init__(self, rate, deterministic=False):\n"
+                "    self.dropout = nnx.Dropout(rate, deterministic=deterministic)",
+                "def __init__(self, training=True):\n"
+                "    self.norm = nnx.BatchNorm(4, use_running_average=not training)",
+                "def __init__(self, deterministic=False):\n"
+                "    super().__init__(deterministic=deterministic)",
+                "def __init__(self, deterministic=False):\n"
+                "    self.deterministic: bool = deterministic",
+                "def set_view(self, deterministic=None):\n"
+                "    if deterministic is not None:\n        self.deterministic = deterministic",
+                "model.deterministic = True",
             ],
         ),
         (
@@ -158,7 +204,9 @@ def test_every_rule_is_exercised_above() -> None:
         "rngs-fallback",
         "trainable-metadata",
         "salted-hash",
-        "mode-flag-default",
+        "mode-override",
+        "unread-mode-flag",
+        "unreachable-mode",
         "noop-super-init",
     }
 

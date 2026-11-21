@@ -19,10 +19,22 @@ Each rule names a defect class measured in the stack's libraries, and finds its 
 - ``salted-hash``: the builtin ``hash``, whose value for a ``str`` changes between interpreters
   (``PYTHONHASHSEED``), so a token id or seed derived from it differs on every run. A call
   inside a ``__hash__`` method implements Python's hash protocol and is not a finding.
-- ``mode-flag-default``: a parameter named ``deterministic``, ``training``, ``train``,
-  ``is_training`` or ``use_running_average`` defaulting to a bool. Forwarded to an NNX layer, a
-  call-time flag overrides the mode ``.train()`` / ``.eval()`` set; flax's own layers default it
-  to ``None``, meaning that mode.
+- ``mode-override``: a mode flag (a parameter named ``deterministic``, ``training``, ``train``,
+  ``is_training`` or ``use_running_average``) defaulting to a bool, in any function but
+  ``__init__``. Every call that omits it runs in the default's mode, whatever ``.train()``,
+  ``.eval()`` or ``nnx.view`` set; flax's own layers default a call-time flag to ``None``, meaning
+  that mode. A constructor's bool default is the initial mode, as in
+  ``nnx.Dropout(deterministic=False)``, so ``__init__`` is spared. A functional API whose every
+  caller passes the mode, as flax's ``dot_product_attention``, is exempted with that reason.
+- ``unread-mode-flag``: a mode flag the function never reads. A caller passing
+  ``deterministic=True`` switches nothing off. A body that only declares the signature (a
+  docstring, ``...``, ``pass`` or ``raise``) is an interface an override implements, and is
+  spared.
+- ``unreachable-mode``: a mode ``.train()``, ``.eval()`` and ``nnx.view`` cannot switch. They set
+  only the attributes ``deterministic`` and ``use_running_average``, so a mode stored under
+  another name (``self.training``, ``self._deterministic``) never changes, and nor does a
+  constructor's mode flag that is neither stored nor passed on under those names, such as one
+  that only decides at build time whether a dropout layer exists.
 - ``noop-super-init``: ``super().__init__()`` in a direct ``nnx.Module`` subclass, which reaches
   ``object.__init__``: ``nnx.Module`` defines no ``__init__``.
 
@@ -94,6 +106,8 @@ _SEED_CALLS = frozenset(
 _MODE_FLAGS = frozenset(
     {"deterministic", "training", "train", "is_training", "use_running_average"}
 )
+_SWITCHED_MODES = frozenset({"deterministic", "use_running_average"})
+"""The attributes ``.train()`` and ``.eval()`` set, measured by :mod:`.nnx_premises`."""
 
 
 class MalformedExemptionError(ValueError):
@@ -290,14 +304,109 @@ def _is_bool_mode_default(argument: ast.arg, default: ast.expr) -> bool:
     )
 
 
-def mode_flag_default(tree: ast.AST) -> list[Site]:
-    """Mode-flag parameters defaulting to a bool rather than ``None``."""
+def mode_override(tree: ast.AST) -> list[Site]:
+    """Mode flags defaulting to a bool in any function but ``__init__``."""
     return [
         _site(argument, f"{function.name}({argument.arg}={ast.unparse(default)})")
         for function in _functions(tree)
+        if function.name != "__init__"
         for argument, default in _defaults(function)
         if _is_bool_mode_default(argument, default)
     ]
+
+
+def _mode_parameters(function: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterator[ast.arg]:
+    arguments = function.args
+    for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs):
+        if argument.arg in _MODE_FLAGS:
+            yield argument
+
+
+def _reads(node: ast.AST, name: str) -> bool:
+    return any(
+        isinstance(child, ast.Name) and child.id == name and isinstance(child.ctx, ast.Load)
+        for child in ast.walk(node)
+    )
+
+
+def _reads_in_body(function: ast.FunctionDef | ast.AsyncFunctionDef, name: str) -> bool:
+    return any(_reads(statement, name) for statement in function.body)
+
+
+def _is_declaration(statement: ast.stmt) -> bool:
+    if isinstance(statement, (ast.Pass, ast.Raise)):
+        return True
+    return (
+        isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+        and (statement.value.value is Ellipsis or isinstance(statement.value.value, str))
+    )
+
+
+def unread_mode_flag(tree: ast.AST) -> list[Site]:
+    """Mode flags a function with a body never reads."""
+    return [
+        _site(argument, f"{function.name}({argument.arg}) never reads {argument.arg}")
+        for function in _functions(tree)
+        if not all(_is_declaration(statement) for statement in function.body)
+        for argument in _mode_parameters(function)
+        if not _reads_in_body(function, argument.arg)
+    ]
+
+
+def _is_unswitched_mode(attribute: str) -> bool:
+    return attribute.lstrip("_") in _MODE_FLAGS and attribute not in _SWITCHED_MODES
+
+
+def _assignments(function: ast.AST) -> Iterator[tuple[list[ast.expr], ast.expr]]:
+    for node in ast.walk(function):
+        if isinstance(node, ast.Assign):
+            yield node.targets, node.value
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and node.value is not None:
+            yield [node.target], node.value
+
+
+def _stored_attributes(targets: list[ast.expr]) -> set[str]:
+    return {
+        node.attr
+        for target in targets
+        for node in ast.walk(target)
+        if isinstance(node, ast.Attribute)
+    }
+
+
+def _reaches_a_switched_mode(init: ast.FunctionDef | ast.AsyncFunctionDef, name: str) -> bool:
+    """Whether ``name`` flows into an attribute ``.eval()`` sets, or one this rule reports."""
+    for targets, value in _assignments(init):
+        stored = _stored_attributes(targets)
+        if _reads(value, name) and any(
+            attribute in _SWITCHED_MODES or _is_unswitched_mode(attribute) for attribute in stored
+        ):
+            return True
+    return any(
+        isinstance(node, ast.keyword) and node.arg in _SWITCHED_MODES and _reads(node.value, name)
+        for node in ast.walk(init)
+    )
+
+
+def unreachable_mode(tree: ast.AST) -> list[Site]:
+    """Modes stored under names ``.eval()`` never sets, and constructor modes it never reaches."""
+    stored = [
+        _site(node, ast.unparse(node))
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.ctx, ast.Store)
+        and _is_unswitched_mode(node.attr)
+    ]
+    unreached = [
+        _site(argument, f"{function.name}({argument.arg}) reaches no attribute .eval() sets")
+        for function in _functions(tree)
+        if function.name == "__init__"
+        for argument in _mode_parameters(function)
+        if _reads_in_body(function, argument.arg)
+        and not _reaches_a_switched_mode(function, argument.arg)
+    ]
+    return [*stored, *unreached]
 
 
 def _direct_module_inits(tree: ast.AST) -> Iterator[tuple[ast.ClassDef, ast.FunctionDef]]:
@@ -326,7 +435,9 @@ RULES: Mapping[str, Callable[[ast.AST], list[Site]]] = {
     "rngs-fallback": rngs_fallback,
     "trainable-metadata": trainable_metadata,
     "salted-hash": salted_hash,
-    "mode-flag-default": mode_flag_default,
+    "mode-override": mode_override,
+    "unread-mode-flag": unread_mode_flag,
+    "unreachable-mode": unreachable_mode,
     "noop-super-init": noop_super_init,
 }
 """Every rule, by name."""
