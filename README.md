@@ -187,10 +187,10 @@ placements, so a test bounds a code path's work per iteration by count instead o
 gradient in its parameters or its input against finite differences in float64 and returns it, so
 a test asserts the gradient's value, not only that it exists. For Flax NNX libraries,
 `substrax.testing.nnx_rules` finds seed literals, `nnx.Rngs` probes and fallbacks, ignored
-`trainable=` metadata, salted hashes, bool mode-flag defaults and no-op `super().__init__()` in
-source; `substrax.testing.nnx_premises` measures the framework facts those rules rest on; and
-`substrax.testing.nnx_conformance` checks each module class under NNX's transforms (tree mode,
-`.eval()`, `nnx.jit`, `nnx.vmap`, gradients). A child sends its result with
+`trainable=` metadata, salted hashes, modes `.eval()` cannot reach or a call-time flag overrides,
+and no-op `super().__init__()` in source; `substrax.testing.nnx_premises` measures the framework
+facts those rules rest on; and `substrax.testing.nnx_conformance` checks each module class under
+NNX's transforms (tree mode, `.eval()`, `nnx.view`, `nnx.jit`, `nnx.vmap`, gradients). A child sends its result with
 `report(value)`, on a channel no library writes to, and `report_as(shape)` reads it validated
 against a `TypedDict` or another type. A repository's example tests are
 `substrax.testing.example_suite`, configured in its pyproject and run by

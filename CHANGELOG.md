@@ -7,6 +7,31 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `testing.nnx_rules` replaces `mode-flag-default` with three rules for flax's mode
+  contract. `.train()` and `.eval()` set the attributes `deterministic` and
+  `use_running_average`, and `nnx.view` calls `set_view`; a mode is correct when those reach it.
+  - `mode-override`: a mode flag defaulting to a bool in any function but `__init__`. A
+    constructor's bool default is the initial mode, as in `nnx.Dropout(deterministic=False)`, so
+    a layer storing it, which `mode-flag-default` reported, is no longer a finding.
+  - `unread-mode-flag`: a mode flag the function never reads; a body that only declares an
+    interface is spared.
+  - `unreachable-mode`: a mode stored under a name `.eval()` does not set (`self.training`,
+    `self._deterministic`), or a constructor flag neither stored nor passed on under those names.
+
+  An exemption naming `mode-flag-default` now raises `MalformedExemptionError`; delete it, since
+  the site it covered is either no finding or one of the new rules'.
+
+### Added
+
+- `testing.nnx_conformance` check `view_matches_modes`: `nnx.view(module, deterministic=...,
+  use_running_average=...)` computes what `.eval()` and `.train()` do and advances the same RNG
+  streams. A custom leaf owning its mode without `set_view` keeps its old mode in a view, and a
+  module storing an `nnx.Rngs` with a `default` stream has a key drawn by `nnx.view`'s `set_view`
+  probe; both fail.
+- `testing.nnx_premises`: `eval-sets-only-flax-mode-names` and `view-reaches-only-set-view`.
+
 ## [0.1.32] - 2026-11-20
 
 ### Fixed
