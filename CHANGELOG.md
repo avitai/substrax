@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.34] - 2026-11-22
+
 ### Added
 
 - `testing.nnx_conformance.Case.rng_streams`: the streams a module takes at call time, as
@@ -1375,7 +1377,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.33...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.34...HEAD
+[0.1.34]: https://github.com/avitai/substrax/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/avitai/substrax/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/avitai/substrax/compare/v0.1.31...v0.1.32
 [0.1.31]: https://github.com/avitai/substrax/compare/v0.1.30...v0.1.31
