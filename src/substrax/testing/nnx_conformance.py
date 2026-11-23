@@ -3,7 +3,15 @@
 A repository describes how to build and call each of its module classes as a :class:`Case`,
 and runs every check of :data:`CHECKS` whose claim the case makes. :func:`module_classes` gives
 the denominator: every concrete ``nnx.Module`` a package defines, so a class without a case is
-found rather than silently skipped. The checks:
+found rather than silently skipped.
+
+A module either holds its randomness (a forked stream, as ``nnx.Dropout(rngs=...)`` keeps) or
+takes it at call time as ``rngs=``, the style flax recommends for new code
+(``docs_nnx/guides/randomness.md``). A case of the second kind names its streams in
+:attr:`Case.rng_streams`; every check then passes an ``nnx.Rngs`` of those streams built from a
+key the check chooses, the same key to two computations it compares.
+
+The checks:
 
 - ``state_structure``: a forward pass leaves the state's paths, types, shapes and dtypes, and
   the graph definition, as ``__init__`` built them. A parameter created on the first call is
@@ -12,8 +20,11 @@ found rather than silently skipped. The checks:
   comes back from ``nnx.jit`` as an array and cannot be differentiated in tree mode.
 - ``tree_mode_split``: ``nnx.split(graph=False)`` succeeds and the merged module computes what
   the module does. Tree mode, flax FLIP 5310's planned default, refuses shared Variables.
-- ``eval_deterministic``: after ``.eval()`` two calls agree exactly and no RNG stream advances.
-- ``train_dropout_varies``: after ``.train()`` a module with dropout draws a fresh mask per call.
+- ``eval_deterministic``: after ``.eval()`` two calls agree exactly and no RNG stream advances;
+  with call-time streams the two calls get different keys, so the output must not depend on one.
+- ``train_dropout_varies``: after ``.train()`` a module with dropout draws a fresh mask per call;
+  with call-time streams, from one starting state, different keys give different outputs and
+  the same key the same output, so randomness the key does not control is found.
 - ``batch_stats``: ``.train()`` updates ``nnx.BatchStat``; ``.eval()`` leaves it alone.
 - ``view_matches_modes``: ``nnx.view(module, deterministic=..., use_running_average=...)``
   computes what ``.eval()`` and ``.train()`` do and advances the RNG streams they advance.
@@ -92,8 +103,8 @@ def _refused(transform: str) -> Generator[None]:
         raise ConformanceError(message) from error
 
 
-def _call(module: nnx.Module, *inputs: jax.Array) -> PyTree:
-    return module(*inputs)
+def _call(module: nnx.Module, *inputs: jax.Array, **keywords: nnx.Rngs) -> PyTree:
+    return module(*inputs, **keywords)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -109,6 +120,10 @@ class Case:
         has_batch_stats: The module keeps ``nnx.BatchStat`` running statistics.
         is_rowwise: In ``.eval()``, output row ``i`` depends on input row ``i`` alone.
         is_differentiable: The output is differentiable in the parameters.
+        rng_streams: The streams the module takes at call time, as ``rngs=``; empty when it
+            holds its randomness. When set, every check calls ``call(module, *inputs, rngs=...)``
+            with an ``nnx.Rngs`` of these streams built from a key the check chooses: compared
+            runs get the same key, and the dropout check also compares two keys.
     """
 
     build: Callable[[nnx.Rngs], nnx.Module]
@@ -118,6 +133,7 @@ class Case:
     has_batch_stats: bool = False
     is_rowwise: bool = True
     is_differentiable: bool = True
+    rng_streams: tuple[str, ...] = ()
 
 
 def module_classes(package: ModuleType) -> dict[str, type[nnx.Module]]:
@@ -207,12 +223,35 @@ def _scalar(output: PyTree) -> jax.Array:
     return sum((jnp.sum(jnp.sin(leaf)) for leaf in _arrays(output)), start=jnp.zeros(()))
 
 
+def _call_keys() -> tuple[jax.Array, jax.Array]:
+    """Two distinct keys the checks pass to a case's call-time streams."""
+    rngs = rngs_from_seed(_SEED, streams=("calls",))
+    return rngs.calls(), rngs.calls()
+
+
+def _run(case: Case, module: nnx.Module, inputs: tuple[jax.Array, ...], key: jax.Array) -> PyTree:
+    """Call the case, giving its call-time streams an ``nnx.Rngs`` built from ``key``.
+
+    The ``nnx.Rngs`` is built where the call happens, inside any transform, so no ``nnx.Rngs``
+    crosses a transform boundary; the same key gives the same draws.
+    """
+    if not case.rng_streams:
+        return case.call(module, *inputs)
+    streams = {name: jax.random.fold_in(key, i) for i, name in enumerate(case.rng_streams)}
+    return case.call(module, *inputs, rngs=nnx.Rngs(**streams))
+
+
+def _equal(first: PyTree, second: PyTree) -> bool:
+    pairs = zip(_arrays(first), _arrays(second), strict=True)
+    return all(bool(jnp.array_equal(a, b)) for a, b in pairs)
+
+
 def check_state_structure(case: Case) -> None:
     """A forward pass leaves the state and graph definition as ``__init__`` built them."""
     module, inputs = _built(case)
     module.train()
     before, graph = _structure(module), nnx.graphdef(module)
-    case.call(module, *inputs)
+    _run(case, module, inputs, _call_keys()[0])
     _require(_structure(module) == before, "a forward pass changed the state's structure")
     _require(nnx.graphdef(module) == graph, "a forward pass changed the graph definition")
 
@@ -232,42 +271,68 @@ def check_tree_mode_split(case: Case) -> None:
     """Tree mode can split the module, and the merged module computes what it does."""
     module, inputs = _built(case)
     module.eval()
-    expected = case.call(nnx.clone(module), *inputs)
+    key = _call_keys()[0]
+    expected = _run(case, nnx.clone(module), inputs, key)
     with _refused("tree mode"):
         graphdef, state = nnx.split(module, graph=False)
-        actual = case.call(nnx.merge(graphdef, state), *inputs)
+        actual = _run(case, nnx.merge(graphdef, state), inputs, key)
     _require_same_function(actual, expected, "tree mode")
 
 
 def check_eval_deterministic(case: Case) -> None:
-    """After ``.eval()`` two calls agree exactly and no RNG stream advances."""
+    """After ``.eval()`` two calls agree exactly and no RNG stream advances.
+
+    With call-time streams the two calls get different keys, so the output must not depend on
+    the key.
+    """
     module, inputs = _built(case)
     module.eval()
     counts = _rng_counts(module)
-    first, second = case.call(module, *inputs), case.call(module, *inputs)
-    pairs = zip(_arrays(first), _arrays(second), strict=True)
-    _require(all(bool(jnp.array_equal(a, b)) for a, b in pairs), "two .eval() calls differ")
+    key_a, key_b = _call_keys()
+    first, second = _run(case, module, inputs, key_a), _run(case, module, inputs, key_b)
+    what = (
+        "two .eval() calls with different keys differ"
+        if case.rng_streams
+        else "two .eval() calls differ"
+    )
+    _require(_equal(first, second), what)
     _require(_rng_counts(module) == counts, ".eval() advanced an RNG stream")
 
 
 def check_train_dropout_varies(case: Case) -> None:
-    """After ``.train()`` a module with dropout draws a fresh mask per call."""
+    """After ``.train()`` a module with dropout draws a fresh mask per call.
+
+    With call-time streams the mask follows the key: different keys give different outputs, and
+    the same key gives the same output, each from the same starting state.
+    """
     module, inputs = _built(case)
     module.train()
-    first, second = case.call(module, *inputs), case.call(module, *inputs)
-    pairs = zip(_arrays(first), _arrays(second), strict=True)
-    _require(any(not bool(jnp.array_equal(a, b)) for a, b in pairs), "two .train() calls agree")
+    key_a, key_b = _call_keys()
+    if not case.rng_streams:
+        first, second = _run(case, module, inputs, key_a), _run(case, module, inputs, key_a)
+        _require(not _equal(first, second), "two .train() calls agree")
+        return
+    first = _run(case, nnx.clone(module), inputs, key_a)
+    other_key = _run(case, nnx.clone(module), inputs, key_b)
+    same_key = _run(case, nnx.clone(module), inputs, key_a)
+    _require(not _equal(first, other_key), "two .train() calls with different keys agree")
+    _require(
+        _equal(first, same_key),
+        "two .train() calls with the same key differ: the module draws randomness the key does not"
+        " control",
+    )
 
 
 def check_batch_stats(case: Case) -> None:
     """``.train()`` updates ``nnx.BatchStat``; ``.eval()`` reads it and leaves it alone."""
     module, inputs = _built(case)
+    key = _call_keys()[0]
     initial = _batch_stats(module)
     module.train()
-    case.call(module, *inputs)
+    _run(case, module, inputs, key)
     trained = _batch_stats(module)
     module.eval()
-    case.call(module, *inputs)
+    _run(case, module, inputs, key)
     moved = any(not bool(jnp.array_equal(a, b)) for a, b in zip(initial, trained, strict=True))
     _require(moved, ".train() left the running statistics unchanged")
     kept = all(
@@ -279,6 +344,7 @@ def check_batch_stats(case: Case) -> None:
 def check_view_matches_modes(case: Case) -> None:
     """``nnx.view`` computes what ``.eval()`` and ``.train()`` do, from the other mode."""
     module, inputs = _built(case)
+    key = _call_keys()[0]
     for mode, start, is_eval in (("eval", "train", True), ("train", "eval", False)):
         getattr(module, start)()
         switched = nnx.clone(module)
@@ -290,10 +356,9 @@ def check_view_matches_modes(case: Case) -> None:
                 use_running_average=is_eval,
                 raise_if_not_found=False,
             )
-        expected, actual = case.call(switched, *inputs), case.call(viewed, *inputs)
+        expected, actual = _run(case, switched, inputs, key), _run(case, viewed, inputs, key)
         what = f"nnx.view(..., deterministic={is_eval}) against .{mode}()"
-        pairs = zip(_arrays(actual), _arrays(expected), strict=True)
-        _require(all(bool(jnp.array_equal(a, b)) for a, b in pairs), f"{what}: outputs differ")
+        _require(_equal(actual, expected), f"{what}: outputs differ")
         _require(
             _rng_counts(viewed) == _rng_counts(switched), f"{what}: RNG streams advanced apart"
         )
@@ -303,14 +368,19 @@ def check_jit_matches_eager(case: Case) -> None:
     """``nnx.jit`` computes what an eager call does, and traces once for one input shape."""
     module, inputs = _built(case)
     module.eval()
-    expected = case.call(nnx.clone(module), *inputs)
+    key = _call_keys()[0]
+
+    def keyed(module: nnx.Module, key: jax.Array, *inputs: jax.Array) -> PyTree:
+        return _run(case, module, inputs, key)
+
+    expected = keyed(nnx.clone(module), key, *inputs)
     counter = TraceCounter()
-    compiled = nnx.jit(counter.wrap(case.call))
+    compiled = nnx.jit(counter.wrap(keyed))
     first = counter.count
     with _refused("nnx.jit"):
-        actual = compiled(module, *inputs)
+        actual = compiled(module, key, *inputs)
         traced = counter.count
-        compiled(module, *inputs)
+        compiled(module, key, *inputs)
     _require(traced - first == 1, f"the first call traced {traced - first} times")
     _require(counter.count == traced, "a second call with the same shapes traced again")
     _require_same_function(actual, expected, "nnx.jit against eager")
@@ -320,10 +390,12 @@ def check_rows_independent(case: Case) -> None:
     """In ``.eval()``, ``nnx.vmap`` over single rows reproduces the batched call."""
     module, inputs = _built(case)
     module.eval()
-    expected = case.call(module, *inputs)
+    key = _call_keys()[0]
+    expected = _run(case, module, inputs, key)
 
     def one_row(module: nnx.Module, *row: jax.Array) -> PyTree:
-        return jax.tree.map(lambda leaf: leaf[0], case.call(module, *(x[None] for x in row)))
+        output = _run(case, module, tuple(x[None] for x in row), key)
+        return jax.tree.map(lambda leaf: leaf[0], output)
 
     with _refused("nnx.vmap"):
         actual = nnx.vmap(one_row, in_axes=(None, *[0] * len(inputs)))(module, *inputs)
@@ -334,10 +406,11 @@ def check_gradient_finite(case: Case) -> None:
     """The float32 parameter gradient is finite and not zero everywhere."""
     module, inputs = _built(case)
     module.eval()
+    key = _call_keys()[0]
     graphdef, params, rest = nnx.split(module, nnx.Param, ...)
 
     def loss(params: NnxState) -> jax.Array:
-        return _scalar(case.call(nnx.merge(graphdef, params, rest), *inputs))
+        return _scalar(_run(case, nnx.merge(graphdef, params, rest), inputs, key))
 
     with _refused("jax.grad"):
         leaves = jax.tree.leaves(jax.grad(loss)(params))
@@ -350,9 +423,10 @@ def check_gradient_matches_finite_differences(case: Case) -> None:
     """In float64 the parameter gradient agrees with finite differences."""
     module, inputs = _built(case)
     module.eval()
+    key = _call_keys()[0]
 
     def loss(module: nnx.Module) -> jax.Array:
-        return _scalar(case.call(module, *as_float64(inputs)))
+        return _scalar(_run(case, module, tuple(as_float64(inputs)), key))
 
     try:
         with _refused("the float64 gradient check"):
