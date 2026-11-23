@@ -7,6 +7,18 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `testing.nnx_conformance.Case.rng_streams`: the streams a module takes at call time, as
+  `rngs=`. Flax recommends this style for new code (`docs_nnx/guides/randomness.md`), and its
+  gemma example builds `nnx.Dropout(rate)` and passes `rngs` on each call. When a case names its
+  streams, every check passes an `nnx.Rngs` of them, built from a key the check chooses and the
+  same for two computations it compares. `train_dropout_varies` then asks that different keys
+  give different outputs and that the same key, from the same starting state, give the same
+  output, which finds randomness the key does not control. `eval_deterministic` gives its two
+  calls different keys, so an eval output must not depend on the key. A case without
+  `rng_streams` is checked as before.
+
 ## [0.1.33] - 2026-11-21
 
 ### Changed

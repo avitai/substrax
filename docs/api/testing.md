@@ -497,6 +497,25 @@ A check comparing two computations of one function allows `DEPTH * eps(dtype) * 
 computations start from cloned state, so a module that draws randomness in the wrong mode fails
 `eval_deterministic` alone rather than every check.
 
+A module that takes its randomness at call time (`nnx.Dropout(rate)` with `rngs=` passed on each
+call, the style flax recommends for new code) names its streams in the case:
+
+```python
+Case(
+    build=lambda rngs: Block(rngs=rngs),
+    inputs=inputs,
+    call=lambda module, x, *, rngs: module(x, rngs=rngs),
+    has_dropout=True,
+    rng_streams=("dropout",),
+)
+```
+
+Every check then calls the case with an `nnx.Rngs` of those streams, built from a key the check
+chooses and the same for two computations it compares. `train_dropout_varies` asks that different
+keys give different outputs and the same key the same output, so randomness the key does not
+control (a stream the module still holds, a host random generator) fails it. `eval_deterministic`
+gives its two calls different keys, so an eval output that depends on the key fails it.
+
 ::: substrax.testing
 
 ::: substrax.testing.compiles

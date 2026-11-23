@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pytest
 from flax import nnx
 
@@ -74,6 +75,62 @@ class StoredRngs(nnx.Module):
 
     def __call__(self, x: jax.Array) -> jax.Array:
         return self.child(x)
+
+
+class CallTimeGood(nnx.Module):
+    """Takes its dropout key at call time, as flax's gemma example does."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        return self.dropout(jnp.tanh(self.linear(x)), rngs=rngs)
+
+
+class CallTimeIgnoresKey(nnx.Module):
+    """Declares a call-time stream but draws from a stream it holds, so the key changes nothing."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5, rngs=rngs)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:  # noqa: ARG002
+        return self.dropout(jnp.tanh(self.linear(x)))
+
+
+class CallTimeFixedMask(nnx.Module):
+    """Draws its mask from a key it fixes itself, so different keys give one mask."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:  # noqa: ARG002
+        return self.dropout(jnp.tanh(self.linear(x)), rngs=nnx.Rngs(dropout=jax.random.key(7)))
+
+
+class CallTimeHostRandom(nnx.Module):
+    """Adds noise from NumPy's global generator, which no key or module state controls."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        y = self.dropout(jnp.tanh(self.linear(x)), rngs=rngs)
+        return y + jnp.asarray(np.random.default_rng().normal(size=y.shape), y.dtype)
+
+
+class CallTimeEvalOverride(nnx.Module):
+    """Keeps dropout on in ``.eval()`` with the caller's key, so eval output depends on the key."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        return self.dropout(jnp.tanh(self.linear(x)), deterministic=False, rngs=rngs)
 
 
 class LazyParam(nnx.Module):
@@ -248,6 +305,7 @@ def _case(
     has_dropout: bool = False,
     has_batch_stats: bool = False,
     is_rowwise: bool = True,
+    rng_streams: tuple[str, ...] = (),
 ) -> Case:
     return Case(
         build=lambda rngs: module(rngs=rngs),
@@ -255,12 +313,14 @@ def _case(
         has_dropout=has_dropout,
         has_batch_stats=has_batch_stats,
         is_rowwise=is_rowwise,
+        rng_streams=rng_streams,
     )
 
 
 GOOD = _case(Good, has_dropout=True, has_batch_stats=True, is_rowwise=False)
 ROWWISE = _case(RowwiseGood, has_dropout=True)
 CUSTOM_LEAF = _case(CustomLeafGood, has_dropout=True)
+CALL_TIME = _case(CallTimeGood, has_dropout=True, rng_streams=("dropout",))
 
 # Each broken module, the check it must fail, and the claims its case makes.
 BROKEN = [
@@ -269,6 +329,10 @@ BROKEN = [
     ("tree_mode_split", _case(SharedRngs, has_dropout=True)),
     ("eval_deterministic", _case(EvalOverride, has_dropout=True)),
     ("train_dropout_varies", _case(DropoutNeverOn, has_dropout=True)),
+    ("train_dropout_varies", _case(CallTimeIgnoresKey, has_dropout=True, rng_streams=("dropout",))),
+    ("train_dropout_varies", _case(CallTimeFixedMask, has_dropout=True, rng_streams=("dropout",))),
+    ("train_dropout_varies", _case(CallTimeHostRandom, has_dropout=True, rng_streams=("dropout",))),
+    ("eval_deterministic", _case(CallTimeEvalOverride, has_dropout=True, rng_streams=("dropout",))),
     ("view_matches_modes", _case(ModeWithoutView, has_dropout=True)),
     ("view_matches_modes", _case(StoredRngs, has_dropout=True)),
     ("batch_stats", _case(FrozenBatchNorm, has_batch_stats=True, is_rowwise=False)),
@@ -292,7 +356,9 @@ REFUSED = [
 
 @pytest.mark.parametrize("check", sorted(CHECKS))
 @pytest.mark.parametrize(
-    "case", [GOOD, ROWWISE, CUSTOM_LEAF], ids=["batch-norm", "rowwise", "custom-leaf"]
+    "case",
+    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME],
+    ids=["batch-norm", "rowwise", "custom-leaf", "call-time"],
 )
 def test_a_correct_module_passes_every_check_it_claims(check: str, case: Case) -> None:
     run, applies = CHECKS[check]
