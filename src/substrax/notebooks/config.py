@@ -10,12 +10,19 @@ unavailable = ["<the message an example fails with when its dataset is missing>"
 page_size_warn_bytes = 102400                         # a larger page is written with a warning
 page_size_bytes = 204800                              # a larger page is refused
 page_size_exempt = ["examples/gallery/overview.py"]   # examples whose pages are not measured
+# examples held back until the work they wait on lands, each with why:
+pending = { "examples/training/gan.py" = "waits for the critic fix (issue 12)" }
 ```
 
 The page-size settings follow Documenter.jl's `size_threshold_warn`, `size_threshold` and
 `size_threshold_ignore` (v1.20.0, `src/html/HTMLWriter.jl`), with its defaults of 100 and 200 KiB,
 measured on the Markdown page substrax writes, its figures excluded; Documenter's documentation
 prefers exempting a few pages to raising the limit for all.
+
+A pending example is held back rather than hidden: ``check`` and the shared example tests report
+it with its reason instead of failing on it, its run is never started, and compute's examples jobs
+leave it out. It is taken off the list once it follows the guide, which ``check`` and its guide test
+then demand, so the list only shrinks. Every entry states a reason.
 
 A budget bounds one example's whole run, as pytest-timeout's per-item timeout and Bazel's per-target
 ``timeout`` do: ``budget_seconds`` is the repository default and an example's ``budgets`` entry,
@@ -68,6 +75,10 @@ class ExamplesConfig:
         budgets: Examples' own budgets, in seconds, keyed by each example's path as its page
             records it, ``examples/<path>.py``; an example without an entry has
             ``budget_seconds``. Keys are checked as ``page_size_exempt``'s entries are.
+        pending: Examples held back until the work they wait on lands, keyed as ``budgets`` is,
+            each with the reason, which may not be blank. A pending example's guide findings are
+            reported, not failed, its run is skipped, and one that follows the guide fails until
+            its entry is removed.
     """
 
     __pydantic_config__ = UNKNOWN_FIELDS_REFUSED
@@ -80,6 +91,7 @@ class ExamplesConfig:
     page_size_bytes: int = 200 * 2**10
     page_size_exempt: tuple[str, ...] = ()
     budgets: Mapping[str, float] = field(default_factory=dict)
+    pending: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Refuse a source URL, a budget or page-size limits no page or run can be held to.
@@ -89,8 +101,9 @@ class ExamplesConfig:
                 ``budget_seconds`` is not a finite number above zero, the page-size limits are
                 not above zero with the warning size no larger than the limit, an
                 ``unavailable`` signature is in every raised exception, a ``page_size_exempt``
-                entry or ``budgets`` key is not an example's path as its page records it, or a
-                ``budgets`` value is not a finite number above zero.
+                entry or ``budgets`` or ``pending`` key is not an example's path as its page
+                records it, a ``budgets`` value is not a finite number above zero, or a
+                ``pending`` reason is blank.
         """
         if not self.source_url.startswith("https://") or self.source_url.endswith("/"):
             msg = f"source_url must be an https URL with no trailing slash, got {self.source_url!r}"
@@ -107,6 +120,14 @@ class ExamplesConfig:
         _refuse_malformed_sources("budgets", tuple(self.budgets))
         for source, seconds in self.budgets.items():
             refuse_unusable_budget(seconds, setting=f"budgets[{source!r}]")
+        _refuse_malformed_sources("pending", tuple(self.pending))
+        blank = [source for source, reason in self.pending.items() if not reason.strip()]
+        if blank:
+            msg = (
+                f"{', '.join(f'pending[{source!r}]' for source in blank)} "
+                "must state why the example is held back"
+            )
+            raise ValueError(msg)
 
     def budget_for(self, source: str) -> float:
         """Return how long an example's whole run may take.
@@ -199,8 +220,8 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
         LookupError: If the repository has no pyproject.toml, it has no such table, or it names
             no ``[project]``.
         ValueError: If a key is unknown, missing or holds a value of the wrong type, the table
-            sets ``distribution``, a ``page_size_exempt`` entry or ``budgets`` key names no
-            example of the repository, or a symlink below the root leads to an example
+            sets ``distribution``, a ``page_size_exempt`` entry or a ``budgets`` or ``pending`` key
+            names no example of the repository, or a symlink below the root leads to an example
             (:class:`~substrax.examples.ScriptPathError`).
     """
     pyproject = repo_root / "pyproject.toml"
@@ -227,6 +248,7 @@ def read_examples_config(repo_root: Path) -> ExamplesConfig:  # noqa: DOC503  # 
     for setting, entries in (
         ("page_size_exempt", config.page_size_exempt),
         ("budgets", tuple(config.budgets)),
+        ("pending", tuple(config.pending)),
     ):
         _refuse_unknown_sources(setting, entries, known=known, repo_root=repo_root)
     return config

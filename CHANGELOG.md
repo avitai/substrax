@@ -7,6 +7,18 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `[tool.substrax.examples] pending`: examples held back until the work they wait on lands, each
+  keyed by its path as its page records it and given a reason. `substrax-notebooks check` and the
+  `example-conformance` hook print the reason in place of a pending example's findings and do not
+  fail on them, the shared example tests skip its guide check and its run with the reason, the run
+  never started, and compute's examples jobs leave it out. A pending example that follows the guide
+  fails both checks until its entry is removed, so the list only shrinks; a blank reason, or a key
+  that is not an example's path or names no example, is refused when the settings are read. A
+  repository adopting the guide can now run every example in CI while the examples that show
+  defects under repair wait for their fixes, instead of holding back the whole job.
+
 ## [0.1.36] - 2026-11-24
 
 ### Fixed

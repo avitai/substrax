@@ -200,7 +200,8 @@ def _example_tasks(  # noqa: DOC503  # LookupError and ValueError are raised by 
         limit: Each task's limit, outside the run's own budget.
 
     Returns:
-        One task per example of each directory, in order.
+        One task per example of each directory, in order, leaving out the settings' pending
+        examples, whose runs the shared example tests skip too.
 
     Raises:
         ValueError: If the job lists examples without ``examples_mode`` or the reverse, an
@@ -224,12 +225,14 @@ def _example_tasks(  # noqa: DOC503  # LookupError and ValueError are raised by 
         if not (project / directory).is_dir():
             msg = f"examples directory {directory!r} of job {job!r} does not exist in {project}"
             raise FileNotFoundError(msg)
+    settings = read_examples_config(project)
     examples = [
-        path for directory in sources.examples for path in discover_examples(project / directory)
+        path
+        for directory in sources.examples
+        for path in discover_examples(project / directory)
+        if example_source(path, repo_root=project) not in settings.pending
     ]
-    _refuse_budgets_over(
-        read_examples_config(project), examples, job=job, project=project, limit=limit
-    )
+    _refuse_budgets_over(settings, examples, job=job, project=project, limit=limit)
     return list(
         example_tasks(examples, project=project, mode=sources.examples_mode, timeout_seconds=limit)
     )

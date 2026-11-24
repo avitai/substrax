@@ -59,7 +59,7 @@ from substrax.notebooks.config import (
     read_examples_config,
     refuse_unusable_budget,
 )
-from substrax.notebooks.conformance import check_example, check_recipe, no_gpu_reason
+from substrax.notebooks.conformance import check_recipe, judge_example, no_gpu_reason
 from substrax.notebooks.corpus import corpus_problems, is_touched, reaches_every_example
 from substrax.notebooks.pages import compare_with_run
 from substrax.notebooks.run import ExampleRun, execute_example, RunError
@@ -440,15 +440,16 @@ class GuideItem(_ExampleCheck):
     """One example against every rule of the shared guide."""
 
     def runtest(self) -> None:
-        """Fail with every rule the example breaks, one per line."""
-        _fail_with(
-            [
-                str(finding)
-                for finding in check_example(
-                    self.path, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
-                )
-            ]
+        """Fail with every rule the example breaks, one per line; skip a pending one with findings.
+
+        A pending example that breaks no rule fails until its entry is removed.
+        """
+        verdict = judge_example(
+            self.path, repo_root=self.config.rootpath, config=self.config.stash[_CONFIG]
         )
+        if verdict.held_back is not None:
+            pytest.skip(f"pending: {verdict.held_back}")
+        _fail_with(list(verdict.failures))
 
 
 class RecipeGuideItem(_ExampleCheck):
@@ -506,12 +507,16 @@ def _is_test_module(path: str) -> bool:
 
 
 def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
-    """The session's run of ``script``, made once; skipped for no GPU or an unavailable reason.
+    """The session's run of ``script``, made once; skipped when pending, for no GPU or a reason.
 
-    A ``GPU-required`` example that raised ``GPUUnavailableError``, as ``require_gpu()`` does
-    without a GPU, is skipped first, whatever the ``unavailable`` signatures say; any other example
-    raising the same is held to them like any failure.
+    A pending example is skipped with its reason before anything starts. A ``GPU-required``
+    example that raised ``GPUUnavailableError``, as ``require_gpu()`` does without a GPU, is
+    skipped first, whatever the ``unavailable`` signatures say; any other example raising the same
+    is held to them like any failure.
     """
+    pending = _pending_reason(config, script)
+    if pending is not None:
+        pytest.skip(f"pending: {pending}")
     runs = config.stash[_RUNS]
     if script not in runs:
         settings = config.stash[_CONFIG]
@@ -541,6 +546,12 @@ def _run_or_skip(config: pytest.Config, script: Path) -> ExampleRun:
             pytest.skip(f"unavailable here: {reason}")
         pytest.fail(str(outcome), pytrace=False)
     return outcome
+
+
+def _pending_reason(config: pytest.Config, script: Path) -> str | None:
+    """Why ``script`` is held back, from the settings' ``pending`` table; ``None`` if it is not."""
+    source = example_source(script, repo_root=config.rootpath)
+    return config.stash[_CONFIG].pending.get(source)
 
 
 def _fail_with(problems: list[str]) -> None:

@@ -155,6 +155,24 @@ def returning_environment(*names: str) -> str:
     ).replace("import jax\n", "import jax\nimport os\n", 1)
 
 
+PENDING_REASON = "waits for the sort fix (R12)"
+"""The reason :func:`hold_back` lists the example as pending with."""
+
+
+def hold_back(repo: Path, reason: str = PENDING_REASON) -> None:
+    """List ``examples/sorting.py`` as pending in the repository's settings, with ``reason``.
+
+    Args:
+        repo: The repository root, whose pyproject.toml ends with ``[tool.substrax.examples]``.
+        reason: Why the example is held back.
+    """
+    pyproject = repo / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    pyproject.write_text(
+        f'{text}pending = {{ "examples/sorting.py" = "{reason}" }}\n', encoding="utf-8"
+    )
+
+
 def write_example(
     tmp_path: Path, text: str = GOOD, *, relative: str = "sorting.py"
 ) -> tuple[Path, Path]:

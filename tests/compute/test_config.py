@@ -442,3 +442,22 @@ def test_substrax_itself_counts_as_locking_substrax() -> None:
     root = Path(__file__).resolve().parents[2]
 
     assert require_locked_substrax(root) == "editable"
+
+
+def test_a_pending_example_is_left_out_of_a_job_s_tasks(tmp_path: Path) -> None:
+    """A held-back example would fail its task; the job runs the rest, as the suite skips it."""
+    project = _examples_job(
+        tmp_path,
+        'examples = ["examples"]\nexamples_mode = "test"\ntimeout_seconds = 1200',
+        names=("01_first.py", "02_second.py"),
+    )
+    pyproject = project / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8")
+        + 'pending = { "examples/01_first.py" = "waits for its fix (R12)" }\n',
+        encoding="utf-8",
+    )
+
+    tasks = resolve_job(read_compute_config(project), "examples", project=project).tasks
+
+    assert [task.name for task in tasks] == ["examples.02_second"]

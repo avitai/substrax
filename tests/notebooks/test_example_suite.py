@@ -11,7 +11,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _example_texts import CONFIG, git, GOOD, GPU_REQUIRED, RECIPE, write_recipe
+from _example_texts import (
+    CONFIG,
+    git,
+    GOOD,
+    GPU_REQUIRED,
+    hold_back,
+    PENDING_REASON,
+    RECIPE,
+    write_recipe,
+)
 
 from substrax.notebooks.cli import examples_pytest_options
 from substrax.notebooks.pages import generate_page
@@ -893,3 +902,41 @@ def test_each_example_runs_before_any_test_of_its_results_under_pytest_randomly(
     result.stdout.fnmatch_lines(
         ["*sorting.py::runs-as-its-page-shows PASSED*", "*::test_every_record_is_kept PASSED*"]
     )
+
+
+def test_a_pending_example_is_skipped_with_its_reason_and_never_run(
+    pytester: pytest.Pytester,
+) -> None:
+    repo = _repository(pytester)
+    script = repo / "examples" / "sorting.py"
+    script.write_text(
+        GOOD.replace("jax.random.key(0)", "jax.random.PRNGKey(0)").replace(
+            "    print(sort_records(make_records()))", '    raise RuntimeError("the run started")'
+        ),
+        encoding="utf-8",
+    )
+    convert(script)
+    hold_back(repo)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "hold back")
+
+    result = _run(pytester, "-v")
+
+    result.assert_outcomes(passed=1, skipped=2)
+    result.stdout.fnmatch_lines([f"*pending: {PENDING_REASON}*"])
+    result.stdout.no_fnmatch_line("*the run started*")
+
+
+def test_a_pending_example_that_follows_the_guide_fails_its_guide_check(
+    pytester: pytest.Pytester,
+) -> None:
+    """Taken off the list once it conforms, so the list only shrinks."""
+    repo = _repository(pytester)
+    hold_back(repo)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "hold back")
+
+    result = _run(pytester, "-m", "not example_run")
+
+    result.assert_outcomes(passed=1, failed=1)
+    result.stdout.fnmatch_lines(["*follows the guide; remove it from pending*"])
