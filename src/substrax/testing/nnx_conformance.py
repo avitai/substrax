@@ -13,6 +13,10 @@ key the check chooses, the same key to two computations it compares.
 
 The checks:
 
+Every check requires the case's call to return a pytree of arrays, the contract of
+:attr:`Case.call`: a string, a host ``float`` or another object among the outputs cannot pass
+through ``nnx.jit`` or ``nnx.vmap``, so each check reports it rather than failing on it.
+
 - ``state_structure``: a forward pass leaves the state's paths, types, shapes and dtypes, and
   the graph definition, as ``__init__`` built them. A parameter created on the first call is
   missing from an ``nnx.Optimizer`` built before it. A Variable holding a Python value (which
@@ -46,7 +50,8 @@ The checks:
 Two computations of one function are compared with ``DEPTH * eps(dtype) * scale``, where
 ``DEPTH`` bounds the roundings an output of a small test module passes through and ``scale`` is
 the output's largest magnitude, at least 1; a semantic difference (a skipped branch, a constant
-key, a wrong mode) is of the order of ``scale``. Checks comparing two runs start both from cloned
+key, a wrong mode) is of the order of ``scale``. Integer and boolean outputs (token ids, class
+labels, masks) are compared exactly. Checks comparing two runs start both from cloned
 state, RNG counts included, so a module that draws randomness in the wrong mode fails
 ``eval_deterministic`` alone rather than every check. A failed check raises
 :class:`ConformanceError`, and so does a transform refusing the module: flax's errors (a Variable
@@ -182,10 +187,9 @@ def _built(case: Case) -> tuple[nnx.Module, tuple[jax.Array, ...]]:
     return case.build(rngs), case.inputs(rngs_from_seed(_SEED, streams=("inputs",)).inputs())
 
 
-def _arrays(tree: PyTree) -> list[jax.Array]:
-    return [
-        leaf for leaf in jax.tree.leaves(tree) if jnp.issubdtype(jnp.result_type(leaf), jnp.inexact)
-    ]
+def _inexact(tree: PyTree) -> list[jax.Array]:
+    """The floating and complex leaves: the outputs a gradient can be taken of."""
+    return [leaf for leaf in jax.tree.leaves(tree) if jnp.issubdtype(leaf.dtype, jnp.inexact)]
 
 
 def _value(leaf: PyTree) -> PyTree:
@@ -197,8 +201,17 @@ def _path(path: tuple[Key, ...]) -> str:
 
 
 def _require_same_function(actual: PyTree, expected: PyTree, what: str) -> None:
-    pairs = list(zip(_arrays(actual), _arrays(expected), strict=True))
+    """Require one structure, floating outputs within the rounding bound, the rest exactly."""
+    actual_structure, expected_structure = jax.tree.structure(actual), jax.tree.structure(expected)
+    _require(
+        actual_structure == expected_structure,
+        f"{what}: the outputs differ in structure, {actual_structure} against {expected_structure}",
+    )
+    pairs = list(zip(jax.tree.leaves(actual), jax.tree.leaves(expected), strict=True))
     for a, b in pairs:
+        if not jnp.issubdtype(b.dtype, jnp.inexact):
+            _require(bool(jnp.array_equal(a, b)), f"{what}: integer outputs differ")
+            continue
         scale = max(1.0, float(jnp.max(jnp.abs(b))))
         bound = DEPTH * float(jnp.finfo(b.dtype).eps) * scale
         error = float(jnp.max(jnp.abs(a - b))) if a.shape == b.shape else float("inf")
@@ -228,7 +241,7 @@ def _batch_stats(module: nnx.Module) -> list[jax.Array]:
 
 
 def _scalar(output: PyTree) -> jax.Array:
-    return sum((jnp.sum(jnp.sin(leaf)) for leaf in _arrays(output)), start=jnp.zeros(()))
+    return sum((jnp.sum(jnp.sin(leaf)) for leaf in _inexact(output)), start=jnp.zeros(()))
 
 
 def _call_keys() -> tuple[jax.Array, jax.Array]:
@@ -243,14 +256,39 @@ def _run(case: Case, module: nnx.Module, inputs: tuple[jax.Array, ...], key: jax
     The ``nnx.Rngs`` is built where the call happens, inside any transform, so no ``nnx.Rngs``
     crosses a transform boundary; the same key gives the same draws.
     """
-    if not case.rng_streams:
-        return case.call(module, *inputs)
-    streams = {name: jax.random.fold_in(key, i) for i, name in enumerate(case.rng_streams)}
-    return case.call(module, *inputs, rngs=nnx.Rngs(**streams))
+    if case.rng_streams:
+        streams = {name: jax.random.fold_in(key, i) for i, name in enumerate(case.rng_streams)}
+        output = case.call(module, *inputs, rngs=nnx.Rngs(**streams))
+    else:
+        output = case.call(module, *inputs)
+    _require_arrays(output)
+    return output
+
+
+def _where(path: tuple[Key, ...]) -> str:
+    """A pytree path as text, naming the top level when the path is empty."""
+    return jax.tree_util.keystr(path) or "the top level"
+
+
+def _require_arrays(output: PyTree) -> None:
+    """A case's call returns a pytree of arrays; a string, a host float or any other leaf fails.
+
+    Inside ``jax.jit``, ``jax.vmap`` and ``jax.grad`` the leaves are tracers, which are
+    ``jax.Array`` instances, so the requirement holds under every transform.
+    """
+    leaves = jax.tree_util.tree_leaves_with_path(output)
+    _require(bool(leaves), "the call returned no arrays, so the check has no output to compare")
+    for path, leaf in leaves:
+        _require(
+            isinstance(leaf, jax.Array),
+            f"the call returned a {type(leaf).__name__}, not an array, at {_where(path)}",
+        )
 
 
 def _equal(first: PyTree, second: PyTree) -> bool:
-    pairs = zip(_arrays(first), _arrays(second), strict=True)
+    if jax.tree.structure(first) != jax.tree.structure(second):
+        return False
+    pairs = zip(jax.tree.leaves(first), jax.tree.leaves(second), strict=True)
     return all(bool(jnp.array_equal(a, b)) for a, b in pairs)
 
 
@@ -400,6 +438,14 @@ def check_rows_independent(case: Case) -> None:
     module.eval()
     key = _call_keys()[0]
     expected = _run(case, module, inputs, key)
+    rows = inputs[0].shape[0]
+    for path, leaf in jax.tree_util.tree_leaves_with_path(expected):
+        _require(
+            leaf.ndim >= 1 and leaf.shape[0] == rows,
+            f"the output at {_where(path)} has no leading batch"
+            f" axis of {rows} (shape {leaf.shape}); a case whose call reduces over the batch"
+            " does not claim is_rowwise",
+        )
 
     def one_row(module: nnx.Module, *row: jax.Array) -> PyTree:
         output = _run(case, module, tuple(x[None] for x in row), key)

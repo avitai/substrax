@@ -18,6 +18,27 @@ and uses semantic versioning while the public API stabilizes.
   transform turns a Variable's Python `int` that does not fit the integer dtype into an array;
   that refusal now fails the check as `ConformanceError`. artifex's distributions, which cache a
   Python-int hash of their parameters in `nnx.Cache`, crashed all three checks.
+- Every check requires a case's call to return a pytree of arrays, the documented contract of
+  `Case.call`, and reports any other leaf as `ConformanceError` naming its path and type. A
+  string among the outputs (a metrics dict naming its kind), a host `float` or a dataclass used
+  to crash the comparisons, `nnx.jit` or `nnx.vmap` with `TypeError` or `AttributeError`.
+- Output comparisons covered only floating leaves, so for a module returning integers (token
+  ids, class labels) `eval_deterministic`, `train_dropout_varies`, `jit_matches_eager`,
+  `tree_mode_split`, `view_matches_modes` and `rows_independent` compared nothing and passed or
+  failed regardless of the module: a token-dropout module whose train calls differ was reported
+  as agreeing. Integer and boolean outputs are now compared exactly; the gradient checks still
+  differentiate the floating outputs only.
+- Output comparisons paired leaves without comparing the pytrees' structure, so outputs whose
+  keys differ (a module dropping whole named outputs, as modality dropout does) crashed with
+  `ValueError` from `zip` when the leaf counts differed and were reported as agreeing when they
+  did not. Outputs of different structure now differ: `train_dropout_varies` counts them as
+  varying, and `jit_matches_eager`, `tree_mode_split`, `view_matches_modes` and
+  `rows_independent` fail naming both structures.
+- A call returning no arrays (a hook returning `None`, an empty dict) made every output
+  comparison vacuously true, so every check passed having compared nothing; it now fails each
+  check. `rows_independent` crashed with `IndexError` on an output without a leading batch axis
+  (a batch summary); it now fails naming the output, since such a case does not claim
+  `is_rowwise`.
 
 ## [0.1.34] - 2026-11-22
 
