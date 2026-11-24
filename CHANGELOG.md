@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.35] - 2026-11-23
+
 ### Fixed
 
 - `testing.nnx_conformance` reports two module defects it used to crash on. `state_structure`
@@ -1410,7 +1412,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.34...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.35...HEAD
+[0.1.35]: https://github.com/avitai/substrax/compare/v0.1.34...v0.1.35
 [0.1.34]: https://github.com/avitai/substrax/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/avitai/substrax/compare/v0.1.32...v0.1.33
 [0.1.32]: https://github.com/avitai/substrax/compare/v0.1.31...v0.1.32
