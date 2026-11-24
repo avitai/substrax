@@ -156,6 +156,18 @@ class PythonValueInVariable(nnx.Module):
         return self.linear(x)
 
 
+class CachesPythonHash(nnx.Module):
+    """Caches a Python-int digest of its weight in a Variable that starts as None."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.digest: nnx.Cache[int | None] = nnx.Cache(None)
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        self.digest.set_value(2**40 + id(self))
+        return self.linear(x)
+
+
 class RngsHolder(nnx.Module):
     """Keeps the Rngs it was given."""
 
@@ -325,6 +337,7 @@ CALL_TIME = _case(CallTimeGood, has_dropout=True, rng_streams=("dropout",))
 # Each broken module, the check it must fail, and the claims its case makes.
 BROKEN = [
     ("state_structure", _case(LazyParam)),
+    ("state_structure", _case(CachesPythonHash)),
     ("state_holds_arrays", _case(PythonValueInVariable)),
     ("tree_mode_split", _case(SharedRngs, has_dropout=True)),
     ("eval_deterministic", _case(EvalOverride, has_dropout=True)),
@@ -347,6 +360,8 @@ BROKEN = [
 # refusal is the module failing the check, so it raises ConformanceError like any other.
 REFUSED = [
     ("jit_matches_eager", _case(PythonBranch)),
+    ("jit_matches_eager", _case(CachesPythonHash)),
+    ("rows_independent", _case(CachesPythonHash)),
     ("gradient_finite", _case(EvalOverride, has_dropout=True)),
     ("gradient_finite", _case(WritesSharedState)),
     ("gradient_matches_finite_differences", _case(EvalOverride, has_dropout=True)),
