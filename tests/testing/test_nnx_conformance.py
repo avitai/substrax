@@ -9,6 +9,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from flax import nnx
+from jax import core as jax_core
 
 import substrax.rng
 from substrax.testing.nnx_conformance import (
@@ -168,6 +169,96 @@ class CachesPythonHash(nnx.Module):
         return self.linear(x)
 
 
+class ReturnsLabel(nnx.Module):
+    """Returns a string beside its array, as a metrics dict naming its kind does."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> dict[str, object]:
+        return {"y": self.linear(x), "kind": "linear"}
+
+
+class ReturnsPythonFloat(nnx.Module):
+    """Returns a host float, as a metric calling float() on its value does."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> dict[str, object]:
+        y = self.linear(x)
+        return {"y": y, "mean": float(jnp.mean(y))}
+
+
+class IntegerDropoutGood(nnx.Module):
+    """Returns integer class ids, picked after dropout, as a token sampler or classifier does."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 8, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        return jnp.argmax(self.dropout(self.linear(x)), axis=-1)
+
+
+class IntegerBatchCoupled(nnx.Module):
+    """Returns integer class ids of features centred on the batch mean."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 8, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> jax.Array:
+        h = self.linear(x)
+        return jnp.argmax(h - jnp.mean(h, axis=0), axis=-1)
+
+
+class AlternatesOutputKey(nnx.Module):
+    """Names its one output differently on alternate calls, so two calls differ only in keys."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.calls = nnx.BatchStat(jnp.zeros((), jnp.int32))
+
+    def __call__(self, x: jax.Array) -> dict[str, jax.Array]:
+        self.calls[...] += 1
+        key = "even" if int(self.calls[...]) % 2 == 0 else "odd"
+        return {key: self.linear(x)}
+
+
+class TracedStructureDiffers(nnx.Module):
+    """Returns one more output when called eagerly than under a transform."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> dict[str, jax.Array]:
+        y = self.linear(x)
+        if isinstance(y, jax_core.Tracer):
+            return {"y": y}
+        return {"y": y, "eager_only": y}
+
+
+class ReturnsNothing(nnx.Module):
+    """Computes and returns nothing, as a training-lifecycle hook does."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> None:
+        del x
+
+
+class ReturnsBatchSummary(nnx.Module):
+    """Returns a per-row output and a scalar summary of the batch."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> dict[str, jax.Array]:
+        y = self.linear(x)
+        return {"y": y, "batch_size": jnp.asarray(x.shape[0])}
+
+
 class RngsHolder(nnx.Module):
     """Keeps the Rngs it was given."""
 
@@ -317,6 +408,7 @@ def _case(
     has_dropout: bool = False,
     has_batch_stats: bool = False,
     is_rowwise: bool = True,
+    is_differentiable: bool = True,
     rng_streams: tuple[str, ...] = (),
 ) -> Case:
     return Case(
@@ -325,6 +417,7 @@ def _case(
         has_dropout=has_dropout,
         has_batch_stats=has_batch_stats,
         is_rowwise=is_rowwise,
+        is_differentiable=is_differentiable,
         rng_streams=rng_streams,
     )
 
@@ -333,6 +426,8 @@ GOOD = _case(Good, has_dropout=True, has_batch_stats=True, is_rowwise=False)
 ROWWISE = _case(RowwiseGood, has_dropout=True)
 CUSTOM_LEAF = _case(CustomLeafGood, has_dropout=True)
 CALL_TIME = _case(CallTimeGood, has_dropout=True, rng_streams=("dropout",))
+INTEGER_OUTPUT = _case(IntegerDropoutGood, has_dropout=True, is_differentiable=False)
+VARYING_KEYS = _case(AlternatesOutputKey, has_dropout=True, is_differentiable=False)
 
 # Each broken module, the check it must fail, and the claims its case makes.
 BROKEN = [
@@ -350,8 +445,10 @@ BROKEN = [
     ("view_matches_modes", _case(StoredRngs, has_dropout=True)),
     ("batch_stats", _case(FrozenBatchNorm, has_batch_stats=True, is_rowwise=False)),
     ("jit_matches_eager", _case(Retraces)),
+    ("jit_matches_eager", _case(TracedStructureDiffers)),
     ("rows_independent", _case(BatchCoupled)),
     ("rows_independent", _case(WritesSharedState)),
+    ("rows_independent", _case(IntegerBatchCoupled, is_differentiable=False)),
     ("gradient_finite", _case(DetachedParams)),
     ("gradient_matches_finite_differences", _case(WrongDerivative)),
 ]
@@ -372,8 +469,8 @@ REFUSED = [
 @pytest.mark.parametrize("check", sorted(CHECKS))
 @pytest.mark.parametrize(
     "case",
-    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME],
-    ids=["batch-norm", "rowwise", "custom-leaf", "call-time"],
+    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME, INTEGER_OUTPUT],
+    ids=["batch-norm", "rowwise", "custom-leaf", "call-time", "integer-output"],
 )
 def test_a_correct_module_passes_every_check_it_claims(check: str, case: Case) -> None:
     run, applies = CHECKS[check]
@@ -397,6 +494,47 @@ def test_a_module_a_transform_refuses_fails_the_check(check: str, case: Case) ->
     assert applies(case)
     with pytest.raises(ConformanceError, match="refused"):
         run(case)
+
+
+@pytest.mark.parametrize("check", sorted(CHECKS))
+@pytest.mark.parametrize(
+    ("module", "leaf"), [(ReturnsLabel, "str"), (ReturnsPythonFloat, "float")], ids=["str", "float"]
+)
+def test_a_call_returning_a_non_array_fails_every_check_it_reaches(
+    check: str, module: Callable[..., nnx.Module], leaf: str
+) -> None:
+    """A case's call returns a pytree of arrays; any other leaf is reported, not crashed on."""
+    run, applies = CHECKS[check]
+    case = _case(module, has_dropout=True, has_batch_stats=True)
+    if not applies(case) or check == "state_holds_arrays":  # it inspects state, never calls
+        return
+
+    # Under jax.grad the float module fails at float(tracer), before it returns: a refusal.
+    with pytest.raises(ConformanceError, match=f"a {leaf}, not an array|refused the module"):
+        run(case)
+
+
+def test_outputs_whose_keys_vary_with_dropout_count_as_differing() -> None:
+    """Two train calls naming their outputs differently differ, though their values agree."""
+    CHECKS["train_dropout_varies"][0](VARYING_KEYS)
+
+
+@pytest.mark.parametrize("check", sorted(CHECKS))
+def test_a_call_returning_no_arrays_fails_every_check_it_reaches(check: str) -> None:
+    """With nothing to compare, a check would pass having checked nothing."""
+    run, applies = CHECKS[check]
+    case = _case(ReturnsNothing)
+    if not applies(case) or check == "state_holds_arrays":  # it inspects state, never calls
+        return
+
+    with pytest.raises(ConformanceError, match="returned no arrays"):
+        run(case)
+
+
+def test_an_output_without_a_batch_axis_fails_rows_independent() -> None:
+    """A batch summary cannot be compared row by row; the case must not claim rows."""
+    with pytest.raises(ConformanceError, match="no leading batch axis"):
+        CHECKS["rows_independent"][0](_case(ReturnsBatchSummary))
 
 
 def test_integer_inputs_stay_integers_in_the_gradient_checks() -> None:
