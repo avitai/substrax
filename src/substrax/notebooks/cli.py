@@ -57,8 +57,8 @@ from substrax.artifacts import resolve_output_dir
 from substrax.examples import discover_examples, example_source, lexical_path, ScriptPathError
 from substrax.notebooks.config import ExamplesConfig, read_examples_config
 from substrax.notebooks.conformance import (
-    check_example,
     check_recipe,
+    judge_example,
     no_gpu_reason,
     RECIPE_SOURCE_RULES,
     SOURCE_RULES,
@@ -316,25 +316,43 @@ def _convert(arguments: argparse.Namespace, examples: list[Path]) -> int:
 
 def _check(arguments: argparse.Namespace, examples: list[Path], recipes: list[Path]) -> int:
     config = _read_settings(arguments.repo_root)
-    findings = [
+    failures = [
         *(
-            finding
+            failure
             for script in examples
-            for finding in check_example(
-                script, repo_root=arguments.repo_root, config=config, rules=SOURCE_RULES
-            )
+            for failure in _example_failures(script, repo_root=arguments.repo_root, config=config)
         ),
         *(
-            finding
+            str(finding)
             for recipe in recipes
             for finding in check_recipe(
                 recipe, repo_root=arguments.repo_root, config=config, rules=RECIPE_SOURCE_RULES
             )
         ),
     ]
-    for finding in findings:
-        sys.stdout.write(f"{finding}\n")
-    return _UNSUCCESSFUL if findings else _SUCCESS
+    for failure in failures:
+        sys.stdout.write(f"{failure}\n")
+    return _UNSUCCESSFUL if failures else _SUCCESS
+
+
+def _example_failures(script: Path, *, repo_root: Path, config: ExamplesConfig) -> list[str]:
+    """An example's guide findings, or for a pending one, whether it should leave the list.
+
+    A pending example's findings are held back: its reason is printed in their place and nothing
+    fails, unless it has no finding left, when it fails until its entry is removed.
+
+    Args:
+        script: The example script.
+        repo_root: The repository root.
+        config: The repository's example settings.
+
+    Returns:
+        One line per failure.
+    """
+    verdict = judge_example(script, repo_root=repo_root, config=config, rules=SOURCE_RULES)
+    if verdict.held_back is not None:
+        sys.stdout.write(f"{script}: pending: {verdict.held_back}\n")
+    return list(verdict.failures)
 
 
 def _page(arguments: argparse.Namespace, examples: list[Path]) -> int:

@@ -264,3 +264,47 @@ def test_a_repository_without_a_pyproject_is_a_missing_table(tmp_path: Path) -> 
     """A missing file is refused as a missing table is, not as an ``OSError`` (R-8)."""
     with pytest.raises(LookupError, match=r"has no pyproject\.toml"):
         read_examples_config(tmp_path)
+
+
+def test_no_example_is_pending_by_default() -> None:
+    assert ExamplesConfig(distribution="demo", source_url=SOURCE, budget_seconds=60).pending == {}
+
+
+def test_pending_examples_are_read_with_their_reasons(tmp_path: Path) -> None:
+    repo = _repository_with(
+        tmp_path, 'pending = { "examples/sorting.py" = "waits for the sort fix (R12)" }'
+    )
+
+    assert read_examples_config(repo).pending == {
+        "examples/sorting.py": "waits for the sort fix (R12)"
+    }
+
+
+@pytest.mark.parametrize("reason", ["", " ", "\t\n"], ids=["empty", "a-space", "whitespace"])
+def test_a_pending_example_without_a_reason_is_refused_naming_it(reason: str) -> None:
+    """A held-back example states why, so the list can be read as the work it is waiting on."""
+    with pytest.raises(ValueError, match=re.escape("pending['examples/sorting.py']")):
+        ExamplesConfig(
+            distribution="demo",
+            source_url=SOURCE,
+            budget_seconds=60,
+            pending={"examples/sorting.py": reason},
+        )
+
+
+@pytest.mark.parametrize("entry", NOT_A_PAGES_SOURCE)
+def test_a_pending_entry_not_in_a_pages_source_form_is_refused(entry: str) -> None:
+    """A key is compared with a page's source, ``examples/<path>.py``, as a budget's is."""
+    with pytest.raises(ValueError, match="pending"):
+        ExamplesConfig(
+            distribution="demo", source_url=SOURCE, budget_seconds=60, pending={entry: "a reason"}
+        )
+
+
+@pytest.mark.parametrize("entry", NAMING_NO_EXAMPLE)
+def test_a_pending_entry_naming_no_example_is_refused(tmp_path: Path, entry: str) -> None:
+    """An example rebuilt under a new name, or deleted, leaves no entry behind unnoticed."""
+    repo = _repository_with(tmp_path, f'pending = {{ "{entry}" = "a reason" }}')
+
+    with pytest.raises(ValueError, match=rf"pending names {re.escape(entry)}"):
+        read_examples_config(repo)

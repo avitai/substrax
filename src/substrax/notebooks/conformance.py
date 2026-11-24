@@ -216,6 +216,60 @@ def check_example(  # noqa: DOC502  # raised by _findings
     return _findings(_read(script, repo_root=repo_root, config=config), RULES, rules)
 
 
+PENDING_FOLLOWS_THE_GUIDE = "pending: follows the guide; remove it from pending"
+"""What a pending example that already follows the guide fails with, so the list only shrinks."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GuideVerdict:
+    """An example's guide check as reported: its failures, or why its findings are held back.
+
+    Attributes:
+        failures: One line per failure; empty when the example passes or is held back.
+        held_back: The ``pending`` reason the example's findings were held back for, else ``None``.
+    """
+
+    failures: tuple[str, ...]
+    held_back: str | None = None
+
+
+def judge_example(  # noqa: DOC502  # KeyError is raised by check_example
+    script: Path,
+    *,
+    repo_root: Path,
+    config: ExamplesConfig,
+    rules: Iterable[str] | None = None,
+) -> GuideVerdict:
+    """Check one example and apply the settings' ``pending`` table to its findings.
+
+    An example that is not pending fails with every finding. A pending one with findings fails with
+    none, its reason reported in their place; one with no finding left fails until its entry is
+    removed, so the list only shrinks.
+
+    Args:
+        script: The example script, under ``repo_root / "examples"``.
+        repo_root: The repository root.
+        config: The repository's example settings.
+        rules: The ids of the rules to check; every rule in :data:`RULES` when ``None``.
+
+    Returns:
+        The failures to report, and the reason when the findings were held back.
+
+    Raises:
+        KeyError: If a rule id is unknown.
+    """
+    findings = tuple(
+        str(finding)
+        for finding in check_example(script, repo_root=repo_root, config=config, rules=rules)
+    )
+    reason = config.pending.get(example_source(script, repo_root=repo_root))
+    if reason is None:
+        return GuideVerdict(failures=findings)
+    if findings:
+        return GuideVerdict(failures=(), held_back=reason)
+    return GuideVerdict(failures=(f"{script}: {PENDING_FOLLOWS_THE_GUIDE}",))
+
+
 def check_recipe(  # noqa: DOC502  # raised by _findings
     recipe: Path,
     *,

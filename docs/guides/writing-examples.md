@@ -252,8 +252,8 @@ addopts = "--ignore=tests/examples"   # a plain pytest leaves the tests of resul
 source_url = "https://github.com/avitai/<repository>/blob/main"
 budget_seconds = 600
 unavailable = ["<the message an example fails with when its dataset is missing>"]
-# page_size_warn_bytes = 102400, page_size_bytes = 204800, page_size_exempt = [] and
-# budgets = {} by default
+# page_size_warn_bytes = 102400, page_size_bytes = 204800, page_size_exempt = [],
+# budgets = {} and pending = {} by default
 ```
 
 ```yaml
@@ -328,6 +328,16 @@ examples:
   page must be large, which is preferred over raising the limit for every page. An entry is the
   example's path as its page records it, `examples/<path>.py`; one in another form, or naming no
   example, is refused when the settings are read.
+- An example that cannot follow the guide until other work lands, a library fix it would show,
+  is listed in `pending`, keyed by its path as its page records it, with why
+  (`pending = { "examples/training/gan.py" = "waits for the critic fix (issue 12)" }`); a blank
+  reason, a key in another form, or one naming no example, is refused. `substrax-notebooks check`
+  and the hook print `<script>: pending: <reason>` in place of its findings and do not fail on
+  them; `follows-the-guide` and `runs-as-its-page-shows` skip with the reason, the run never
+  started; compute's examples jobs leave it out. An example on the list that follows the guide
+  fails both checks with `pending: follows the guide; remove it from pending`, so the list only
+  shrinks. It holds an example back while its fix is under way; an example nobody will fix is
+  deleted, and a private `_` path is for helpers, not for hiding an example.
 - A repository's own test of an example's results lives in `tests/examples/` and reads the same
   run through the `example_run` fixture, the one fixture it has beyond pytest's own (no conftest or
   other plugin is loaded), and carries no device marker: its example's Devices line decides whether

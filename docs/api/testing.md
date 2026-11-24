@@ -229,14 +229,15 @@ page_size_warn_bytes = 102400   # the defaults: a larger page is written with a 
 page_size_bytes = 204800        # and a larger one refused
 page_size_exempt = []
 budgets = { "examples/training/long_run.py" = 1800 }   # an example's own budget, else the default
+pending = { "examples/training/gan.py" = "waits for the critic fix (issue 12)" }   # held back, with why
 ```
 
 | Collected | Checks |
 | --- | --- |
 | `examples::corpus` | There is an example; every file under `docs/examples` is an example's page or one of its figures, or a recipe's page (an overview lives at `docs/examples.md`); every notebook under `examples` has its script; every recipe under `recipes` has its example; a hand-written `python examples/...` or `uv run python examples/...` command names a file that exists, a placeholder such as `<name>` aside; `mkdocs.yml` sets `validation.nav.omitted_files: warn` |
-| `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance` |
+| `examples/<path>.py::follows-the-guide` | Every rule of `substrax.notebooks.conformance`; skipped with its reason for a `pending` example that breaks one, failed for a pending one that breaks none |
 | `recipes/<path>.py::follows-the-guide` | The guide's rules about code (`RECIPE_RULES`), over a recipe; a recipe runs on a GPU lane, never here |
-| `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; marked `example_run` |
+| `examples/<path>.py::runs-as-its-page-shows` | The example runs as its clean notebook within its budget (its `budgets` entry, else `budget_seconds`), changes nothing git tracks or would track (paths it ignores aside), and its page shows that run; skipped with its reason, never started, for a `pending` example; marked `example_run` |
 
 - The examples are collected directory by directory, as pytest's own directory walk collects, so a
   nested example is selected by its path (`examples/<topic>/<name>.py`), its directory or the node

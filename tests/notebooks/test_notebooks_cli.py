@@ -17,6 +17,8 @@ from _example_texts import (
     git,
     GOOD,
     GPU_REQUIRED,
+    hold_back,
+    PENDING_REASON,
     RECIPE,
     returning_environment,
     write_example,
@@ -26,6 +28,7 @@ from _example_texts import (
 from substrax.notebooks.cli import EXAMPLES_PYTEST_CONFIG, main
 from substrax.notebooks.conformance import RULES, SOURCE_RULES
 from substrax.notebooks.pages import generate_page, page_path
+from substrax.notebooks.pairs import convert
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -800,3 +803,49 @@ def test_the_command_runs_as_a_module_on_the_running_interpreter(tmp_path: Path)
     assert completed.stderr == (
         f"substrax-notebooks: {missing} is not an example under {repo / 'examples'}\n"
     )
+
+
+def test_check_reports_a_pending_example_with_its_reason_and_passes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, script = write_example(
+        tmp_path, GOOD.replace("jax.random.key(0)", "jax.random.PRNGKey(0)")
+    )
+    hold_back(repo)
+
+    assert main(["check", "--repo-root", str(repo), str(script)]) == 0
+
+    out = capsys.readouterr().out
+    assert f"{script}: pending: {PENDING_REASON}" in out
+    assert "typed-keys" not in out
+
+
+def test_check_fails_a_pending_example_that_already_follows_the_guide(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A held-back example that conforms is taken off the list, as a strict xfail that passes."""
+    repo, script = write_example(tmp_path)
+    hold_back(repo)
+
+    assert main(["check", "--repo-root", str(repo), str(script)]) == 1
+
+    assert (
+        f"{script}: pending: follows the guide; remove it from pending" in capsys.readouterr().out
+    )
+
+
+def test_a_pending_example_does_not_hold_back_the_others(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    broken = GOOD.replace("jax.random.key(0)", "jax.random.PRNGKey(0)")
+    repo, pending = write_example(tmp_path, broken)
+    other = repo / "examples" / "other.py"
+    other.write_text(broken, encoding="utf-8")
+    convert(other)
+    hold_back(repo)
+
+    assert main(["check", "--repo-root", str(repo), str(pending), str(other)]) == 1
+
+    out = capsys.readouterr().out
+    assert f"{other}: typed-keys: " in out
+    assert f"{pending}: typed-keys: " not in out
