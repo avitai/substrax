@@ -29,8 +29,10 @@ through ``nnx.jit`` or ``nnx.vmap``, so each check reports it rather than failin
 - ``eval_deterministic``: after ``.eval()`` two calls agree exactly and no RNG stream advances;
   with call-time streams the two calls get different keys, so the output must not depend on one.
 - ``train_dropout_varies``: after ``.train()`` a module with dropout draws a fresh mask per call;
-  with call-time streams, from one starting state, different keys give different outputs and
-  the same key the same output, so randomness the key does not control is found.
+  with call-time streams, different keys give different outputs and the same key the same
+  output. The same-key run starts with every PRNG key the module holds changed, so randomness
+  the key does not control is found: a dropout leaf the key was not passed to, or noise from a
+  stream or key the module holds.
 - ``batch_stats``: ``.train()`` updates ``nnx.BatchStat``; ``.eval()`` leaves it alone.
 - ``view_matches_modes``: ``nnx.view(module, deterministic=..., use_running_average=...)``
   computes what ``.eval()`` and ``.train()`` do and advances the RNG streams they advance.
@@ -250,6 +252,28 @@ def _call_keys() -> tuple[jax.Array, jax.Array]:
     return rngs.calls(), rngs.calls()
 
 
+def _fold_once(keys: jax.Array) -> jax.Array:
+    """Fold one more value into each key of a key array; ``fold_in`` takes one key at a time."""
+    folded = jax.vmap(lambda key: jax.random.fold_in(key, 1))(keys.reshape(-1))
+    return folded.reshape(keys.shape)
+
+
+def _perturbed(module: nnx.Module) -> nnx.Module:
+    """The module with every PRNG key it holds changed, so a draw from held state changes.
+
+    That covers an ``nnx.Rngs`` stream, whose key is an ``nnx.RngKey``, and a raw key in any
+    Variable. A key held as raw ``uint32`` data cannot be told from other integers and is not
+    reached.
+    """
+    for _, node in nnx.iter_graph(module):
+        if not isinstance(node, nnx.Variable):
+            continue
+        value = node.get_value()
+        if isinstance(value, jax.Array) and jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
+            node.set_value(_fold_once(value))
+    return module
+
+
 def _run(case: Case, module: nnx.Module, inputs: tuple[jax.Array, ...], key: jax.Array) -> PyTree:
     """Call the case, giving its call-time streams an ``nnx.Rngs`` built from ``key``.
 
@@ -349,7 +373,9 @@ def check_train_dropout_varies(case: Case) -> None:
     """After ``.train()`` a module with dropout draws a fresh mask per call.
 
     With call-time streams the mask follows the key: different keys give different outputs, and
-    the same key gives the same output, each from the same starting state.
+    the same key gives the same output. The same-key run starts with every PRNG key the module
+    holds changed, so a draw from one of them, which the key does not control, changes its
+    output; from cloned state alone it would repeat.
     """
     module, inputs = _built(case)
     module.train()
@@ -360,12 +386,12 @@ def check_train_dropout_varies(case: Case) -> None:
         return
     first = _run(case, nnx.clone(module), inputs, key_a)
     other_key = _run(case, nnx.clone(module), inputs, key_b)
-    same_key = _run(case, nnx.clone(module), inputs, key_a)
+    same_key = _run(case, _perturbed(nnx.clone(module)), inputs, key_a)
     _require(not _equal(first, other_key), "two .train() calls with different keys agree")
     _require(
         _equal(first, same_key),
         "two .train() calls with the same key differ: the module draws randomness the key does not"
-        " control",
+        " control, from a stream it holds or outside any key",
     )
 
 

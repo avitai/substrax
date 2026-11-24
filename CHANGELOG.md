@@ -7,6 +7,19 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `testing.nnx_conformance`'s `train_dropout_varies` now finds randomness a call-time key does
+  not control when it comes from state the module holds. Its same-key run started from a clone
+  of the module, so a draw from a held stream or key repeated exactly: a module that passed its
+  call-time `rngs` to one dropout leaf and not another, or added noise from a stream it held,
+  passed. The same-key run now starts with every PRNG key the module holds folded once more
+  (`nnx.Rngs` streams and raw keys in any Variable), so such a draw changes the output and the
+  check fails. A key held as raw `uint32` data cannot be told from other integers and is not
+  reached. Each module the tests build to break a check must now fail it with the message of its
+  own defect, not merely raise `ConformanceError`: the earlier toy for a held stream failed on
+  the different-keys comparison, so the same-key comparison was never exercised.
+
 ## [0.1.35] - 2026-11-23
 
 ### Fixed

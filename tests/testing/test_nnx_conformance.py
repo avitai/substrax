@@ -123,6 +123,52 @@ class CallTimeHostRandom(nnx.Module):
         return y + jnp.asarray(np.random.default_rng().normal(size=y.shape), y.dtype)
 
 
+class CallTimeThreadsHeldLeaves(nnx.Module):
+    """Two dropout leaves that hold streams, both given the call-time key, which overrides them."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.first = nnx.Dropout(0.5, rngs=rngs)
+        self.second = nnx.Dropout(0.5, rngs=rngs)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        return self.second(self.first(jnp.tanh(self.linear(x)), rngs=rngs), rngs=rngs)
+
+
+class CallTimePartlyThreaded(CallTimeThreadsHeldLeaves):
+    """Gives the call-time key to one dropout leaf; the other draws from the stream it holds."""
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        return self.second(self.first(jnp.tanh(self.linear(x)), rngs=rngs))
+
+
+class CallTimeHeldNoise(nnx.Module):
+    """Takes its dropout key at call time and adds noise from a stream it holds."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+        self.noise = rngs.sample.fork()
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        y = self.dropout(jnp.tanh(self.linear(x)), rngs=rngs)
+        return y + jax.random.normal(self.noise(), y.shape, y.dtype)
+
+
+class CallTimeHeldKey(nnx.Module):
+    """Takes its dropout key at call time and adds noise from a raw key it holds and splits."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+        self.key = nnx.Variable(rngs.sample())
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs | None = None) -> jax.Array:
+        y = self.dropout(jnp.tanh(self.linear(x)), rngs=rngs)
+        noise_key, self.key[...] = jax.random.split(self.key[...])
+        return y + jax.random.normal(noise_key, y.shape, y.dtype)
+
+
 class CallTimeEvalOverride(nnx.Module):
     """Keeps dropout on in ``.eval()`` with the caller's key, so eval output depends on the key."""
 
@@ -422,35 +468,60 @@ def _case(
     )
 
 
+def _call_time_case(module: Callable[..., nnx.Module]) -> Case:
+    """A case for a module with dropout that takes its dropout key at call time."""
+    return _case(module, has_dropout=True, rng_streams=("dropout",))
+
+
 GOOD = _case(Good, has_dropout=True, has_batch_stats=True, is_rowwise=False)
 ROWWISE = _case(RowwiseGood, has_dropout=True)
 CUSTOM_LEAF = _case(CustomLeafGood, has_dropout=True)
-CALL_TIME = _case(CallTimeGood, has_dropout=True, rng_streams=("dropout",))
+CALL_TIME = _call_time_case(CallTimeGood)
+CALL_TIME_HELD = _call_time_case(CallTimeThreadsHeldLeaves)
+PARTLY_THREADED = _call_time_case(CallTimePartlyThreaded)
+HELD_NOISE = _call_time_case(CallTimeHeldNoise)
+HELD_KEY = _call_time_case(CallTimeHeldKey)
 INTEGER_OUTPUT = _case(IntegerDropoutGood, has_dropout=True, is_differentiable=False)
 VARYING_KEYS = _case(AlternatesOutputKey, has_dropout=True, is_differentiable=False)
 
-# Each broken module, the check it must fail, and the claims its case makes.
+# Each broken module, the check it must fail, the claims its case makes, and the failure its defect
+# must produce: a module that fails the check for another reason does not test that clause.
 BROKEN = [
-    ("state_structure", _case(LazyParam)),
-    ("state_structure", _case(CachesPythonHash)),
-    ("state_holds_arrays", _case(PythonValueInVariable)),
-    ("tree_mode_split", _case(SharedRngs, has_dropout=True)),
-    ("eval_deterministic", _case(EvalOverride, has_dropout=True)),
-    ("train_dropout_varies", _case(DropoutNeverOn, has_dropout=True)),
-    ("train_dropout_varies", _case(CallTimeIgnoresKey, has_dropout=True, rng_streams=("dropout",))),
-    ("train_dropout_varies", _case(CallTimeFixedMask, has_dropout=True, rng_streams=("dropout",))),
-    ("train_dropout_varies", _case(CallTimeHostRandom, has_dropout=True, rng_streams=("dropout",))),
-    ("eval_deterministic", _case(CallTimeEvalOverride, has_dropout=True, rng_streams=("dropout",))),
-    ("view_matches_modes", _case(ModeWithoutView, has_dropout=True)),
-    ("view_matches_modes", _case(StoredRngs, has_dropout=True)),
-    ("batch_stats", _case(FrozenBatchNorm, has_batch_stats=True, is_rowwise=False)),
-    ("jit_matches_eager", _case(Retraces)),
-    ("jit_matches_eager", _case(TracedStructureDiffers)),
-    ("rows_independent", _case(BatchCoupled)),
-    ("rows_independent", _case(WritesSharedState)),
-    ("rows_independent", _case(IntegerBatchCoupled, is_differentiable=False)),
-    ("gradient_finite", _case(DetachedParams)),
-    ("gradient_matches_finite_differences", _case(WrongDerivative)),
+    ("state_structure", _case(LazyParam), "changed the state's structure"),
+    ("state_structure", _case(CachesPythonHash), "changed the state's structure"),
+    ("state_holds_arrays", _case(PythonValueInVariable), "Variables holding Python values"),
+    ("tree_mode_split", _case(SharedRngs, has_dropout=True), "tree mode refused"),
+    ("eval_deterministic", _case(EvalOverride, has_dropout=True), r"two \.eval\(\) calls differ"),
+    (
+        "train_dropout_varies",
+        _case(DropoutNeverOn, has_dropout=True),
+        r"two \.train\(\) calls agree",
+    ),
+    ("train_dropout_varies", _call_time_case(CallTimeIgnoresKey), "different keys agree"),
+    ("train_dropout_varies", _call_time_case(CallTimeFixedMask), "different keys agree"),
+    ("train_dropout_varies", _call_time_case(CallTimeHostRandom), "the same key differ"),
+    ("train_dropout_varies", PARTLY_THREADED, "the same key differ"),
+    ("train_dropout_varies", HELD_NOISE, "the same key differ"),
+    ("train_dropout_varies", HELD_KEY, "the same key differ"),
+    ("eval_deterministic", _call_time_case(CallTimeEvalOverride), "with different keys differ"),
+    ("view_matches_modes", _case(ModeWithoutView, has_dropout=True), "outputs differ"),
+    ("view_matches_modes", _case(StoredRngs, has_dropout=True), "RNG streams advanced apart"),
+    (
+        "batch_stats",
+        _case(FrozenBatchNorm, has_batch_stats=True, is_rowwise=False),
+        "left the running statistics unchanged",
+    ),
+    ("jit_matches_eager", _case(Retraces), "traced again"),
+    ("jit_matches_eager", _case(TracedStructureDiffers), "differ in structure"),
+    ("rows_independent", _case(BatchCoupled), "rows mapped one at a time"),
+    ("rows_independent", _case(WritesSharedState), "nnx.vmap refused"),
+    (
+        "rows_independent",
+        _case(IntegerBatchCoupled, is_differentiable=False),
+        "integer outputs differ",
+    ),
+    ("gradient_finite", _case(DetachedParams), "zero everywhere"),
+    ("gradient_matches_finite_differences", _case(WrongDerivative), "finite differences"),
 ]
 
 # Each check that runs a module under a transform, and a module the transform refuses: a
@@ -469,8 +540,8 @@ REFUSED = [
 @pytest.mark.parametrize("check", sorted(CHECKS))
 @pytest.mark.parametrize(
     "case",
-    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME, INTEGER_OUTPUT],
-    ids=["batch-norm", "rowwise", "custom-leaf", "call-time", "integer-output"],
+    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME, CALL_TIME_HELD, INTEGER_OUTPUT],
+    ids=["batch-norm", "rowwise", "custom-leaf", "call-time", "call-time-held", "integer-output"],
 )
 def test_a_correct_module_passes_every_check_it_claims(check: str, case: Case) -> None:
     run, applies = CHECKS[check]
@@ -478,12 +549,14 @@ def test_a_correct_module_passes_every_check_it_claims(check: str, case: Case) -
         run(case)
 
 
-@pytest.mark.parametrize(("check", "case"), BROKEN, ids=[check for check, _ in BROKEN])
-def test_a_module_built_to_break_a_check_fails_it(check: str, case: Case) -> None:
+@pytest.mark.parametrize(
+    ("check", "case", "failure"), BROKEN, ids=[check for check, _, _ in BROKEN]
+)
+def test_a_module_built_to_break_a_check_fails_it(check: str, case: Case, failure: str) -> None:
     run, applies = CHECKS[check]
 
     assert applies(case)
-    with pytest.raises(ConformanceError):
+    with pytest.raises(ConformanceError, match=failure):
         run(case)
 
 
@@ -549,7 +622,7 @@ def test_integer_inputs_stay_integers_in_the_gradient_checks() -> None:
 
 
 def test_every_check_has_a_module_that_breaks_it() -> None:
-    assert {check for check, _ in BROKEN} == set(CHECKS)
+    assert {check for check, _, _ in BROKEN} == set(CHECKS)
 
 
 def test_module_classes_finds_concrete_modules_in_a_package() -> None:
