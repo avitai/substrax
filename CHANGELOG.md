@@ -7,6 +7,18 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `testing.nnx_conformance` reports two module defects it used to crash on. `state_structure`
+  described every Variable by `jnp.asarray` of its value, so a Variable holding `None` raised
+  `ValueError` instead of being described; a Python value is now described by its type, and a
+  forward pass that replaces a cached `None` with an `int` fails the check. `jit_matches_eager`,
+  `rows_independent` and the gradient checks treated `FlaxError`, `JAXTypeError` and
+  `ValueError` as a transform refusing the module, but not the `OverflowError` JAX raises when a
+  transform turns a Variable's Python `int` that does not fit the integer dtype into an array;
+  that refusal now fails the check as `ConformanceError`. artifex's distributions, which cache a
+  Python-int hash of their parameters in `nnx.Cache`, crashed all three checks.
+
 ## [0.1.34] - 2026-11-22
 
 ### Added

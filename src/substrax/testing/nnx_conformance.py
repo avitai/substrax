@@ -15,7 +15,9 @@ The checks:
 
 - ``state_structure``: a forward pass leaves the state's paths, types, shapes and dtypes, and
   the graph definition, as ``__init__`` built them. A parameter created on the first call is
-  missing from an ``nnx.Optimizer`` built before it.
+  missing from an ``nnx.Optimizer`` built before it. A Variable holding a Python value (which
+  ``state_holds_arrays`` reports) is described by the value's type, so a forward pass that
+  replaces a ``None`` with an ``int`` changes the structure.
 - ``state_holds_arrays``: every Variable holds an array; a Python value in a Variable is traced,
   comes back from ``nnx.jit`` as an array and cannot be differentiated in tree mode.
 - ``tree_mode_split``: ``nnx.split(graph=False)`` succeeds and the merged module computes what
@@ -49,8 +51,11 @@ state, RNG counts included, so a module that draws randomness in the wrong mode 
 ``eval_deterministic`` alone rather than every check. A failed check raises
 :class:`ConformanceError`, and so does a transform refusing the module: flax's errors (a Variable
 mutated from another trace level, as dropout drawn or statistics written in ``.eval()`` are under
-a gradient), JAX's tracer errors (Python control flow on a traced value) and the ``ValueError`` of
-a split or a mapping flax cannot do. The refusal is chained as the error's cause.
+a gradient), JAX's tracer errors (Python control flow on a traced value), the ``ValueError`` of
+a split or a mapping flax cannot do, and the ``OverflowError`` JAX raises when a transform turns
+a Variable's Python ``int`` that does not fit the integer dtype into an array
+(``jax/_src/abstract_arrays.py``, ``jax/_src/dtypes.py``). The refusal is chained as the error's
+cause.
 """
 
 from __future__ import annotations
@@ -65,6 +70,7 @@ from types import ModuleType
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from flax import nnx
 from flax.errors import FlaxError
 from flax.typing import Key
@@ -89,7 +95,7 @@ class ConformanceError(AssertionError):
     """A module does not have a property a conformance check requires of it."""
 
 
-_REFUSALS = (FlaxError, jax.errors.JAXTypeError, ValueError)
+_REFUSALS = (FlaxError, jax.errors.JAXTypeError, ValueError, OverflowError)
 """What flax and JAX raise when a transform refuses a module (see the module docstring)."""
 
 
@@ -199,14 +205,16 @@ def _require_same_function(actual: PyTree, expected: PyTree, what: str) -> None:
         _require(error <= bound, f"{what}: max |difference| {error:.3g} exceeds {bound:.3g}")
 
 
+def _describe(value: PyTree) -> tuple[tuple[int, ...], str]:
+    """An array's shape and dtype; a Python value, which has neither, by its type."""
+    if isinstance(value, jax.Array | np.ndarray):
+        return value.shape, str(value.dtype)
+    return (), f"python {type(value).__name__}"
+
+
 def _structure(module: nnx.Module) -> list[tuple[str, str, tuple[int, ...], str]]:
     return [
-        (
-            _path(path),
-            type(leaf).__name__,
-            jnp.shape(jnp.asarray(_value(leaf))),
-            str(jnp.asarray(_value(leaf)).dtype),
-        )
+        (_path(path), type(leaf).__name__, *_describe(_value(leaf)))
         for path, leaf in nnx.to_flat_state(nnx.state(module))
     ]
 
