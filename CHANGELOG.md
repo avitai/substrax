@@ -19,6 +19,12 @@ and uses semantic versioning while the public API stabilizes.
   repository adopting the guide can now run every example in CI while the examples that show
   defects under repair wait for their fixes, instead of holding back the whole job.
 
+### Changed
+
+- `.python-version` pins 3.12, the oldest Python the package supports, so `./setup.sh` and
+  any uv command without `--python` build on it rather than on the newest interpreter
+  installed (a free-threaded 3.14 on one development machine).
+
 ## [0.1.36] - 2026-11-24
 
 ### Fixed
