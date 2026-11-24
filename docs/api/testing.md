@@ -512,8 +512,10 @@ Case(
 
 Every check then calls the case with an `nnx.Rngs` of those streams, built from a key the check
 chooses and the same for two computations it compares. `train_dropout_varies` asks that different
-keys give different outputs and the same key the same output, so randomness the key does not
-control (a stream the module still holds, a host random generator) fails it. `eval_deterministic`
+keys give different outputs and the same key the same output. Its same-key run starts with every
+PRNG key the module holds changed, so randomness the key does not control fails it: a dropout leaf
+the key was not passed to, noise from a stream or raw key the module holds, a host random
+generator. A key held as raw `uint32` data is not reached. `eval_deterministic`
 gives its two calls different keys, so an eval output that depends on the key fails it.
 
 ::: substrax.testing
