@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.37] - 2026-11-24
+
 ### Added
 
 - `[tool.substrax.examples] pending`: examples held back until the work they wait on lands, each
@@ -1445,7 +1447,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.36...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.37...HEAD
+[0.1.37]: https://github.com/avitai/substrax/compare/v0.1.36...v0.1.37
 [0.1.36]: https://github.com/avitai/substrax/compare/v0.1.35...v0.1.36
 [0.1.35]: https://github.com/avitai/substrax/compare/v0.1.34...v0.1.35
 [0.1.34]: https://github.com/avitai/substrax/compare/v0.1.33...v0.1.34
