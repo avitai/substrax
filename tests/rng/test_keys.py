@@ -235,3 +235,39 @@ class TestStreamKey:
 
         with pytest.raises(TypeError, match=rf"rngs must be an nnx\.Rngs.*{named}"):
             stream_key(value, "sample")  # type: ignore[arg-type]
+
+
+class TestLegacyKeys:
+    def test_the_shape_is_the_default_implementation_s(self) -> None:
+        from substrax.rng import legacy_key_shape  # noqa: PLC0415
+
+        assert legacy_key_shape() == jax.random.PRNGKey(0).shape
+
+    def test_the_shape_follows_the_configured_implementation(self) -> None:
+        from substrax.rng import is_legacy_key, legacy_key_shape  # noqa: PLC0415
+
+        threefry_key = jax.random.PRNGKey(0)
+        with jax.default_prng_impl("rbg"):
+            assert legacy_key_shape() == (4,)
+            assert is_legacy_key(jax.random.PRNGKey(0))
+            assert not is_legacy_key(threefry_key)
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (jax.random.PRNGKey(0), True),
+            (jax.random.split(jax.random.PRNGKey(0), 3), True),
+            (jax.random.key(0), False),
+            (jnp.zeros((2,), jnp.int32), False),
+            (jnp.zeros((3,), jnp.uint32), False),
+            (jnp.zeros((), jnp.uint32), False),
+            (None, False),
+        ],
+        ids=["one", "batch", "typed", "int32", "wrong-shape", "scalar", "none"],
+    )
+    def test_only_uint32_data_ending_in_one_key_s_shape_is_a_legacy_key(
+        self, value: object, expected: bool
+    ) -> None:
+        from substrax.rng import is_legacy_key  # noqa: PLC0415
+
+        assert is_legacy_key(value) is expected

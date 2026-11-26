@@ -90,7 +90,7 @@ from flax.errors import FlaxError
 from flax.typing import Key
 
 from substrax.nnx_typing import NnxState
-from substrax.rng import rngs_from_seed, STANDARD_STREAMS
+from substrax.rng import is_legacy_key, rngs_from_seed, STANDARD_STREAMS
 from substrax.testing.gradients import as_float64, check_parameter_gradients
 from substrax.testing.traces import TraceCounter
 from substrax.typing import PyTree
@@ -101,9 +101,6 @@ DEPTH = 1e4
 
 STREAMS = STANDARD_STREAMS
 """The streams a case's module is built with: :data:`substrax.rng.STANDARD_STREAMS`."""
-
-_RAW_KEY_WIDTH = 2
-"""The trailing axis of a legacy ``uint32`` key (threefry, the default implementation)."""
 
 _SEED = 0
 
@@ -295,20 +292,18 @@ def _perturbed(module: nnx.Module) -> nnx.Module:
     """The module with every PRNG key it holds changed, so a draw from held state changes.
 
     That covers an ``nnx.Rngs`` stream, whose key is an ``nnx.RngKey``, a typed key in any
-    Variable, and a legacy key: a ``uint32`` array whose last axis is 2 is taken for one, the
-    form ``jax.random.PRNGKey`` returns. Other ``uint32`` state of that shape would be changed
-    too, which a module compared under one key would then show as a difference; nothing but a
-    key has that dtype and shape in practice.
+    Variable, and a legacy key, the ``uint32`` data ``jax.random.PRNGKey`` returns
+    (:func:`substrax.rng.is_legacy_key`, whose shape follows the default PRNG implementation).
+    Other ``uint32`` state of that shape would be changed too, which a module compared under one
+    key would then show as a difference; nothing but a key has that dtype and shape in practice.
     """
     for _, node in nnx.iter_graph(module):
         if not isinstance(node, nnx.Variable):
             continue
         value = node.get_value()
-        if not isinstance(value, jax.Array):
-            continue
-        if jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
+        if isinstance(value, jax.Array) and jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
             node.set_value(_fold_once(value))
-        elif value.dtype == jnp.uint32 and value.ndim >= 1 and value.shape[-1] == _RAW_KEY_WIDTH:
+        elif is_legacy_key(value):
             folded = _fold_once(jax.random.wrap_key_data(value))
             node.set_value(jax.random.key_data(folded))
     return module

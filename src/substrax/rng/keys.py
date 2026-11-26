@@ -12,7 +12,6 @@ from flax import nnx
 
 
 _DIGEST_BYTES: Final = 4
-_RAW_KEY_SHAPE: Final = (2,)
 
 DEFAULT_STREAM: Final = "default"
 """The stream flax falls back to for any name an ``nnx.Rngs`` does not hold."""
@@ -86,6 +85,41 @@ def key_from(rng: jax.Array | nnx.Rngs, *, streams: Sequence[str], context: str)
             f"an nnx.Rngs, got {_describe(rng)}"
         )
     return rng
+
+
+def legacy_key_shape() -> tuple[int, ...]:
+    """The shape of one legacy ``uint32`` key under JAX's default PRNG implementation.
+
+    ``(2,)`` for threefry, the default; ``(4,)`` under ``jax_default_prng_impl="rbg"``. Read from
+    the implementation each time, so a changed configuration is followed.
+
+    Returns:
+        The key data's shape.
+    """
+    # Traced abstractly: the shape is read with no device work.
+    return jax.eval_shape(
+        lambda: jax.random.key_data(
+            jax.random.key(0)  # substrax-allow: seed-literal: only its shape is read
+        )
+    ).shape
+
+
+def is_legacy_key(value: object) -> bool:
+    """Whether ``value`` holds legacy keys: ``uint32`` data whose trailing axes are one key's.
+
+    A single key and any batch of keys answer true. Other ``uint32`` data of that trailing shape
+    cannot be told apart from a key.
+
+    Args:
+        value: Anything.
+
+    Returns:
+        True for a ``uint32`` ``jax.Array`` ending in :func:`legacy_key_shape`.
+    """
+    if not isinstance(value, jax.Array) or value.dtype != jnp.uint32:
+        return False
+    shape = legacy_key_shape()
+    return value.ndim >= len(shape) and value.shape[value.ndim - len(shape) :] == shape
 
 
 def stream_key(rngs: nnx.Rngs, stream: str) -> jax.Array:
@@ -197,7 +231,7 @@ def _is_single_key(value: object) -> bool:
         return False
     if jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
         return value.ndim == 0
-    return value.dtype == jnp.uint32 and value.shape == _RAW_KEY_SHAPE
+    return is_legacy_key(value) and value.shape == legacy_key_shape()
 
 
 def _describe(value: object) -> str:
