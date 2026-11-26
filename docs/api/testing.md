@@ -516,7 +516,7 @@ chooses and the same for two computations it compares. `train_dropout_varies` as
 keys give different outputs and the same key the same output. Its same-key run starts with every
 PRNG key the module holds changed, so randomness the key does not control fails it: a dropout leaf
 the key was not passed to, noise from a stream or raw key the module holds, a host random
-generator. A legacy key held as `uint32` data with a last axis of 2 is changed too.
+generator. A legacy key held as `uint32` data (`substrax.rng.is_legacy_key`) is changed too.
 `eval_deterministic` gives its two calls different keys, so an eval output that depends on the
 key fails it.
 

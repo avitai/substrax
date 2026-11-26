@@ -744,9 +744,13 @@ def test_a_case_that_draws_owes_the_key_check_and_not_eval_determinism() -> None
 
 
 @pytest.mark.parametrize("graph", [True, False], ids=["graph-mode", "tree-mode"])
-def test_a_correct_draw_passes_the_key_check_in_both_nnx_modes(graph: bool) -> None:
+@pytest.mark.parametrize("check", sorted(name for name, (_, owes) in CHECKS.items() if owes(DRAW)))
+def test_a_correct_draw_passes_every_check_it_owes_in_both_nnx_modes(
+    check: str, graph: bool
+) -> None:
+    """A check added later that assumes two calls agree would fail a correct sampler here."""
     with nnx.set_graph_mode(graph):
-        CHECKS["output_follows_key"][0](DRAW)
+        CHECKS[check][0](DRAW)
 
 
 def test_a_case_that_draws_names_its_call_time_streams() -> None:

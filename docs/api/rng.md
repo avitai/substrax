@@ -34,6 +34,7 @@ noise_key = fold_in_name(key, "observation_noise")
 | --- | --- |
 | `key_from(rng, *, streams, context)` | With an `nnx.Rngs`, calls the first of `streams` it holds, in the order given; a typed key or a raw `uint32` key of shape `(2,)` is returned as given. A missing stream raises `MissingRngStreamError` naming `context` and the streams; `None`, a Python integer or any other array raises `TypeError` |
 | `stream_key(rngs, stream)` | The next key of one stream of an `nnx.Rngs`, by flax's own lookup `rngs[stream]()`: a name the `nnx.Rngs` does not hold falls back to its `default` stream, and with neither flax raises `KeyError`. Anything that is not an `nnx.Rngs` (a typed or raw key, an `nnx.RngStream`, `None`, an integer) raises `TypeError` naming what it got |
+| `legacy_key_shape()`, `is_legacy_key(value)` | The shape of one legacy `uint32` key under the default PRNG implementation (`(2,)` for threefry, `(4,)` under `rbg`), read from the implementation each time; and whether a value is `uint32` data ending in that shape, one key or a batch |
 | `rngs_from_seed(seed, streams=("default",))` | One stream per name, each the seed's key folded by the name, so adding or reordering streams leaves the others unchanged |
 | `split_key(key, num)` | `jax.random.split` with `num` at least one; asking for no keys is a defect |
 | `fold_in_name(key, name)` | Folds in the name's BLAKE2b digest truncated to 32 bits, stable across interpreters whatever `PYTHONHASHSEED` is |
