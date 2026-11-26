@@ -180,6 +180,75 @@ class CallTimeEvalOverride(nnx.Module):
         return self.dropout(jnp.tanh(self.linear(x)), deterministic=False, rngs=rngs)
 
 
+class DrawGood(nnx.Module):
+    """A learnable Gaussian whose call draws a sample with the key it is given."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs) -> jax.Array:
+        mean = jnp.tanh(self.linear(x))
+        return mean + jax.random.normal(rngs.sample(), mean.shape, mean.dtype)
+
+
+class DrawIgnoresKey(nnx.Module):
+    """Draws with a key it fixes itself, so the caller's key changes nothing."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs) -> jax.Array:  # noqa: ARG002
+        mean = jnp.tanh(self.linear(x))
+        return mean + jax.random.normal(jax.random.key(7), mean.shape, mean.dtype)
+
+
+class DrawHeldStream(DrawGood):
+    """Adds noise from a stream it holds to the draw the caller's key controls."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        super().__init__(rngs=rngs)
+        self.noise = rngs.sample.fork()
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs) -> jax.Array:
+        y = super().__call__(x, rngs=rngs)
+        return y + jax.random.normal(self.noise(), y.shape, y.dtype)
+
+
+class DrawHeldTypedKey(DrawGood):
+    """Adds noise from a typed key it holds and never advances."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        super().__init__(rngs=rngs)
+        self.key = nnx.Variable(rngs.sample())
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs) -> jax.Array:
+        y = super().__call__(x, rngs=rngs)
+        return y + jax.random.normal(self.key[...], y.shape, y.dtype)
+
+
+class DrawHeldRawKey(DrawGood):
+    """Adds noise from a legacy ``uint32`` key it holds and never advances."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        super().__init__(rngs=rngs)
+        self.key = nnx.Variable(jax.random.key_data(rngs.sample()))
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs) -> jax.Array:
+        y = super().__call__(x, rngs=rngs)
+        return y + jax.random.normal(jax.random.wrap_key_data(self.key[...]), y.shape, y.dtype)
+
+
+class DrawOnlyWhenTraining(nnx.Module):
+    """Returns the mean in ``.eval()``, so a caller sampling an evaluated model gets no sample."""
+
+    def __init__(self, *, rngs: nnx.Rngs) -> None:
+        self.linear = nnx.Linear(3, 4, rngs=rngs)
+        self.dropout = nnx.Dropout(0.5)
+
+    def __call__(self, x: jax.Array, *, rngs: nnx.Rngs) -> jax.Array:
+        return self.dropout(jnp.tanh(self.linear(x)) + 1.0, rngs=rngs)
+
+
 class LazyParam(nnx.Module):
     """Creates its weight on the first call."""
 
@@ -456,6 +525,7 @@ def _case(
     is_rowwise: bool = True,
     is_differentiable: bool = True,
     rng_streams: tuple[str, ...] = (),
+    draws: bool = False,
 ) -> Case:
     return Case(
         build=lambda rngs: module(rngs=rngs),
@@ -465,7 +535,15 @@ def _case(
         is_rowwise=is_rowwise,
         is_differentiable=is_differentiable,
         rng_streams=rng_streams,
+        draws=draws,
     )
+
+
+def _draw_case(
+    module: Callable[..., nnx.Module], *, streams: tuple[str, ...] = ("sample",)
+) -> Case:
+    """A case for a module whose call draws a sample with a call-time key."""
+    return _case(module, is_rowwise=False, rng_streams=streams, draws=True)
 
 
 def _call_time_case(module: Callable[..., nnx.Module]) -> Case:
@@ -483,6 +561,7 @@ HELD_NOISE = _call_time_case(CallTimeHeldNoise)
 HELD_KEY = _call_time_case(CallTimeHeldKey)
 INTEGER_OUTPUT = _case(IntegerDropoutGood, has_dropout=True, is_differentiable=False)
 VARYING_KEYS = _case(AlternatesOutputKey, has_dropout=True, is_differentiable=False)
+DRAW = _draw_case(DrawGood)
 
 # Each broken module, the check it must fail, the claims its case makes, and the failure its defect
 # must produce: a module that fails the check for another reason does not test that clause.
@@ -504,6 +583,19 @@ BROKEN = [
     ("train_dropout_varies", HELD_NOISE, "the same key differ"),
     ("train_dropout_varies", HELD_KEY, "the same key differ"),
     ("eval_deterministic", _call_time_case(CallTimeEvalOverride), "with different keys differ"),
+    (
+        "output_follows_key",
+        _draw_case(DrawIgnoresKey),
+        r"\.eval\(\) calls with different keys agree",
+    ),
+    ("output_follows_key", _draw_case(DrawHeldStream), "the same key differ"),
+    ("output_follows_key", _draw_case(DrawHeldTypedKey), "the same key differ"),
+    ("output_follows_key", _draw_case(DrawHeldRawKey), "the same key differ"),
+    (
+        "output_follows_key",
+        _draw_case(DrawOnlyWhenTraining, streams=("dropout",)),
+        r"\.eval\(\) calls with different keys agree",
+    ),
     ("view_matches_modes", _case(ModeWithoutView, has_dropout=True), "outputs differ"),
     ("view_matches_modes", _case(StoredRngs, has_dropout=True), "RNG streams advanced apart"),
     (
@@ -540,8 +632,16 @@ REFUSED = [
 @pytest.mark.parametrize("check", sorted(CHECKS))
 @pytest.mark.parametrize(
     "case",
-    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME, CALL_TIME_HELD, INTEGER_OUTPUT],
-    ids=["batch-norm", "rowwise", "custom-leaf", "call-time", "call-time-held", "integer-output"],
+    [GOOD, ROWWISE, CUSTOM_LEAF, CALL_TIME, CALL_TIME_HELD, INTEGER_OUTPUT, DRAW],
+    ids=[
+        "batch-norm",
+        "rowwise",
+        "custom-leaf",
+        "call-time",
+        "call-time-held",
+        "integer-output",
+        "draw",
+    ],
 )
 def test_a_correct_module_passes_every_check_it_claims(check: str, case: Case) -> None:
     run, applies = CHECKS[check]
@@ -632,3 +732,39 @@ def test_module_classes_finds_concrete_modules_in_a_package() -> None:
 
     assert "flax.nnx.nn.linear.Linear" in found
     assert all(issubclass(cls, nnx.Module) for cls in found.values())
+
+
+def test_a_case_that_draws_owes_the_key_check_and_not_eval_determinism() -> None:
+    """Sampling is the call's job, so two keys must differ in ``.eval()`` too."""
+    owed = {check for check, (_, applies) in CHECKS.items() if applies(DRAW)}
+
+    assert "output_follows_key" in owed
+    assert "eval_deterministic" not in owed
+    assert not CHECKS["output_follows_key"][1](CALL_TIME), "a dropout-only case does not draw"
+
+
+@pytest.mark.parametrize("graph", [True, False], ids=["graph-mode", "tree-mode"])
+def test_a_correct_draw_passes_the_key_check_in_both_nnx_modes(graph: bool) -> None:
+    with nnx.set_graph_mode(graph):
+        CHECKS["output_follows_key"][0](DRAW)
+
+
+def test_a_case_that_draws_names_its_call_time_streams() -> None:
+    """A module that draws takes its key at call time; holding one is the defect to find."""
+    with pytest.raises(ValueError, match=r"draws.*rng_streams"):
+        _case(DrawGood, is_rowwise=False, draws=True)
+
+
+def test_a_case_that_draws_does_not_claim_independent_rows() -> None:
+    """One key drawn for a batch and the same key drawn per row give different samples."""
+    with pytest.raises(ValueError, match=r"draws.*is_rowwise"):
+        _case(DrawGood, rng_streams=("sample",), draws=True)
+
+
+def test_the_conformance_streams_are_the_standard_streams() -> None:
+    from substrax.testing import nnx_conformance, pytest_plugin  # noqa: PLC0415
+
+    assert nnx_conformance.STREAMS is substrax.rng.STANDARD_STREAMS
+    assert not hasattr(pytest_plugin, "RNGS_FIXTURE_STREAMS"), (
+        "the fixture reads the one definition"
+    )

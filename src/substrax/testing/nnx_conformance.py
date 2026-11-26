@@ -28,6 +28,13 @@ through ``nnx.jit`` or ``nnx.vmap``, so each check reports it rather than failin
   the module does. Tree mode, flax FLIP 5310's planned default, refuses shared Variables.
 - ``eval_deterministic``: after ``.eval()`` two calls agree exactly and no RNG stream advances;
   with call-time streams the two calls get different keys, so the output must not depend on one.
+  A case whose call draws (:attr:`Case.draws`) does not owe it: sampling is that call's job in
+  every mode.
+- ``output_follows_key``: for a case whose call draws, in ``.eval()`` and in ``.train()``
+  different keys give different outputs and the same key the same output, the same-key run
+  starting with every PRNG key the module holds changed. A draw from a stream or a key the
+  module holds, which the caller's key does not control, is found, and so is a call that
+  returns no sample in one of the modes.
 - ``train_dropout_varies``: after ``.train()`` a module with dropout draws a fresh mask per call;
   with call-time streams, different keys give different outputs and the same key the same
   output. The same-key run starts with every PRNG key the module holds changed, so randomness
@@ -83,7 +90,7 @@ from flax.errors import FlaxError
 from flax.typing import Key
 
 from substrax.nnx_typing import NnxState
-from substrax.rng import rngs_from_seed
+from substrax.rng import rngs_from_seed, STANDARD_STREAMS
 from substrax.testing.gradients import as_float64, check_parameter_gradients
 from substrax.testing.traces import TraceCounter
 from substrax.typing import PyTree
@@ -92,8 +99,11 @@ from substrax.typing import PyTree
 DEPTH = 1e4
 """A bound on the roundings any output of a small test module passes through."""
 
-STREAMS = ("default", "params", "dropout", "sample")
-"""The streams a case's module is built with."""
+STREAMS = STANDARD_STREAMS
+"""The streams a case's module is built with: :data:`substrax.rng.STANDARD_STREAMS`."""
+
+_RAW_KEY_WIDTH = 2
+"""The trailing axis of a legacy ``uint32`` key (threefry, the default implementation)."""
 
 _SEED = 0
 
@@ -137,6 +147,15 @@ class Case:
             holds its randomness. When set, every check calls ``call(module, *inputs, rngs=...)``
             with an ``nnx.Rngs`` of these streams built from a key the check chooses: compared
             runs get the same key, and the dropout check also compares two keys.
+        draws: The call draws samples (a distribution's ``sample``, a model's ``generate``), so
+            its output depends on the key in every mode. Such a case names its ``rng_streams``,
+            owes ``output_follows_key`` in place of ``eval_deterministic``, and does not claim
+            ``is_rowwise``: one key drawn for a batch and the same key drawn for each row give
+            different samples.
+
+    Raises:
+        ValueError: If ``draws`` is set without ``rng_streams``, or together with
+            ``is_rowwise``.
     """
 
     build: Callable[[nnx.Rngs], nnx.Module]
@@ -147,6 +166,20 @@ class Case:
     is_rowwise: bool = True
     is_differentiable: bool = True
     rng_streams: tuple[str, ...] = ()
+    draws: bool = False
+
+    def __post_init__(self) -> None:
+        """Refuse a drawing case that could not be checked as one."""
+        if self.draws and not self.rng_streams:
+            raise ValueError(
+                "a case that draws names its rng_streams: a module that draws takes its key at"
+                " call time, and the checks choose that key"
+            )
+        if self.draws and self.is_rowwise:
+            raise ValueError(
+                "a case that draws does not claim is_rowwise: one key drawn for a batch and the"
+                " same key drawn for each row give different samples"
+            )
 
 
 def module_classes(package: ModuleType) -> dict[str, type[nnx.Module]]:
@@ -261,16 +294,23 @@ def _fold_once(keys: jax.Array) -> jax.Array:
 def _perturbed(module: nnx.Module) -> nnx.Module:
     """The module with every PRNG key it holds changed, so a draw from held state changes.
 
-    That covers an ``nnx.Rngs`` stream, whose key is an ``nnx.RngKey``, and a raw key in any
-    Variable. A key held as raw ``uint32`` data cannot be told from other integers and is not
-    reached.
+    That covers an ``nnx.Rngs`` stream, whose key is an ``nnx.RngKey``, a typed key in any
+    Variable, and a legacy key: a ``uint32`` array whose last axis is 2 is taken for one, the
+    form ``jax.random.PRNGKey`` returns. Other ``uint32`` state of that shape would be changed
+    too, which a module compared under one key would then show as a difference; nothing but a
+    key has that dtype and shape in practice.
     """
     for _, node in nnx.iter_graph(module):
         if not isinstance(node, nnx.Variable):
             continue
         value = node.get_value()
-        if isinstance(value, jax.Array) and jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
+        if not isinstance(value, jax.Array):
+            continue
+        if jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
             node.set_value(_fold_once(value))
+        elif value.dtype == jnp.uint32 and value.ndim >= 1 and value.shape[-1] == _RAW_KEY_WIDTH:
+            folded = _fold_once(jax.random.wrap_key_data(value))
+            node.set_value(jax.random.key_data(folded))
     return module
 
 
@@ -379,20 +419,40 @@ def check_train_dropout_varies(case: Case) -> None:
     """
     module, inputs = _built(case)
     module.train()
-    key_a, key_b = _call_keys()
     if not case.rng_streams:
-        first, second = _run(case, module, inputs, key_a), _run(case, module, inputs, key_a)
+        key = _call_keys()[0]
+        first, second = _run(case, module, inputs, key), _run(case, module, inputs, key)
         _require(not _equal(first, second), "two .train() calls agree")
         return
+    _require_output_follows_key(case, module, inputs, "train")
+
+
+def _require_output_follows_key(
+    case: Case, module: nnx.Module, inputs: tuple[jax.Array, ...], mode: str
+) -> None:
+    """Different keys give different outputs, and the same key the same output.
+
+    Each run starts from cloned state, and the same-key run from state whose every held PRNG key
+    is changed, so a draw the caller's key does not control changes its output.
+    """
+    key_a, key_b = _call_keys()
     first = _run(case, nnx.clone(module), inputs, key_a)
     other_key = _run(case, nnx.clone(module), inputs, key_b)
     same_key = _run(case, _perturbed(nnx.clone(module)), inputs, key_a)
-    _require(not _equal(first, other_key), "two .train() calls with different keys agree")
+    _require(not _equal(first, other_key), f"two .{mode}() calls with different keys agree")
     _require(
         _equal(first, same_key),
-        "two .train() calls with the same key differ: the module draws randomness the key does not"
-        " control, from a stream it holds or outside any key",
+        f"two .{mode}() calls with the same key differ: the module draws randomness the key does"
+        " not control, from a stream it holds or outside any key",
     )
+
+
+def check_output_follows_key(case: Case) -> None:
+    """A call that draws follows the caller's key and nothing else, in both modes."""
+    for mode in ("eval", "train"):
+        module, inputs = _built(case)
+        getattr(module, mode)()
+        _require_output_follows_key(case, module, inputs, mode)
 
 
 def check_batch_stats(case: Case) -> None:
@@ -525,7 +585,8 @@ CHECKS: Mapping[str, tuple[Callable[[Case], None], Callable[[Case], bool]]] = {
     "state_structure": (check_state_structure, _always),
     "state_holds_arrays": (check_state_holds_arrays, _always),
     "tree_mode_split": (check_tree_mode_split, _always),
-    "eval_deterministic": (check_eval_deterministic, _always),
+    "eval_deterministic": (check_eval_deterministic, lambda case: not case.draws),
+    "output_follows_key": (check_output_follows_key, lambda case: case.draws),
     "train_dropout_varies": (check_train_dropout_varies, lambda case: case.has_dropout),
     "batch_stats": (check_batch_stats, lambda case: case.has_batch_stats),
     "view_matches_modes": (check_view_matches_modes, _always),
