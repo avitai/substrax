@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from substrax.devices import DeviceInfo, DeviceKind
 
 FIXTURE_SEED = 42
-RNGS_FIXTURE_STREAMS = ("default", "params", "dropout", "sample")
 
 
 _MARKERS = (
@@ -161,7 +160,7 @@ def rng_key() -> jax.Array:
 
 @pytest.fixture
 def rngs() -> nnx.Rngs:
-    """An ``nnx.Rngs`` from seed ``FIXTURE_SEED`` with the ``RNGS_FIXTURE_STREAMS`` streams.
+    """An ``nnx.Rngs`` from seed ``FIXTURE_SEED`` with ``substrax.rng.STANDARD_STREAMS``.
 
     Each stream is the seed's key folded by the stream's name (``substrax.rng.rngs_from_seed``),
     so a test that draws from ``params`` is unaffected by one that draws from ``dropout``.
@@ -169,8 +168,8 @@ def rngs() -> nnx.Rngs:
     Returns:
         The rngs.
     """
-    rngs_from_seed = importlib.import_module("substrax.rng").rngs_from_seed
-    return rngs_from_seed(FIXTURE_SEED, streams=RNGS_FIXTURE_STREAMS)
+    rng = importlib.import_module("substrax.rng")
+    return rng.rngs_from_seed(FIXTURE_SEED, streams=rng.STANDARD_STREAMS)
 
 
 @pytest.hookimpl(wrapper=True)

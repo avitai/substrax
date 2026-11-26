@@ -16,6 +16,19 @@ and uses semantic versioning while the public API stabilizes.
   in one way, where each used to fail differently.
 - `substrax.rng.DEFAULT_STREAM`, `PARAMS_STREAM`, `DROPOUT_STREAM`, `SAMPLE_STREAM` and
   `STANDARD_STREAMS`: the stack's stream names, defined once.
+- `substrax.testing.nnx_conformance.Case.draws` and the `output_follows_key` check: a case whose
+  call draws samples owes this check in place of `eval_deterministic`. In `.eval()` and in
+  `.train()` different keys must give different outputs and the same key the same output, the
+  same-key run starting with every PRNG key the module holds changed. A sampling module could not
+  be given a conformance case before, because every case owed a key-independent `.eval()`.
+
+### Changed
+
+- **Breaking:** `substrax.testing.pytest_plugin.RNGS_FIXTURE_STREAMS` is removed; the `rngs`
+  fixture builds `substrax.rng.STANDARD_STREAMS`, the same four names.
+  `nnx_conformance.STREAMS` is that tuple too.
+- `nnx_conformance`'s same-key runs also change a legacy `uint32` key a module holds (an array
+  whose last axis is 2), so a draw from one is found as a draw from a typed key already was.
 
 ## [0.1.37] - 2026-11-24
 

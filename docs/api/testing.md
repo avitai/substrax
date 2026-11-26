@@ -466,7 +466,7 @@ NNX's transforms:
 - state fixed at construction;
 - Variables holding arrays;
 - tree-mode splitting;
-- a deterministic `.eval()`;
+- a deterministic `.eval()`, or for a call that draws, an output that follows the caller's key;
 - dropout under `.train()`;
 - batch statistics that move in training only;
 - `nnx.view` computing what `.eval()` and `.train()` do, which a leaf owning its mode without
@@ -516,8 +516,30 @@ chooses and the same for two computations it compares. `train_dropout_varies` as
 keys give different outputs and the same key the same output. Its same-key run starts with every
 PRNG key the module holds changed, so randomness the key does not control fails it: a dropout leaf
 the key was not passed to, noise from a stream or raw key the module holds, a host random
-generator. A key held as raw `uint32` data is not reached. `eval_deterministic`
-gives its two calls different keys, so an eval output that depends on the key fails it.
+generator. A legacy key held as `uint32` data with a last axis of 2 is changed too.
+`eval_deterministic` gives its two calls different keys, so an eval output that depends on the
+key fails it.
+
+A call whose job is to draw (a distribution's `sample`, a model's `generate`) depends on the key
+in every mode, so its case says so:
+
+```python
+Case(
+    build=lambda rngs: Prior(rngs=rngs),
+    inputs=inputs,
+    call=lambda module, x, *, rngs: module.sample(x, rngs=rngs),
+    is_rowwise=False,
+    rng_streams=("sample",),
+    draws=True,
+)
+```
+
+Such a case owes `output_follows_key` in place of `eval_deterministic`: in `.eval()` and in
+`.train()`, different keys give different outputs and the same key the same output, with every
+PRNG key the module holds changed for the same-key run. A sampler that ignores its key, draws
+from a stream or a key it holds, or returns no sample in one mode fails it. A drawing case names
+its `rng_streams` and does not claim `is_rowwise` (one key drawn for a batch and the same key
+drawn per row give different samples); a case built otherwise is refused.
 
 ::: substrax.testing
 

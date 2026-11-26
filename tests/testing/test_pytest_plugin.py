@@ -290,8 +290,8 @@ def test_the_key_fixtures_come_from_seed_42(pytester: pytest.Pytester) -> None:
         import jax
         import numpy as np
 
-        from substrax.rng import rngs_from_seed
-        from substrax.testing.pytest_plugin import FIXTURE_SEED, RNGS_FIXTURE_STREAMS
+        from substrax.rng import rngs_from_seed, STANDARD_STREAMS
+        from substrax.testing.pytest_plugin import FIXTURE_SEED
 
         def test_rng_key(rng_key):
             assert jax.dtypes.issubdtype(rng_key.dtype, jax.dtypes.prng_key)
@@ -300,8 +300,8 @@ def test_the_key_fixtures_come_from_seed_42(pytester: pytest.Pytester) -> None:
             )
 
         def test_rngs(rngs):
-            expected = rngs_from_seed(FIXTURE_SEED, streams=RNGS_FIXTURE_STREAMS)
-            for name in RNGS_FIXTURE_STREAMS:
+            expected = rngs_from_seed(FIXTURE_SEED, streams=STANDARD_STREAMS)
+            for name in STANDARD_STREAMS:
                 assert name in rngs
                 assert np.array_equal(
                     jax.random.key_data(getattr(rngs, name)()),
