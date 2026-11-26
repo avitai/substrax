@@ -14,6 +14,21 @@ from flax import nnx
 _DIGEST_BYTES: Final = 4
 _RAW_KEY_SHAPE: Final = (2,)
 
+DEFAULT_STREAM: Final = "default"
+"""The stream flax falls back to for any name an ``nnx.Rngs`` does not hold."""
+
+PARAMS_STREAM: Final = "params"
+"""The stream parameter initialisers draw from."""
+
+DROPOUT_STREAM: Final = "dropout"
+"""The stream dropout masks draw from, flax's ``Dropout(rng_collection="dropout")``."""
+
+SAMPLE_STREAM: Final = "sample"
+"""The stream a module's sampling methods draw from."""
+
+STANDARD_STREAMS: Final = (DEFAULT_STREAM, PARAMS_STREAM, DROPOUT_STREAM, SAMPLE_STREAM)
+"""The stack's stream names, defined once: fixtures and conformance cases build these."""
+
 
 class MissingRngStreamError(ValueError):
     """An ``nnx.Rngs`` holds none of the streams a call accepts.
@@ -71,6 +86,37 @@ def key_from(rng: jax.Array | nnx.Rngs, *, streams: Sequence[str], context: str)
             f"an nnx.Rngs, got {_describe(rng)}"
         )
     return rng
+
+
+def stream_key(rngs: nnx.Rngs, stream: str) -> jax.Array:
+    """Draw the next key of one stream of an ``nnx.Rngs`` given at call time.
+
+    A method that draws takes ``rngs: nnx.Rngs`` and names its stream once, as a static
+    attribute defaulting to one of the constants above (flax's ``Dropout(rng_collection=...)``
+    pattern). The lookup is flax's own, ``rngs[stream]()``, and so is everything it does: a name
+    the ``nnx.Rngs`` does not hold falls back to its ``default`` stream, and with neither flax
+    raises ``KeyError``. This function adds one thing, the refusal of anything that is not an
+    ``nnx.Rngs``: a raw key would be reused by every draw it reaches, and an ``nnx.RngStream``
+    wrapped into a new ``nnx.Rngs`` restarts its count, so neither is accepted.
+
+    Args:
+        rngs: The caller's ``nnx.Rngs``.
+        stream: The stream's name.
+
+    Returns:
+        The stream's next key; the stream's count advances.
+
+    Raises:
+        TypeError: If ``rngs`` is not an ``nnx.Rngs``.
+    """
+    # The annotation is the contract; the guard is for callers no type checker has seen, who
+    # pass the key or the stream they would have passed to flax's own layers.
+    if not isinstance(rngs, nnx.Rngs):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise TypeError(
+            f"rngs must be an nnx.Rngs, got {_describe_rngs_argument(rngs)}; pass "
+            f"rngs=nnx.Rngs(...) holding a {stream!r} or a 'default' stream"
+        )
+    return rngs[stream]()
 
 
 def rngs_from_seed(seed: int, streams: Sequence[str] = ("default",)) -> nnx.Rngs:
@@ -158,6 +204,15 @@ def _describe(value: object) -> str:
     if isinstance(value, jax.Array):
         return f"an array of dtype {value.dtype} and shape {value.shape}"
     return type(value).__name__
+
+
+def _describe_rngs_argument(value: object) -> str:
+    """What a caller passed where an ``nnx.Rngs`` belongs, named so the mistake is recognisable."""
+    if isinstance(value, jax.Array) and jnp.issubdtype(value.dtype, jax.dtypes.prng_key):
+        return "a typed key"
+    if isinstance(value, nnx.RngStream):
+        return "an nnx.RngStream (pass the nnx.Rngs that holds it)"
+    return _describe(value)
 
 
 def _phrase(streams: Sequence[str]) -> str:

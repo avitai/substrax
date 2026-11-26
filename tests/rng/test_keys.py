@@ -174,3 +174,64 @@ class TestFoldInName:
         folded = jax.jit(lambda key: fold_in_name(key, "sample"))(jax.random.key(0))
 
         assert np.array_equal(_data(folded), _data(fold_in_name(jax.random.key(0), "sample")))
+
+
+class TestStandardStreams:
+    def test_the_four_names_are_defined_once_in_order(self) -> None:
+        from substrax import rng  # noqa: PLC0415
+
+        assert rng.STANDARD_STREAMS == ("default", "params", "dropout", "sample")
+        assert rng.STANDARD_STREAMS == (
+            rng.DEFAULT_STREAM,
+            rng.PARAMS_STREAM,
+            rng.DROPOUT_STREAM,
+            rng.SAMPLE_STREAM,
+        )
+
+
+class TestStreamKey:
+    def test_the_named_stream_gives_the_key_flax_would(self) -> None:
+        from substrax.rng import SAMPLE_STREAM, stream_key  # noqa: PLC0415
+
+        key = stream_key(nnx.Rngs(sample=1, default=2), SAMPLE_STREAM)
+
+        assert np.array_equal(_data(key), _data(nnx.Rngs(sample=1).sample()))
+
+    def test_each_call_advances_the_stream(self) -> None:
+        from substrax.rng import stream_key  # noqa: PLC0415
+
+        rngs = nnx.Rngs(sample=1)
+
+        assert not np.array_equal(
+            _data(stream_key(rngs, "sample")), _data(stream_key(rngs, "sample"))
+        )
+
+    def test_an_unnamed_stream_falls_back_to_default_as_flax_does(self) -> None:
+        from substrax.rng import stream_key  # noqa: PLC0415
+
+        key = stream_key(nnx.Rngs(5), "sample")
+
+        assert np.array_equal(_data(key), _data(nnx.Rngs(5).sample()))
+
+    def test_a_missing_stream_is_flax_s_own_error(self) -> None:
+        from substrax.rng import stream_key  # noqa: PLC0415
+
+        with pytest.raises(KeyError, match="No RngStream named 'sample'"):
+            stream_key(nnx.Rngs(params=1), "sample")
+
+    @pytest.mark.parametrize(
+        ("value", "named"),
+        [
+            (None, "NoneType"),
+            (0, "int"),
+            (jax.random.key(0), "typed key"),
+            (jax.random.PRNGKey(0), "uint32"),
+            (nnx.Rngs(sample=1).sample, "RngStream"),
+        ],
+        ids=["none", "int", "typed-key", "raw-key", "stream"],
+    )
+    def test_anything_but_an_rngs_is_refused_by_name(self, value: object, named: str) -> None:
+        from substrax.rng import stream_key  # noqa: PLC0415
+
+        with pytest.raises(TypeError, match=rf"rngs must be an nnx\.Rngs.*{named}"):
+            stream_key(value, "sample")  # type: ignore[arg-type]

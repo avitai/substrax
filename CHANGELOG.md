@@ -7,6 +7,16 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+### Added
+
+- `substrax.rng.stream_key(rngs, stream)`: the next key of one stream of an `nnx.Rngs` given at
+  call time, by flax's own lookup (the `default` fallback and the error for a missing stream are
+  flax's), refusing anything that is not an `nnx.Rngs` with a `TypeError` that names what it got.
+  A method that draws can then report a raw key, an `nnx.RngStream` or `None` passed as `rngs`
+  in one way, where each used to fail differently.
+- `substrax.rng.DEFAULT_STREAM`, `PARAMS_STREAM`, `DROPOUT_STREAM`, `SAMPLE_STREAM` and
+  `STANDARD_STREAMS`: the stack's stream names, defined once.
+
 ## [0.1.37] - 2026-11-24
 
 ### Added
