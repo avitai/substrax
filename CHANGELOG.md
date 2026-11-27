@@ -7,6 +7,8 @@ and uses semantic versioning while the public API stabilizes.
 
 ## [Unreleased]
 
+## [0.1.38] - 2026-11-27
+
 ### Added
 
 - `substrax.rng.stream_key(rngs, stream)`: the next key of one stream of an `nnx.Rngs` given at
@@ -1474,7 +1476,8 @@ modules in their next releases.
   file, and `MLFlowLogger.log_model` (which pickled arbitrary objects through
   `mlflow.pyfunc`): no caller in artifex, opifex or their examples.
 
-[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.37...HEAD
+[Unreleased]: https://github.com/avitai/substrax/compare/v0.1.38...HEAD
+[0.1.38]: https://github.com/avitai/substrax/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/avitai/substrax/compare/v0.1.36...v0.1.37
 [0.1.36]: https://github.com/avitai/substrax/compare/v0.1.35...v0.1.36
 [0.1.35]: https://github.com/avitai/substrax/compare/v0.1.34...v0.1.35
